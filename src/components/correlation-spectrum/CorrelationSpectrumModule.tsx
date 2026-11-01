@@ -5,23 +5,45 @@ import { ModuleGlyph } from '../ModuleGlyphs';
 import { CorrelationWorkspace } from './CorrelationWorkspace';
 import { PsdWorkspace } from './PsdWorkspace';
 
-const DEFAULT_MODULE_METADATA: SignalModule = MODULES.find((m) => m.id === 'correlation-spectrum') || {
-  id: 'correlation-spectrum',
-  index: '07',
-  name: 'Correlation & Spectral Analysis',
-  path: '/correlation-spectrum',
-  description: 'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
-  tag: 'Spectral Estimation',
-  topics: [
-    'Autocorrelation Rxx(τ) & Cross-Correlation Rxy(τ)',
-    'Wiener–Khinchin Theorem: Linking Correlation & PSD',
-    'Nonparametric Spectral Estimation (Periodogram & Welch)',
-  ],
-  formula: 'S_{XX}(\\omega) = \\int_{-\\infty}^{\\infty} R_{XX}(\\tau) e^{-j\\omega \\tau} \\, d\\tau',
-  formulaLabel: 'Wiener–Khinchin Transform Relation',
-  keywords: ['correlation', 'autocorrelation', 'cross-correlation', 'psd', 'spectral density'],
-  parameterHighlights: ['Maximum Lag (τ_max)', 'Resolution Bandwidth (Δf)'],
-};
+const DEFAULT_MODULE_METADATA: SignalModule =
+  MODULES.find((m) => m.id === 'correlation-spectrum') || {
+    id: 'correlation-spectrum',
+    moduleNumber: 5,
+    index: '05',
+    name: 'Correlation & Spectral Analysis',
+    shortName: 'Correlation',
+    filename: 'Module5_Correlation.jsx',
+    path: '/correlation-spectrum',
+    legacyPaths: ['/correlation', '/module-5', '/module-7'],
+    description:
+      'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
+    tag: 'Spectral Estimation',
+    topics: [
+      'Autocorrelation Rxx(τ) & Cross-Correlation Rxy(τ)',
+      'Wiener–Khinchin Theorem: Linking Correlation & PSD',
+      'Nonparametric Spectral Estimation (Periodogram & Welch)',
+    ],
+    formula:
+      'S_{XX}(\\omega) = \\int_{-\\infty}^{\\infty} R_{XX}(\\tau) e^{-j\\omega \\tau} \\, d\\tau',
+    formulaLabel: 'Wiener–Khinchin Transform Relation',
+    keywords: [
+      'correlation',
+      'autocorrelation',
+      'cross-correlation',
+      'psd',
+      'spectral density',
+      'periodogram',
+      'welch',
+      'wiener-khinchin',
+      'lag',
+    ],
+    parameterHighlights: [
+      'Maximum Lag (τ_max)',
+      'Welch Segment Overlap (%)',
+      'Spectral Window (Hamming/Hann)',
+      'Resolution Bandwidth (Δf)',
+    ],
+  };
 
 export interface CorrelationSpectrumModuleProps {
   module?: SignalModule;
