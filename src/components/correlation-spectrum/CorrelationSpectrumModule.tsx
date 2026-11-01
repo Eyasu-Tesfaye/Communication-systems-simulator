@@ -7,9 +7,13 @@ import { PsdWorkspace } from './PsdWorkspace';
 
 const DEFAULT_MODULE_METADATA: SignalModule = MODULES.find((m) => m.id === 'correlation-spectrum') || {
   id: 'correlation-spectrum',
-  index: '07',
+  moduleNumber: 5,
+  index: '05',
   name: 'Correlation & Spectral Analysis',
+  shortName: 'Correlation',
+  filename: 'Module5_Correlation.jsx',
   path: '/correlation-spectrum',
+  legacyPaths: ['/correlation', '/module-5', '/module-7'],
   description: 'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
   tag: 'Spectral Estimation',
   topics: [
