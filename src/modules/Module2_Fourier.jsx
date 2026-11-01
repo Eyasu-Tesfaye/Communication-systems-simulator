@@ -66,9 +66,9 @@ export default function Module2_Fourier({
   const [selectedHarmonicHover, setSelectedHarmonicHover] = useState(null);
 
   // 3D Frequency Transformation Space Controls
-  const [cameraYaw, setCameraYaw] = useState(42); // degrees azimuth (orbit drag)
-  const [cameraPitch, setCameraPitch] = useState(28); // degrees elevation (orbit drag)
-  const [cameraZoom, setCameraZoom] = useState(1.0); // 0.6 to 1.8
+  const [cameraYaw, setCameraYaw] = useState(222); // degrees azimuth (orbit drag - opposite isometric side)
+  const [cameraPitch, setCameraPitch] = useState(24); // degrees elevation (orbit drag)
+  const [cameraZoom, setCameraZoom] = useState(1.0); // 0.4 to 1.8 (1.0x now corresponds to former 0.6x scale)
   const [showSpikesOnly, setShowSpikesOnly] = useState(false); // isolates frequency spectrum spikes in 3D
   const [show3DProjections, setShow3DProjections] = useState(true); // show walls at f=0 and t=end
   const [show3DRibbons, setShow3DRibbons] = useState(true); // show filled 3D ribbons
@@ -247,25 +247,25 @@ export default function Module2_Fourier({
   // 3D Camera Preset Viewpoints
   const setCameraPreset = (preset) => {
     switch (preset) {
-      case 'iso':
-        setCameraYaw(42);
-        setCameraPitch(26);
+      case 'iso': // Opposite isometric viewpoint
+        setCameraYaw(222);
+        setCameraPitch(24);
         setCameraZoom(1.0);
         break;
       case 'time': // View down Frequency axis: reveals pure time-domain wave
         setCameraYaw(0);
         setCameraPitch(0);
-        setCameraZoom(1.05);
+        setCameraZoom(1.0);
         break;
-      case 'freq': // View directly facing the Spectrum Wall (Time axis end, frequency running left-to-right)
+      case 'freq': // View directly facing the Spectrum Wall (Facing spikes without cutoff)
         setCameraYaw(270);
         setCameraPitch(0);
-        setCameraZoom(1.05);
+        setCameraZoom(1.0);
         break;
       case 'top': // Look from above (Spectrogram time vs frequency)
-        setCameraYaw(45);
+        setCameraYaw(222);
         setCameraPitch(85);
-        setCameraZoom(1.1);
+        setCameraZoom(1.0);
         break;
       default:
         break;
@@ -298,8 +298,9 @@ export default function Module2_Fourier({
     const sinP = Math.sin(radPitch);
 
     const centerX = width / 2;
-    const centerY = height / 2 + 10;
-    const scale = Math.min(width, height) * 0.44 * cameraZoom;
+    const centerY = height / 2 + 5;
+    // Base scale adjusted so that 1.0x matches former 0.6x zoom (0.44 * 0.6 = 0.264)
+    const scale = Math.min(width, height) * 0.264 * cameraZoom;
 
     // 3D Transformer: Model space (-1 to +1) to 2D screen
     const project = (x, y, z) => {
@@ -885,58 +886,15 @@ export default function Module2_Fourier({
   // Clean 3D Visualizer Component
   const render3DVisualizer = (isFullscreenView = false) => {
     return (
-      <div className={`bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs flex flex-col ${isFullscreenView ? 'flex-1 min-h-0' : ''}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#E6E4DD]">
-          <div className="flex items-center gap-2">
-            <Box className="w-4 h-4 text-[#C85A32]" />
-            <span className="text-xs font-mono font-bold text-[#1A1917]">
-              {showSpikesOnly
-                ? '3D Magnitude Spectrum Spikes (Isolated Across Frequency)'
-                : '3D Time-Frequency Waterfall (X: Time · Y: Freq · Z: Mag)'}
-            </span>
-          </div>
-
-          {/* 3D Camera Quick Presets */}
-          <div className="flex items-center gap-1 bg-[#FAF9F6] p-0.5 rounded border border-[#E6E4DD] text-[11px] font-mono">
-            <button
-              type="button"
-              onClick={() => setCameraPreset('iso')}
-              className="px-2 py-0.5 rounded hover:bg-white text-[#585651] hover:text-[#1A1917] cursor-pointer"
-              title="Isometric 3D Perspective"
-            >
-              Isometric
-            </button>
-            <button
-              type="button"
-              onClick={() => setCameraPreset('time')}
-              className="px-2 py-0.5 rounded hover:bg-white text-[#585651] hover:text-[#1A1917] cursor-pointer"
-              title="Look along Frequency axis to inspect Time Wave"
-            >
-              Time Wall
-            </button>
-            <button
-              type="button"
-              onClick={() => setCameraPreset('freq')}
-              className="px-2 py-0.5 rounded hover:bg-white text-[#585651] hover:text-[#1A1917] cursor-pointer"
-              title="Look directly facing the Spectrum Wall"
-            >
-              Spectrum Wall
-            </button>
-            <button
-              type="button"
-              onClick={() => setCameraPreset('top')}
-              className="px-2 py-0.5 rounded hover:bg-white text-[#585651] hover:text-[#1A1917] cursor-pointer"
-              title="Top-down time-frequency view"
-            >
-              Top-Down
-            </button>
-          </div>
-        </div>
-
+      <div
+        className={`bg-white rounded-lg border border-[#E6E4DD] ${
+          isFullscreenView ? 'p-3 flex-1 min-h-0' : 'p-3 sm:p-4'
+        } shadow-xs flex flex-col`}
+      >
         {/* Interactive 3D Canvas Stage */}
         <div
           className={`relative w-full ${
-            isFullscreenView ? 'flex-1 min-h-[360px]' : 'h-[440px]'
+            isFullscreenView ? 'flex-1 min-h-0' : 'h-[460px]'
           } bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden cursor-grab active:cursor-grabbing select-none`}
           onMouseDown={handleMouseDown3D}
           onTouchStart={handleTouchStart3D}
@@ -947,6 +905,46 @@ export default function Module2_Fourier({
             ref={isFullscreenView ? canvas3DFullscreenRef : canvas3DRef}
             className="w-full h-full block"
           />
+
+          {/* 3D Camera Quick Presets neatly inside the window on top-right */}
+          <div
+            className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-xs p-1 rounded-md border border-[#E6E4DD] text-[11px] font-mono shadow-xs"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setCameraPreset('iso')}
+              className="px-2 py-0.5 rounded hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917] cursor-pointer transition-colors"
+              title="Isometric 3D Perspective (Opposite Angle)"
+            >
+              Isometric
+            </button>
+            <button
+              type="button"
+              onClick={() => setCameraPreset('time')}
+              className="px-2 py-0.5 rounded hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917] cursor-pointer transition-colors"
+              title="Look along Frequency axis to inspect Time Wave"
+            >
+              Time Wall
+            </button>
+            <button
+              type="button"
+              onClick={() => setCameraPreset('freq')}
+              className="px-2 py-0.5 rounded hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917] cursor-pointer transition-colors"
+              title="Look directly facing the Spectrum Wall"
+            >
+              Spectrum Wall
+            </button>
+            <button
+              type="button"
+              onClick={() => setCameraPreset('top')}
+              className="px-2 py-0.5 rounded hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917] cursor-pointer transition-colors"
+              title="Top-down time-frequency view"
+            >
+              Top-Down
+            </button>
+          </div>
 
           {/* Live 3D Angle Indicator */}
           <div className="absolute bottom-2.5 right-2.5 bg-white/90 backdrop-blur-xs border border-[#E6E4DD] rounded px-2.5 py-1 text-[10px] font-mono text-[#75736E] pointer-events-none shadow-2xs">
@@ -1252,7 +1250,7 @@ export default function Module2_Fourier({
                     </div>
                     <input
                       type="range"
-                      min="0.6"
+                      min="0.4"
                       max="1.8"
                       step="0.05"
                       value={cameraZoom}
@@ -1581,7 +1579,7 @@ export default function Module2_Fourier({
                     </span>
                     <input
                       type="range"
-                      min="0.6"
+                      min="0.4"
                       max="1.8"
                       step="0.05"
                       value={cameraZoom}
