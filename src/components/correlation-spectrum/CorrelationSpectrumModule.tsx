@@ -193,49 +193,8 @@ export const CorrelationSpectrumModule: React.FC<CorrelationSpectrumModuleProps>
           {activeMode === 'correlation' ? <CorrelationWorkspace /> : <PsdWorkspace />}
         </div>
 
-        {/* 5. Global Module Quick Switcher (Preserves Navigation & Group Identity) */}
-        <div className="mt-12 pt-8 border-t border-[#E6E4DD]">
-          <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-4">
-            All Laboratory Workspaces (01–07)
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-            {MODULES.map((m) => {
-              const isCurrent = m.id === module.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => onNavigateModule?.(m.path)}
-                  className={`p-2.5 rounded text-left transition-colors border cursor-pointer ${
-                    isCurrent
-                      ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                      : 'bg-white border-[#E6E4DD] hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917]'
-                  }`}
-                >
-                  <div className="font-mono text-[10px] font-bold">{m.index}</div>
-                  <div className="text-xs font-semibold truncate mt-0.5">{m.name}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </main>
 
-      {/* Quiet Minimal Footer */}
-      <footer className="border-t border-[#E6E4DD] bg-[#FAF9F6] py-6 mt-12 text-xs text-[#75736E]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 font-mono">
-            <span className="font-semibold text-[#1A1917]">SIGNAL LAB</span>
-            <span>·</span>
-            <span>Module 07: Correlation & Spectral Analysis</span>
-          </div>
-          <div className="flex items-center gap-4 text-[#75736E] font-mono">
-            <span>Modular Interface Foundation</span>
-            <span>·</span>
-            <span>WCAG AA Calibrated</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
