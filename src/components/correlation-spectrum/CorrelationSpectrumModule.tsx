@@ -5,6 +5,7 @@ import { ModuleGlyph } from '../ModuleGlyphs';
 import { CorrelationWorkspace } from './CorrelationWorkspace';
 import { PsdWorkspace } from './PsdWorkspace';
 
+
 const DEFAULT_MODULE_METADATA: SignalModule =
   MODULES.find((m) => m.id === 'correlation-spectrum') || {
     id: 'correlation-spectrum',
@@ -44,6 +45,7 @@ const DEFAULT_MODULE_METADATA: SignalModule =
       'Resolution Bandwidth (Δf)',
     ],
   };
+
 
 export interface CorrelationSpectrumModuleProps {
   module?: SignalModule;
