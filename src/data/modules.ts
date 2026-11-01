@@ -200,18 +200,18 @@ export const MODULES: SignalModule[] = [
     filename: 'Module7_Probability.jsx',
     path: '/probability',
     legacyPaths: ['/module-7', '/module-5'],
-    description: 'Explore PMF, PDF, CDF, probability distributions, statistical expectation, variance, and standard deviation.',
-    tag: 'Stochastic Fundamentals',
+    description: 'Explore fundamental concepts of probability, random variables, and statistical distributions through interactive visualizations.',
+    tag: 'Interactive Education',
     topics: [
-      'Probability Density (PDF) & Cumulative Distribution (CDF)',
-      'Statistical Moments: Mean (μ), Variance (σ²), & Skewness',
-      'Central Limit Theorem & Joint Distributions'
+      'Probability Distributions (Normal, Binomial, Poisson, Exp, Uniform)',
+      'Joint, Marginal & Conditional Probability (2D Matrix & Independence)',
+      'Bayes\' Theorem & Natural Frequency Population Models'
     ],
-    formula: 'f_X(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} \\exp\\left(-\\frac{(x - \\mu)^2}{2\\sigma^2}\right)',
-    formulaLabel: 'Gaussian Normal Density Function',
+    formula: 'P(A \\mid B) = \\frac{P(B \\mid A) \\cdot P(A)}{P(B)}',
+    formulaLabel: 'Bayes\' Theorem & Continuous Distributions',
     keywords: [
-      'probability', 'pdf', 'cdf', 'pmf', 'distribution', 'gaussian',
-      'mean', 'variance', 'expectation', 'standard deviation', 'random variable'
+      'probability', 'distributions', 'joint probability', 'bayes', 'clt',
+      'central limit theorem', 'normal', 'binomial', 'poisson', 'exponential', 'uniform'
     ],
     parameterHighlights: [
       'Mean / Expectation (μ)',
