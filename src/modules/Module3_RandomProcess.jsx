@@ -55,12 +55,12 @@ export default function Module3_RandomProcess({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-              MODULE 06
+              MODULE 03
             </span>
             <span className="text-xs text-[#75736E] font-medium">Stationarity & Ergodicity</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
-            Module 6: Random Process Properties
+            Module 3: Random Process Properties
           </h1>
           <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
             Stochastic ensemble realizations, wide-sense stationarity (WSS), strict-sense stationarity, and ergodic relationships between time and ensemble averages.
