@@ -87,9 +87,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-3 flex items-center gap-1.5">
               <Keyboard className="w-3.5 h-3.5 text-[#585651]" />
-              <span>Keyboard Navigation</span>
+              <span>Keyboard Navigation & Shortcuts</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-[#FAF9F6] rounded border border-[#E6E4DD] flex items-center justify-between">
+                <span className="text-[#585651] font-medium">Play simulation</span>
+                <kbd className="font-mono bg-white px-2 py-0.5 rounded border border-[#C85A32]/40 text-[#C85A32] font-bold shadow-2xs">
+                  P
+                </kbd>
+              </div>
+              <div className="p-2.5 bg-[#FAF9F6] rounded border border-[#E6E4DD] flex items-center justify-between">
+                <span className="text-[#585651] font-medium">Pause simulation</span>
+                <kbd className="font-mono bg-white px-2 py-0.5 rounded border border-[#1A1917]/30 text-[#1A1917] font-bold shadow-2xs">
+                  H
+                </kbd>
+              </div>
               <div className="p-2.5 bg-[#FAF9F6] rounded border border-[#E6E4DD] flex items-center justify-between">
                 <span className="text-[#585651]">Select module</span>
                 <kbd className="font-mono bg-white px-1.5 py-0.5 rounded border border-[#E6E4DD] text-[#1A1917]">
