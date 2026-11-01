@@ -367,6 +367,9 @@ export default function Module6_EulerSignals({
             >
               MODULE 06
             </span>
+            <span className="text-xs font-mono text-[#75736E] bg-[#FAF9F6] border border-[#E6E4DD] px-2 py-0.5 rounded">
+              Curriculum Slot 03
+            </span>
             <span className="text-xs text-[#585651] font-medium">
               Complex Signals, Phasors & Euler Relations
             </span>
