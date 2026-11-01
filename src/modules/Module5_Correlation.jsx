@@ -1,15 +1,4 @@
-/**
- * Module 5: Correlation & Spectral Analysis
- * Filename: Module5_Correlation.jsx
- * 
- * Fully interactive and functional component slot for Correlation & Spectral Estimation:
- * - Dynamic Autocorrelation function Rxx(τ) with symmetry demonstration Rxx(τ) = Rxx(-τ)
- * - Real-time Lag marker & live numerical readouts (Total Power Rxx(0) vs. Lagged Rxx(τ))
- * - Wiener-Khinchin relationship to Power Spectral Density (PSD) Sxx(f)
- * - Windowing effects (Hamming, Hann, Rectangular) & Welch segment averaging
- * - Animated continuous lag sweep with Play / Pause / Reset
- * - Clean placeholder layout for teammate single-file code blocks
- */
+import { CorrelationSpectrumModule } from '../components/correlation-spectrum/CorrelationSpectrumModule';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Layers, BookOpen, SlidersHorizontal, Info, Code2, Activity, Play, Pause, RotateCcw } from 'lucide-react';
@@ -203,12 +192,12 @@ export default function Module5_Correlation({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-              MODULE 07
+              MODULE 05
             </span>
             <span className="text-xs text-[#75736E] font-medium">Spectral Estimation</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
-            Module 7: Correlation & Spectral Analysis
+            Module 5: Correlation & Spectral Analysis
           </h1>
           <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
             Autocorrelation R_xx(τ), cross-correlation R_xy(τ), power spectral density (PSD), and the fundamental Wiener–Khinchin transform pair.

@@ -18,32 +18,32 @@ export interface SignalModule {
 
 export const MODULES: SignalModule[] = [
   {
-    id: 'signals',
+    id: 'convolution',
     moduleNumber: 1,
     index: '01',
-    name: 'Signal Explorer',
-    shortName: 'Signal Explorer',
-    filename: 'Module4_SignalExplorer.jsx',
-    path: '/signals',
+    name: 'Convolution & System Response',
+    shortName: 'Convolution',
+    filename: 'Module1_Convolution.jsx',
+    path: '/convolution',
     legacyPaths: ['/module-1', '/module-4'],
-    description: 'Explore continuous-time and discrete-time signals, signal families, parameters, transformations, and sampling behavior.',
-    tag: 'Continuous & Discrete Signals',
+    description: 'Explore input signals, impulse responses, output signals, convolution overlap, and LTI system properties.',
+    tag: 'LTI Systems & Filtering',
     topics: [
-      'Continuous & Discrete Time Formulations',
-      'Standard Signal Families (Sinusoid, Chirp, Sinc, Rect)',
-      'Transformations, Symmetry & Energy vs. Power'
+      'Linear Time-Invariant (LTI) System Characterization',
+      'Graphical Convolution Integral & Sliding Overlap',
+      'Impulse Response h(t), Step Response, & Filter Causality'
     ],
-    formula: 'x(t) = A \\cos(2\\pi f_0 t + \\phi)',
-    formulaLabel: 'Generalized Continuous-Time Harmonic',
+    formula: 'y(t) = (x * h)(t) = \\int_{-\\infty}^{\\infty} x(\\tau) h(t - \\tau) \\, d\\tau',
+    formulaLabel: 'Continuous Convolution Integral',
     keywords: [
-      'signal', 'continuous', 'discrete', 'waveform', 'sinusoid', 'chirp',
-      'sinc', 'step', 'impulse', 'sampling', 'amplitude', 'frequency', 'phase', 'energy'
+      'convolution', 'impulse', 'response', 'lti', 'system', 'filter',
+      'transfer function', 'step response', 'sliding', 'kernel', 'overlap'
     ],
     parameterHighlights: [
-      'Amplitude (A)',
-      'Fundamental Frequency (f₀)',
-      'Phase Offset (ϕ)',
-      'Sampling Interval (Ts)'
+      'Time Shift (τ)',
+      'Kernel Support Duration',
+      'System Damping Factor (ζ)',
+      'Cutoff Frequency (ωc)'
     ]
   },
   {
@@ -76,101 +76,14 @@ export const MODULES: SignalModule[] = [
     ]
   },
   {
-    id: 'complex-signals',
+    id: 'random-processes',
     moduleNumber: 3,
     index: '03',
-    name: 'Euler Identity & Complex Signals',
-    shortName: 'Euler & Complex',
-    filename: 'Module6_EulerSignals.jsx',
-    path: '/complex-signals',
-    legacyPaths: ['/module-3', '/module-6'],
-    description: "Explore complex numbers, rectangular and polar forms, Euler's identity, rotating phasors, magnitude, and analytic signals.",
-    tag: 'Phasors & Analytic Signals',
-    topics: [
-      "Euler's Geometric Identity & Phasor Rotation",
-      'Cartesian (Re/Im) to Polar (r, θ) Coordinate Conversion',
-      'Negative Frequencies & Analytic Signal Representation'
-    ],
-    formula: 'e^{j\\theta} = \\cos(\\theta) + j\\sin(\\theta)',
-    formulaLabel: "Euler's Identity & Complex Exponential",
-    keywords: [
-      'euler', 'complex', 'phasor', 'imaginary', 'polar', 'cartesian',
-      'magnitude', 'phase', 'rotation', 'hilbert', 'analytic'
-    ],
-    parameterHighlights: [
-      'Modulus / Magnitude (|z|)',
-      'Phase Angle (arg z / θ)',
-      'Angular Velocity (ω)',
-      'In-Phase & Quadrature (I/Q)'
-    ]
-  },
-  {
-    id: 'convolution',
-    moduleNumber: 4,
-    index: '04',
-    name: 'Convolution & System Response',
-    shortName: 'Convolution',
-    filename: 'Module1_Convolution.jsx',
-    path: '/convolution',
-    legacyPaths: ['/module-4', '/module-1'],
-    description: 'Explore input signals, impulse responses, output signals, convolution overlap, and LTI system properties.',
-    tag: 'LTI Systems & Filtering',
-    topics: [
-      'Linear Time-Invariant (LTI) System Characterization',
-      'Graphical Convolution Integral & Sliding Overlap',
-      'Impulse Response h(t), Step Response, & Filter Causality'
-    ],
-    formula: 'y(t) = (x * h)(t) = \\int_{-\\infty}^{\\infty} x(\\tau) h(t - \\tau) \\, d\\tau',
-    formulaLabel: 'Continuous Convolution Integral',
-    keywords: [
-      'convolution', 'impulse', 'response', 'lti', 'system', 'filter',
-      'transfer function', 'step response', 'sliding', 'kernel', 'overlap'
-    ],
-    parameterHighlights: [
-      'Time Shift (τ)',
-      'Kernel Support Duration',
-      'System Damping Factor (ζ)',
-      'Cutoff Frequency (ωc)'
-    ]
-  },
-  {
-    id: 'probability',
-    moduleNumber: 5,
-    index: '05',
-    name: 'Probability & Statistics',
-    shortName: 'Probability',
-    filename: 'Module7_Probability.jsx',
-    path: '/probability',
-    legacyPaths: ['/module-5', '/module-7'],
-    description: 'Explore PMF, PDF, CDF, probability distributions, statistical expectation, variance, and standard deviation.',
-    tag: 'Stochastic Fundamentals',
-    topics: [
-      'Probability Density (PDF) & Cumulative Distribution (CDF)',
-      'Statistical Moments: Mean (μ), Variance (σ²), & Skewness',
-      'Central Limit Theorem & Joint Distributions'
-    ],
-    formula: 'f_X(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} \\exp\\left(-\\frac{(x - \\mu)^2}{2\\sigma^2}\right)',
-    formulaLabel: 'Gaussian Normal Density Function',
-    keywords: [
-      'probability', 'pdf', 'cdf', 'pmf', 'distribution', 'gaussian',
-      'mean', 'variance', 'expectation', 'standard deviation', 'random variable'
-    ],
-    parameterHighlights: [
-      'Mean / Expectation (μ)',
-      'Standard Deviation (σ)',
-      'Confidence Interval (1-α)',
-      'Sample Size (N)'
-    ]
-  },
-  {
-    id: 'random-processes',
-    moduleNumber: 6,
-    index: '06',
     name: 'Random Process Properties',
     shortName: 'Random Process',
     filename: 'Module3_RandomProcess.jsx',
     path: '/random-processes',
-    legacyPaths: ['/module-6', '/module-3'],
+    legacyPaths: ['/module-3', '/module-6'],
     description: 'Explore random-process realizations, strict-sense and wide-sense stationarity, ergodicity, and time and ensemble averages.',
     tag: 'Stationarity & Ergodicity',
     topics: [
@@ -192,14 +105,43 @@ export const MODULES: SignalModule[] = [
     ]
   },
   {
+    id: 'signals',
+    moduleNumber: 4,
+    index: '04',
+    name: 'Signal Explorer',
+    shortName: 'Signal Explorer',
+    filename: 'Module4_SignalExplorer.jsx',
+    path: '/signals',
+    legacyPaths: ['/module-4', '/module-1'],
+    description: 'Explore continuous-time and discrete-time signals, signal families, parameters, transformations, and sampling behavior.',
+    tag: 'Continuous & Discrete Signals',
+    topics: [
+      'Continuous & Discrete Time Formulations',
+      'Standard Signal Families (Sinusoid, Chirp, Sinc, Rect)',
+      'Transformations, Symmetry & Energy vs. Power'
+    ],
+    formula: 'x(t) = A \\cos(2\\pi f_0 t + \\phi)',
+    formulaLabel: 'Generalized Continuous-Time Harmonic',
+    keywords: [
+      'signal', 'continuous', 'discrete', 'waveform', 'sinusoid', 'chirp',
+      'sinc', 'step', 'impulse', 'sampling', 'amplitude', 'frequency', 'phase', 'energy'
+    ],
+    parameterHighlights: [
+      'Amplitude (A)',
+      'Fundamental Frequency (f₀)',
+      'Phase Offset (ϕ)',
+      'Sampling Interval (Ts)'
+    ]
+  },
+  {
     id: 'correlation-spectrum',
-    moduleNumber: 7,
-    index: '07',
+    moduleNumber: 5,
+    index: '05',
     name: 'Correlation & Spectral Analysis',
     shortName: 'Correlation',
     filename: 'Module5_Correlation.jsx',
     path: '/correlation-spectrum',
-    legacyPaths: ['/correlation', '/module-7', '/module-5'],
+    legacyPaths: ['/correlation', '/module-5', '/module-7'],
     description: 'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
     tag: 'Spectral Estimation',
     topics: [
@@ -218,6 +160,64 @@ export const MODULES: SignalModule[] = [
       'Welch Segment Overlap (%)',
       'Spectral Window (Hamming/Hann)',
       'Resolution Bandwidth (Δf)'
+    ]
+  },
+  {
+    id: 'complex-signals',
+    moduleNumber: 6,
+    index: '06',
+    name: 'Euler Identity & Complex Signals',
+    shortName: 'Euler & Complex',
+    filename: 'Module6_EulerSignals.jsx',
+    path: '/complex-signals',
+    legacyPaths: ['/module-6', '/module-3'],
+    description: "Explore complex numbers, rectangular and polar forms, Euler's identity, rotating phasors, magnitude, and analytic signals.",
+    tag: 'Phasors & Analytic Signals',
+    topics: [
+      "Euler's Geometric Identity & Phasor Rotation",
+      'Cartesian (Re/Im) to Polar (r, θ) Coordinate Conversion',
+      'Negative Frequencies & Analytic Signal Representation'
+    ],
+    formula: 'e^{j\\theta} = \\cos(\\theta) + j\\sin(\\theta)',
+    formulaLabel: "Euler's Identity & Complex Exponential",
+    keywords: [
+      'euler', 'complex', 'phasor', 'imaginary', 'polar', 'cartesian',
+      'magnitude', 'phase', 'rotation', 'hilbert', 'analytic'
+    ],
+    parameterHighlights: [
+      'Modulus / Magnitude (|z|)',
+      'Phase Angle (arg z / θ)',
+      'Angular Velocity (ω)',
+      'In-Phase & Quadrature (I/Q)'
+    ]
+  },
+  {
+    id: 'probability',
+    moduleNumber: 7,
+    index: '07',
+    name: 'Probability & Statistics',
+    shortName: 'Probability',
+    filename: 'Module7_Probability.jsx',
+    path: '/probability',
+    legacyPaths: ['/module-7', '/module-5'],
+    description: 'Explore PMF, PDF, CDF, probability distributions, statistical expectation, variance, and standard deviation.',
+    tag: 'Stochastic Fundamentals',
+    topics: [
+      'Probability Density (PDF) & Cumulative Distribution (CDF)',
+      'Statistical Moments: Mean (μ), Variance (σ²), & Skewness',
+      'Central Limit Theorem & Joint Distributions'
+    ],
+    formula: 'f_X(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} \\exp\\left(-\\frac{(x - \\mu)^2}{2\\sigma^2}\right)',
+    formulaLabel: 'Gaussian Normal Density Function',
+    keywords: [
+      'probability', 'pdf', 'cdf', 'pmf', 'distribution', 'gaussian',
+      'mean', 'variance', 'expectation', 'standard deviation', 'random variable'
+    ],
+    parameterHighlights: [
+      'Mean / Expectation (μ)',
+      'Standard Deviation (σ)',
+      'Confidence Interval (1-α)',
+      'Sample Size (N)'
     ]
   }
 ];
