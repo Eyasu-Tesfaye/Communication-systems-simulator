@@ -808,7 +808,7 @@ export default function ContinuousConvolution({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-              MODULE 04
+              MODULE 01
             </span>
             <span className="text-xs text-[#75736E] font-medium">LTI Systems & Convolution</span>
           </div>
