@@ -18,32 +18,32 @@ export interface SignalModule {
 
 export const MODULES: SignalModule[] = [
   {
-    id: 'convolution',
+    id: 'signals',
     moduleNumber: 1,
     index: '01',
-    name: 'Convolution & System Response',
-    shortName: 'Convolution',
-    filename: 'Module1_Convolution.jsx',
-    path: '/convolution',
+    name: 'Signal Explorer',
+    shortName: 'Signal Explorer',
+    filename: 'Module4_SignalExplorer.jsx',
+    path: '/signals',
     legacyPaths: ['/module-1', '/module-4'],
-    description: 'Explore input signals, impulse responses, output signals, convolution overlap, and LTI system properties.',
-    tag: 'LTI Systems & Filtering',
+    description: 'Explore continuous-time and discrete-time signals, signal families, parameters, transformations, and sampling behavior.',
+    tag: 'Continuous & Discrete Signals',
     topics: [
-      'Linear Time-Invariant (LTI) System Characterization',
-      'Graphical Convolution Integral & Sliding Overlap',
-      'Impulse Response h(t), Step Response, & Filter Causality'
+      'Continuous & Discrete Time Formulations',
+      'Standard Signal Families (Sinusoid, Chirp, Sinc, Rect)',
+      'Transformations, Symmetry & Energy vs. Power'
     ],
-    formula: 'y(t) = (x * h)(t) = \\int_{-\\infty}^{\\infty} x(\\tau) h(t - \\tau) \\, d\\tau',
-    formulaLabel: 'Continuous Convolution Integral',
+    formula: 'x(t) = A \\cos(2\\pi f_0 t + \\phi)',
+    formulaLabel: 'Generalized Continuous-Time Harmonic',
     keywords: [
-      'convolution', 'impulse', 'response', 'lti', 'system', 'filter',
-      'transfer function', 'step response', 'sliding', 'kernel', 'overlap'
+      'signal', 'continuous', 'discrete', 'waveform', 'sinusoid', 'chirp',
+      'sinc', 'step', 'impulse', 'sampling', 'amplitude', 'frequency', 'phase', 'energy'
     ],
     parameterHighlights: [
-      'Time Shift (τ)',
-      'Kernel Support Duration',
-      'System Damping Factor (ζ)',
-      'Cutoff Frequency (ωc)'
+      'Amplitude (A)',
+      'Fundamental Frequency (f₀)',
+      'Phase Offset (ϕ)',
+      'Sampling Interval (Ts)'
     ]
   },
   {
@@ -76,101 +76,14 @@ export const MODULES: SignalModule[] = [
     ]
   },
   {
-    id: 'random-processes',
+    id: 'complex-signals',
     moduleNumber: 3,
     index: '03',
-    name: 'Random Process Properties',
-    shortName: 'Random Process',
-    filename: 'Module3_RandomProcess.jsx',
-    path: '/random-processes',
-    legacyPaths: ['/module-3', '/module-6'],
-    description: 'Explore random-process realizations, strict-sense and wide-sense stationarity, ergodicity, and time and ensemble averages.',
-    tag: 'Stationarity & Ergodicity',
-    topics: [
-      'Ensemble Realizations vs. Time-Series Trajectories',
-      'Strict-Sense & Wide-Sense Stationarity (WSS)',
-      'Ergodic Theorems for Mean & Autocorrelation Consistency'
-    ],
-    formula: '\\mathbb{E}[X(t)] = \\mu_X, \\quad R_X(t_1, t_2) = R_X(t_1 - t_2)',
-    formulaLabel: 'Wide-Sense Stationarity (WSS) Conditions',
-    keywords: [
-      'random', 'process', 'stochastic', 'stationarity', 'ergodicity',
-      'ensemble', 'realization', 'time average', 'wss', 'noise'
-    ],
-    parameterHighlights: [
-      'Ensemble Trajectory Count (M)',
-      'Time Horizon (T)',
-      'Stationarity Margin (Δμ)',
-      'Correlation Lag (τ)'
-    ]
-  },
-  {
-    id: 'signals',
-    moduleNumber: 4,
-    index: '04',
-    name: 'Signal Explorer',
-    shortName: 'Signal Explorer',
-    filename: 'Module4_SignalExplorer.jsx',
-    path: '/signals',
-    legacyPaths: ['/module-4', '/module-1'],
-    description: 'Explore continuous-time and discrete-time signals, signal families, parameters, transformations, and sampling behavior.',
-    tag: 'Continuous & Discrete Signals',
-    topics: [
-      'Continuous & Discrete Time Formulations',
-      'Standard Signal Families (Sinusoid, Chirp, Sinc, Rect)',
-      'Transformations, Symmetry & Energy vs. Power'
-    ],
-    formula: 'x(t) = A \\cos(2\\pi f_0 t + \\phi)',
-    formulaLabel: 'Generalized Continuous-Time Harmonic',
-    keywords: [
-      'signal', 'continuous', 'discrete', 'waveform', 'sinusoid', 'chirp',
-      'sinc', 'step', 'impulse', 'sampling', 'amplitude', 'frequency', 'phase', 'energy'
-    ],
-    parameterHighlights: [
-      'Amplitude (A)',
-      'Fundamental Frequency (f₀)',
-      'Phase Offset (ϕ)',
-      'Sampling Interval (Ts)'
-    ]
-  },
-  {
-    id: 'correlation-spectrum',
-    moduleNumber: 5,
-    index: '05',
-    name: 'Correlation & Spectral Analysis',
-    shortName: 'Correlation',
-    filename: 'Module5_Correlation.jsx',
-    path: '/correlation-spectrum',
-    legacyPaths: ['/correlation', '/module-5', '/module-7'],
-    description: 'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
-    tag: 'Spectral Estimation',
-    topics: [
-      'Autocorrelation Rxx(τ) & Cross-Correlation Rxy(τ)',
-      'Wiener–Khinchin Theorem: Linking Correlation & PSD',
-      'Nonparametric Spectral Estimation (Periodogram & Welch)'
-    ],
-    formula: 'S_{XX}(\\omega) = \\int_{-\\infty}^{\\infty} R_{XX}(\\tau) e^{-j\\omega \\tau} \\, d\\tau',
-    formulaLabel: 'Wiener–Khinchin Transform Relation',
-    keywords: [
-      'correlation', 'autocorrelation', 'cross-correlation', 'psd',
-      'spectral density', 'periodogram', 'welch', 'wiener-khinchin', 'lag'
-    ],
-    parameterHighlights: [
-      'Maximum Lag (τ_max)',
-      'Welch Segment Overlap (%)',
-      'Spectral Window (Hamming/Hann)',
-      'Resolution Bandwidth (Δf)'
-    ]
-  },
-  {
-    id: 'complex-signals',
-    moduleNumber: 6,
-    index: '06',
     name: 'Euler Identity & Complex Signals',
     shortName: 'Euler & Complex',
     filename: 'Module6_EulerSignals.jsx',
     path: '/complex-signals',
-    legacyPaths: ['/module-6', '/module-3'],
+    legacyPaths: ['/module-3', '/module-6'],
     description: "Explore complex numbers, rectangular and polar forms, Euler's identity, rotating phasors, magnitude, and analytic signals.",
     tag: 'Phasors & Analytic Signals',
     topics: [
@@ -192,14 +105,43 @@ export const MODULES: SignalModule[] = [
     ]
   },
   {
+    id: 'convolution',
+    moduleNumber: 4,
+    index: '04',
+    name: 'Convolution & System Response',
+    shortName: 'Convolution',
+    filename: 'Module1_Convolution.jsx',
+    path: '/convolution',
+    legacyPaths: ['/module-4', '/module-1'],
+    description: 'Explore input signals, impulse responses, output signals, convolution overlap, and LTI system properties.',
+    tag: 'LTI Systems & Filtering',
+    topics: [
+      'Linear Time-Invariant (LTI) System Characterization',
+      'Graphical Convolution Integral & Sliding Overlap',
+      'Impulse Response h(t), Step Response, & Filter Causality'
+    ],
+    formula: 'y(t) = (x * h)(t) = \\int_{-\\infty}^{\\infty} x(\\tau) h(t - \\tau) \\, d\\tau',
+    formulaLabel: 'Continuous Convolution Integral',
+    keywords: [
+      'convolution', 'impulse', 'response', 'lti', 'system', 'filter',
+      'transfer function', 'step response', 'sliding', 'kernel', 'overlap'
+    ],
+    parameterHighlights: [
+      'Time Shift (τ)',
+      'Kernel Support Duration',
+      'System Damping Factor (ζ)',
+      'Cutoff Frequency (ωc)'
+    ]
+  },
+  {
     id: 'probability',
-    moduleNumber: 7,
-    index: '07',
+    moduleNumber: 5,
+    index: '05',
     name: 'Probability & Statistics',
     shortName: 'Probability',
     filename: 'Module7_Probability.jsx',
     path: '/probability',
-    legacyPaths: ['/module-7', '/module-5'],
+    legacyPaths: ['/module-5', '/module-7'],
     description: 'Explore PMF, PDF, CDF, probability distributions, statistical expectation, variance, and standard deviation.',
     tag: 'Stochastic Fundamentals',
     topics: [
@@ -218,6 +160,64 @@ export const MODULES: SignalModule[] = [
       'Standard Deviation (σ)',
       'Confidence Interval (1-α)',
       'Sample Size (N)'
+    ]
+  },
+  {
+    id: 'random-processes',
+    moduleNumber: 6,
+    index: '06',
+    name: 'Random Process Properties',
+    shortName: 'Random Process',
+    filename: 'Module3_RandomProcess.jsx',
+    path: '/random-processes',
+    legacyPaths: ['/module-6', '/module-3'],
+    description: 'Explore random-process realizations, strict-sense and wide-sense stationarity, ergodicity, and time and ensemble averages.',
+    tag: 'Stationarity & Ergodicity',
+    topics: [
+      'Ensemble Realizations vs. Time-Series Trajectories',
+      'Strict-Sense & Wide-Sense Stationarity (WSS)',
+      'Ergodic Theorems for Mean & Autocorrelation Consistency'
+    ],
+    formula: '\\mathbb{E}[X(t)] = \\mu_X, \\quad R_X(t_1, t_2) = R_X(t_1 - t_2)',
+    formulaLabel: 'Wide-Sense Stationarity (WSS) Conditions',
+    keywords: [
+      'random', 'process', 'stochastic', 'stationarity', 'ergodicity',
+      'ensemble', 'realization', 'time average', 'wss', 'noise'
+    ],
+    parameterHighlights: [
+      'Ensemble Trajectory Count (M)',
+      'Time Horizon (T)',
+      'Stationarity Margin (Δμ)',
+      'Correlation Lag (τ)'
+    ]
+  },
+  {
+    id: 'correlation-spectrum',
+    moduleNumber: 7,
+    index: '07',
+    name: 'Correlation & Spectral Analysis',
+    shortName: 'Correlation',
+    filename: 'Module5_Correlation.jsx',
+    path: '/correlation-spectrum',
+    legacyPaths: ['/correlation', '/module-7', '/module-5'],
+    description: 'Explore autocorrelation, cross-correlation, power spectral density, periodograms, Welch’s method, and the Wiener–Khinchin relationship.',
+    tag: 'Spectral Estimation',
+    topics: [
+      'Autocorrelation Rxx(τ) & Cross-Correlation Rxy(τ)',
+      'Wiener–Khinchin Theorem: Linking Correlation & PSD',
+      'Nonparametric Spectral Estimation (Periodogram & Welch)'
+    ],
+    formula: 'S_{XX}(\\omega) = \\int_{-\\infty}^{\\infty} R_{XX}(\\tau) e^{-j\\omega \\tau} \\, d\\tau',
+    formulaLabel: 'Wiener–Khinchin Transform Relation',
+    keywords: [
+      'correlation', 'autocorrelation', 'cross-correlation', 'psd',
+      'spectral density', 'periodogram', 'welch', 'wiener-khinchin', 'lag'
+    ],
+    parameterHighlights: [
+      'Maximum Lag (τ_max)',
+      'Welch Segment Overlap (%)',
+      'Spectral Window (Hamming/Hann)',
+      'Resolution Bandwidth (Δf)'
     ]
   }
 ];
