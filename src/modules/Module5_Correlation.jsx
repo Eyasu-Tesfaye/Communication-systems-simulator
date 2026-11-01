@@ -1,15 +1,4 @@
-/**
- * Module 5: Correlation & Spectral Analysis
- * Filename: Module5_Correlation.jsx
- * 
- * Fully interactive and functional component slot for Correlation & Spectral Estimation:
- * - Dynamic Autocorrelation function Rxx(τ) with symmetry demonstration Rxx(τ) = Rxx(-τ)
- * - Real-time Lag marker & live numerical readouts (Total Power Rxx(0) vs. Lagged Rxx(τ))
- * - Wiener-Khinchin relationship to Power Spectral Density (PSD) Sxx(f)
- * - Windowing effects (Hamming, Hann, Rectangular) & Welch segment averaging
- * - Animated continuous lag sweep with Play / Pause / Reset
- * - Clean placeholder layout for teammate single-file code blocks
- */
+import { CorrelationSpectrumModule } from '../components/correlation-spectrum/CorrelationSpectrumModule';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Layers, BookOpen, SlidersHorizontal, Info, Code2, Activity, Play, Pause, RotateCcw } from 'lucide-react';
