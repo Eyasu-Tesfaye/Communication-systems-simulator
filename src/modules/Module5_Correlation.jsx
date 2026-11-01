@@ -203,12 +203,12 @@ export default function Module5_Correlation({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-              MODULE 07
+              MODULE 05
             </span>
             <span className="text-xs text-[#75736E] font-medium">Spectral Estimation</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
-            Module 7: Correlation & Spectral Analysis
+            Module 5: Correlation & Spectral Analysis
           </h1>
           <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
             Autocorrelation R_xx(τ), cross-correlation R_xy(τ), power spectral density (PSD), and the fundamental Wiener–Khinchin transform pair.

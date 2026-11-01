@@ -56,12 +56,12 @@ export default function Module4_SignalExplorer({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-              MODULE 01
+              MODULE 04
             </span>
             <span className="text-xs text-[#75736E] font-medium">Continuous & Discrete Signals</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
-            Module 1: Signal Explorer
+            Module 4: Signal Explorer
           </h1>
           <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
             Continuous-time and discrete-time signals, signal families (sinusoid, chirp, sinc, rect), transformation properties, and sampling behavior.

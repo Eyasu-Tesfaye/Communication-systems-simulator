@@ -24,11 +24,11 @@ import Module7_Probability from './modules/Module7_Probability.jsx';
 export default function App() {
   const { currentPath, navigate } = useRouter();
   const [activeSection, setActiveSection] = useState<'workspace' | 'modules' | 'module-view'>('workspace');
-  const [currentModuleNumber, setCurrentModuleNumber] = useState<number>(1); // Default to Module 1 Signals
+  const [currentModuleNumber, setCurrentModuleNumber] = useState<number>(1); // Default to Module 1 Convolution
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showSubtleGrid, setShowSubtleGrid] = useState<boolean>(false);
-  const [selectedHubModuleId, setSelectedHubModuleId] = useState<string>('signals');
+  const [selectedHubModuleId, setSelectedHubModuleId] = useState<string>('convolution');
 
   // Sync route path to currentModuleNumber
   useEffect(() => {
@@ -132,31 +132,31 @@ export default function App() {
       isInstructorMode: true,
     };
 
-    // Original sequence:
-    // 1: signals -> Module4_SignalExplorer
+    // Clean 1-to-1 mapping matching filenames Module1 to Module7:
+    // 1: convolution -> Module1_Convolution
     // 2: fourier -> Module2_Fourier
-    // 3: complex-signals -> Module6_EulerSignals
-    // 4: convolution -> Module1_Convolution
-    // 5: probability -> Module7_Probability
-    // 6: random-processes -> Module3_RandomProcess
-    // 7: correlation-spectrum -> Module5_Correlation
+    // 3: random-processes -> Module3_RandomProcess
+    // 4: signals -> Module4_SignalExplorer
+    // 5: correlation-spectrum -> Module5_Correlation
+    // 6: complex-signals -> Module6_EulerSignals
+    // 7: probability -> Module7_Probability
     switch (currentModuleNumber) {
       case 1:
-        return <Module4_SignalExplorer {...commonProps} />;
+        return <Module1_Convolution {...commonProps} />;
       case 2:
         return <Module2_Fourier {...commonProps} />;
       case 3:
-        return <Module6_EulerSignals {...commonProps} />;
-      case 4:
-        return <Module1_Convolution {...commonProps} />;
-      case 5:
-        return <Module7_Probability {...commonProps} />;
-      case 6:
         return <Module3_RandomProcess {...commonProps} />;
-      case 7:
-        return <Module5_Correlation {...commonProps} />;
-      default:
+      case 4:
         return <Module4_SignalExplorer {...commonProps} />;
+      case 5:
+        return <Module5_Correlation {...commonProps} />;
+      case 6:
+        return <Module6_EulerSignals {...commonProps} />;
+      case 7:
+        return <Module7_Probability {...commonProps} />;
+      default:
+        return <Module1_Convolution {...commonProps} />;
     }
   };
 
@@ -196,7 +196,10 @@ export default function App() {
               <WorkspaceHeader />
 
               <FeaturedWorkspace
-                onOpenSignalExplorer={() => handleSelectModuleNumber(1)}
+                onOpenSignalExplorer={() => {
+                  const mod = findModuleByPathOrId('signals');
+                  if (mod) handleSelectModuleNumber(mod.moduleNumber);
+                }}
                 onBrowseModules={handleBrowseModules}
               />
 
