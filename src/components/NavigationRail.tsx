@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Home,
   Settings,
   Menu,
   X,
@@ -12,22 +11,20 @@ import { MODULES } from '../data/modules';
 import { ModuleGlyph } from './ModuleGlyphs';
 
 interface NavigationRailProps {
-  currentSection: 'workspace' | 'modules' | 'module-view';
+  currentSection?: string;
   currentModuleNumber?: number;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  onSelectSection: (section: 'workspace' | 'modules') => void;
+  onSelectSection?: (section: any) => void;
   onSelectModule: (moduleNumber: number) => void;
   onOpenSettings: () => void;
   onNavigateHome: () => void;
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
-  currentSection,
   currentModuleNumber = 1,
   isCollapsed,
   onToggleCollapse,
-  onSelectSection,
   onSelectModule,
   onOpenSettings,
   onNavigateHome,
@@ -135,61 +132,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             )}
           </div>
 
-          {/* Workspace Hub Button */}
-          <div className="mb-2">
-            {isCollapsed ? (
-              /* Collapsed: Icon only */
-              <div className="relative group w-full flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onNavigateHome();
-                    onSelectSection('workspace');
-                  }}
-                  className={`relative flex items-center justify-center w-10 h-10 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A32] ${
-                    currentSection === 'workspace'
-                      ? 'bg-[#FBF4F0] text-[#C85A32] font-semibold border border-[#C85A32]/30 shadow-2xs'
-                      : 'text-[#65635E] hover:text-[#1A1917] hover:bg-[#FAF9F6]'
-                  }`}
-                  aria-label="Workspace Hub"
-                >
-                  {currentSection === 'workspace' && (
-                    <span className="absolute left-0 top-2 bottom-2 w-[3px] bg-[#C85A32] rounded-r-full" />
-                  )}
-                  <Home className="w-4 h-4" />
-                </button>
-                <div
-                  role="tooltip"
-                  className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-[#1A1917] text-white text-xs font-medium rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50"
-                >
-                  Workspace Hub
-                </div>
-              </div>
-            ) : (
-              /* Expanded: Icon + Text */
-              <button
-                type="button"
-                onClick={() => {
-                  onNavigateHome();
-                  onSelectSection('workspace');
-                }}
-                className={`w-full flex items-center justify-start py-2 px-3 gap-2.5 rounded-md transition-all ${
-                  currentSection === 'workspace'
-                    ? 'bg-[#FBF4F0] text-[#C85A32] font-semibold border border-[#C85A32]/20'
-                    : 'text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6]'
-                }`}
-              >
-                <Home className="w-4 h-4" />
-                <span className="text-xs font-medium">Workspace Hub</span>
-              </button>
-            )}
-          </div>
-
-          {/* Section Divider */}
-          <div className="w-full h-[1px] bg-[#E6E4DD] my-1" aria-hidden="true" />
-
           {!isCollapsed && (
-            <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] px-2 py-1 flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] px-2 py-1 mb-1 flex items-center justify-between">
               <span>Modules</span>
               <span className="text-[9px] text-[#A8A69E]">01–07</span>
             </div>
@@ -201,7 +145,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             aria-label="Modules List"
           >
             {MODULES.map((m) => {
-              const isActive = currentSection === 'module-view' && currentModuleNumber === m.moduleNumber;
+              const isActive = currentModuleNumber === m.moduleNumber;
 
               if (isCollapsed) {
                 /* COLLAPSED: ICONS ONLY (No writings, clean centered icon with tooltip) */
@@ -387,32 +331,14 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                 </button>
               </div>
 
-              {/* Hub Link */}
-              <div className="mt-4">
-                <button
-                  onClick={() => {
-                    onNavigateHome();
-                    setMobileDrawerOpen(false);
-                  }}
-                  className={`flex items-center gap-3 w-full px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                    currentSection === 'workspace'
-                      ? 'bg-[#FBF4F0] text-[#C85A32] font-semibold'
-                      : 'text-[#484642] hover:bg-[#FAF9F6]'
-                  }`}
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Workspace Hub</span>
-                </button>
-              </div>
-
               {/* 7 Modules in Drawer */}
-              <div className="mt-4 pt-3 border-t border-[#E6E4DD]">
+              <div className="mt-4 pt-1">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] mb-2 px-1">
                   All 7 Modules
                 </div>
                 <nav className="flex flex-col gap-1" aria-label="Mobile Module Items">
                   {MODULES.map((m) => {
-                    const isActive = currentSection === 'module-view' && currentModuleNumber === m.moduleNumber;
+                    const isActive = currentModuleNumber === m.moduleNumber;
                     return (
                       <button
                         key={m.id}
