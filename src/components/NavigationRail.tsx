@@ -12,6 +12,7 @@ import { ModuleGlyph } from './ModuleGlyphs';
 
 interface NavigationRailProps {
   currentSection?: string;
+  isWorkspaceHub?: boolean;
   currentModuleNumber?: number;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -22,6 +23,8 @@ interface NavigationRailProps {
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
+  currentSection,
+  isWorkspaceHub,
   currentModuleNumber = 1,
   isCollapsed,
   onToggleCollapse,
@@ -29,6 +32,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   onOpenSettings,
   onNavigateHome,
 }) => {
+  const isWorkspace = isWorkspaceHub ?? (currentSection === 'workspace' || currentSection === 'modules');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Close drawer on Escape
@@ -61,7 +65,11 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                 <button
                   type="button"
                   onClick={onNavigateHome}
-                  className="w-9 h-9 rounded-md bg-[#FAF9F6] border border-[#E6E4DD] hover:border-[#C85A32]/40 transition-colors flex items-center justify-center text-[#C85A32]"
+                  className={`w-9 h-9 rounded-md transition-all flex items-center justify-center text-[#C85A32] ${
+                    isWorkspace
+                      ? 'bg-[#FBF4F0] border-2 border-[#C85A32] ring-2 ring-[#C85A32]/25 shadow-2xs'
+                      : 'bg-[#FAF9F6] border border-[#E6E4DD] hover:border-[#C85A32]/40'
+                  }`}
                   title="Signal Lab Home"
                   aria-label="Signal Lab Home"
                 >
@@ -96,7 +104,13 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   onClick={onNavigateHome}
                   className="flex items-center gap-2.5 text-left group"
                 >
-                  <div className="w-8 h-8 rounded-md bg-[#FAF9F6] border border-[#E6E4DD] flex items-center justify-center text-[#C85A32] group-hover:border-[#C85A32]/40 transition-colors">
+                  <div
+                    className={`w-8 h-8 rounded-md flex items-center justify-center text-[#C85A32] transition-all ${
+                      isWorkspace
+                        ? 'bg-[#FBF4F0] border-2 border-[#C85A32] ring-2 ring-[#C85A32]/25 shadow-2xs'
+                        : 'bg-[#FAF9F6] border border-[#E6E4DD] group-hover:border-[#C85A32]/40'
+                    }`}
+                  >
                     <svg
                       viewBox="0 0 24 24"
                       className="w-4 h-4"
@@ -110,7 +124,9 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     </svg>
                   </div>
                   <div>
-                    <span className="font-mono text-xs font-bold tracking-wider text-[#1A1917] block">
+                    <span className={`font-mono text-xs font-bold tracking-wider block transition-colors ${
+                      isWorkspace ? 'text-[#C85A32]' : 'text-[#1A1917]'
+                    }`}>
                       SIGNAL LAB
                     </span>
                     <span className="text-[10px] text-[#75736E] font-medium block">
@@ -145,7 +161,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             aria-label="Modules List"
           >
             {MODULES.map((m) => {
-              const isActive = currentModuleNumber === m.moduleNumber;
+              const isActive = !isWorkspace && currentModuleNumber === m.moduleNumber;
 
               if (isCollapsed) {
                 /* COLLAPSED: ICONS ONLY (No writings, clean centered icon with tooltip) */
@@ -338,7 +354,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                 </div>
                 <nav className="flex flex-col gap-1" aria-label="Mobile Module Items">
                   {MODULES.map((m) => {
-                    const isActive = currentModuleNumber === m.moduleNumber;
+                    const isActive = !isWorkspace && currentModuleNumber === m.moduleNumber;
                     return (
                       <button
                         key={m.id}

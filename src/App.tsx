@@ -5,8 +5,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from './router';
-import { MODULES, findModuleByPathOrId } from './data/modules';
+import { MODULES, SignalModule, findModuleByPathOrId } from './data/modules';
 import { NavigationRail } from './components/NavigationRail';
+import { WorkspaceHeader } from './components/WorkspaceHeader';
+import { FeaturedWorkspace } from './components/FeaturedWorkspace';
+import { ModuleExplorer } from './components/ModuleExplorer';
 import { SettingsModal } from './components/SettingsModal';
 
 // Exact isolated component slots imported cleanly:
@@ -20,22 +23,26 @@ import Module7_Probability from './modules/Module7_Probability.jsx';
 
 export default function App() {
   const { currentPath, navigate } = useRouter();
+  const [activeSection, setActiveSection] = useState<'workspace' | 'modules' | 'module-view'>('workspace');
   const [currentModuleNumber, setCurrentModuleNumber] = useState<number>(1); // Default to Module 1 Convolution
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showSubtleGrid, setShowSubtleGrid] = useState<boolean>(false);
+  const [selectedHubModuleId, setSelectedHubModuleId] = useState<string>('convolution');
 
-  // Sync route path to currentModuleNumber, defaulting '/' to Module 1
+  // Sync route path to activeSection and currentModuleNumber
   useEffect(() => {
     if (currentPath === '/') {
-      navigate('/convolution');
+      setActiveSection('workspace');
     } else {
       const found = findModuleByPathOrId(currentPath);
       if (found) {
         setCurrentModuleNumber(found.moduleNumber);
+        setSelectedHubModuleId(found.id);
+        setActiveSection('module-view');
       }
     }
-  }, [currentPath, navigate]);
+  }, [currentPath]);
 
   // Jump directly to module by number (1 to 7 in original order)
   const handleSelectModuleNumber = useCallback(
@@ -43,6 +50,8 @@ export default function App() {
       const target = MODULES.find((m) => m.moduleNumber === num);
       if (target) {
         setCurrentModuleNumber(num);
+        setSelectedHubModuleId(target.id);
+        setActiveSection('module-view');
         navigate(target.path);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -79,11 +88,18 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentModuleNumber, handleSelectModuleNumber]);
 
+  const handleBrowseModules = () => {
+    setActiveSection('modules');
+    document.getElementById('module-explorer')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   // Render the active module component slot in original order
   const renderActiveModuleSlot = () => {
     const commonProps = {
       onNavigateHome: () => {
-        handleSelectModuleNumber(1);
+        setActiveSection('workspace');
+        navigate('/');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       },
       onNavigateModule: (pathOrNum: string | number) => {
         if (typeof pathOrNum === 'number') {
@@ -130,22 +146,54 @@ export default function App() {
         showSubtleGrid ? 'bg-[radial-gradient(#E6E4DD_1px,transparent_1px)] [background-size:24px_24px]' : ''
       }`}
     >
-      {/* 1. Collapsible Sidebar */}
+      {/* 1. Collapsible Sidebar (without Workspace Hub icon) */}
       <NavigationRail
+        currentSection={activeSection}
+        isWorkspaceHub={activeSection !== 'module-view'}
         currentModuleNumber={currentModuleNumber}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         onSelectModule={handleSelectModuleNumber}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onNavigateHome={() => handleSelectModuleNumber(1)}
+        onNavigateHome={() => {
+          setActiveSection('workspace');
+          navigate('/');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="animate-in fade-in duration-100">
-            {renderActiveModuleSlot()}
-          </div>
+          {activeSection === 'module-view' ? (
+            /* Dedicated Module Slot Workspace */
+            <div className="animate-in fade-in duration-100">
+              {renderActiveModuleSlot()}
+            </div>
+          ) : (
+            /* Primary Signal Lab Workspace Hub */
+            <div className="flex flex-col">
+              <WorkspaceHeader />
+
+              <FeaturedWorkspace
+                onOpenSignalExplorer={() => {
+                  const mod = findModuleByPathOrId('signals');
+                  if (mod) handleSelectModuleNumber(mod.moduleNumber);
+                }}
+                onBrowseModules={handleBrowseModules}
+              />
+
+              <ModuleExplorer
+                modules={MODULES}
+                selectedModuleId={selectedHubModuleId}
+                onSelectModule={(mod: SignalModule) => setSelectedHubModuleId(mod.id)}
+                onOpenWorkspace={(path: string) => {
+                  const m = findModuleByPathOrId(path);
+                  if (m) handleSelectModuleNumber(m.moduleNumber);
+                }}
+              />
+            </div>
+          )}
         </main>
 
         {/* Quiet Minimal Footer */}
