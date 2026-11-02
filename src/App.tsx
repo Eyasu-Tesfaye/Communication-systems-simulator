@@ -34,6 +34,8 @@ export default function App() {
   useEffect(() => {
     if (currentPath === '/') {
       setActiveSection('workspace');
+      setSelectedHubModuleId(MODULES[0].id);
+      setCurrentModuleNumber(MODULES[0].moduleNumber);
     } else {
       const found = findModuleByPathOrId(currentPath);
       if (found) {
@@ -58,6 +60,15 @@ export default function App() {
     },
     [navigate]
   );
+
+  // Return to workspace hub: always choose the first module (Module 1)
+  const handleNavigateHome = useCallback(() => {
+    setActiveSection('workspace');
+    setSelectedHubModuleId(MODULES[0].id);
+    setCurrentModuleNumber(MODULES[0].moduleNumber);
+    navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [navigate]);
 
   // Global keyboard shortcuts for instructor (keys 1-7, [ and ] for prev/next)
   useEffect(() => {
@@ -96,11 +107,7 @@ export default function App() {
   // Render the active module component slot in original order
   const renderActiveModuleSlot = () => {
     const commonProps = {
-      onNavigateHome: () => {
-        setActiveSection('workspace');
-        navigate('/');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      },
+      onNavigateHome: handleNavigateHome,
       onNavigateModule: (pathOrNum: string | number) => {
         if (typeof pathOrNum === 'number') {
           handleSelectModuleNumber(pathOrNum);
@@ -155,11 +162,7 @@ export default function App() {
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         onSelectModule={handleSelectModuleNumber}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onNavigateHome={() => {
-          setActiveSection('workspace');
-          navigate('/');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onNavigateHome={handleNavigateHome}
       />
 
       {/* Main Content Area */}
