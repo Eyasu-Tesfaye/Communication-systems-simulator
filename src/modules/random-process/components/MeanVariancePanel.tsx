@@ -1,45 +1,43 @@
 /**
- * Section 5: Mean and Variance
- * Dedicated temporal curves of ensemble mean mu(t) and ensemble variance sigma^2(t)
- * across the entire observation horizon t in [0, T], with mathematical formulations
- * and constancy tests for stationarity.
+ * Module 03: Topic 3 — Mean and Variance Over Time
+ * Temporal curves of ensemble mean mu_X(t) and variance sigma_X^2(t)
+ * across the entire observation horizon [0, T], with physical meanings.
  */
 
 import React, { useMemo } from 'react';
-import { Activity, BookOpen, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Activity, BookOpen, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { MathView } from '../../../components/MathView';
 import {
   EnsembleSimulationData,
   getInstantaneousStats,
 } from '../randomProcessEngine';
 
-interface MeanVarianceSectionProps {
+interface MeanVariancePanelProps {
   simulation: EnsembleSimulationData;
   simTime: number;
   onSeekTime: (t: number) => void;
   selectedRealizationIndex: number;
 }
 
-export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
+export const MeanVariancePanel: React.FC<MeanVariancePanelProps> = ({
   simulation,
   simTime,
   onSeekTime,
   selectedRealizationIndex,
 }) => {
   const { ensembleMean, ensembleVariance, timeSteps, params } = simulation;
-  const N = timeSteps.length;
   const T_MAX = params.tMax;
   const stats = getInstantaneousStats(simulation, simTime, selectedRealizationIndex);
 
-  // Bounds for Mean Plot [-3, +3]
+  // Mean Plot Bounds
   const meanMin = Math.min(-1.5, Math.min(...ensembleMean) - 0.4);
   const meanMax = Math.max(1.5, Math.max(...ensembleMean) + 0.4);
 
-  // Bounds for Variance Plot [0, maxVar]
+  // Variance Plot Bounds
   const varMax = Math.max(1.5, Math.max(...ensembleVariance) * 1.25);
 
   const PLOT_W = 760;
-  const PLOT_H = 220;
+  const PLOT_H = 200;
   const PAD_L = 60;
   const PAD_R = 30;
   const PAD_T = 25;
@@ -74,17 +72,12 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
 
   const cursorX = mapX(simTime);
 
-  // Constancy metric: variation over time
   const meanVariation = useMemo(() => {
-    const minM = Math.min(...ensembleMean);
-    const maxM = Math.max(...ensembleMean);
-    return maxM - minM;
+    return Math.max(...ensembleMean) - Math.min(...ensembleMean);
   }, [ensembleMean]);
 
   const varVariation = useMemo(() => {
-    const minV = Math.min(...ensembleVariance);
-    const maxV = Math.max(...ensembleVariance);
-    return maxV - minV;
+    return Math.max(...ensembleVariance) - Math.min(...ensembleVariance);
   }, [ensembleVariance]);
 
   const isMeanConstant = meanVariation < 0.65;
@@ -92,28 +85,12 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/20">
-            Section 05
-          </span>
-          <span className="text-xs text-[#75736E] font-medium">1st & 2nd Order Statistical Moments</span>
-        </div>
-        <h2 className="text-lg font-bold text-[#1A1917]">
-          Mean and Variance over Time
-        </h2>
-        <p className="text-xs sm:text-sm text-[#585651] mt-1 max-w-3xl leading-relaxed">
-          Observe how the ensemble mean <MathView math="\mu_X(t)" /> and ensemble variance <MathView math="\sigma_X^2(t)" /> evolve over the time horizon. Wide-Sense Stationarity (WSS) mandates that both mean and variance remain constant for all time.
-        </p>
-      </div>
-
-      {/* 2. Mean Graph Plot */}
+      {/* 1. Mean Trajectory Plot */}
       <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-[#1A1917]">
-              Ensemble Mean Trajectory <MathView math="\mu_X(t) = \mathbb{E}[X(t)]" />
+              1. Ensemble Mean Over Time <MathView math="\mu_X(t) = \mathbb{E}[X(t)]" />
             </span>
             <span
               className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold ${
@@ -122,7 +99,7 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
                   : 'bg-[#C85A32]/10 text-[#C85A32] border border-[#C85A32]/30'
               }`}
             >
-              {isMeanConstant ? 'Constant Mean (WSS Candidate)' : 'Time-Varying Mean (Non-Stationary)'}
+              {isMeanConstant ? 'Constant Mean (Stationary)' : 'Time-Varying Mean Drift'}
             </span>
           </div>
 
@@ -135,7 +112,7 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
           </div>
         </div>
 
-        <div className="relative w-full h-[220px] bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden flex items-center justify-center p-2">
+        <div className="relative w-full h-[200px] bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden flex items-center justify-center p-2">
           <svg
             viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
             preserveAspectRatio="xMidYMid meet"
@@ -149,7 +126,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               onSeekTime(parseFloat(newT.toFixed(2)));
             }}
           >
-            {/* Zero Axis */}
             <line
               x1={PAD_L}
               y1={mapMeanY(0)}
@@ -167,7 +143,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeWidth="1.5"
             />
 
-            {/* Mean Curve */}
             <path
               d={meanPathD}
               fill="none"
@@ -176,7 +151,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeLinecap="round"
             />
 
-            {/* Moving Cursor */}
             <line
               x1={cursorX}
               y1={PAD_T}
@@ -194,7 +168,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeWidth="2"
             />
 
-            {/* Ticks */}
             {[meanMin, 0, meanMax].map((mVal, i) => (
               <text
                 key={i}
@@ -209,7 +182,7 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
 
             <text
               x={PLOT_W - PAD_R}
-              y={PAD_T + innerH + 24}
+              y={PAD_T + innerH + 22}
               textAnchor="end"
               className="text-[10px] font-mono fill-[#1A1917] font-bold"
             >
@@ -221,18 +194,18 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               textAnchor="start"
               className="text-[10px] font-mono fill-[#1A1917] font-bold"
             >
-              Ensemble Mean μ_X(t)
+              Ensemble Mean μ_X(t) [V]
             </text>
           </svg>
         </div>
       </div>
 
-      {/* 3. Variance Graph Plot */}
+      {/* 2. Variance Trajectory Plot */}
       <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-[#1A1917]">
-              Ensemble Variance Trajectory <MathView math="\sigma_X^2(t) = \operatorname{Var}(X(t))" />
+              2. Ensemble Variance Over Time <MathView math="\sigma_X^2(t) = \operatorname{Var}(X(t))" />
             </span>
             <span
               className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold ${
@@ -253,7 +226,7 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
           </div>
         </div>
 
-        <div className="relative w-full h-[220px] bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden flex items-center justify-center p-2">
+        <div className="relative w-full h-[200px] bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden flex items-center justify-center p-2">
           <svg
             viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
             preserveAspectRatio="xMidYMid meet"
@@ -267,7 +240,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               onSeekTime(parseFloat(newT.toFixed(2)));
             }}
           >
-            {/* Axis Lines */}
             <line
               x1={PAD_L}
               y1={PAD_T + innerH}
@@ -285,7 +257,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeWidth="1.5"
             />
 
-            {/* Variance Curve */}
             <path
               d={varPathD}
               fill="none"
@@ -294,7 +265,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeLinecap="round"
             />
 
-            {/* Moving Cursor */}
             <line
               x1={cursorX}
               y1={PAD_T}
@@ -312,7 +282,6 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               strokeWidth="2"
             />
 
-            {/* Y Ticks */}
             {[0, varMax * 0.5, varMax].map((vVal, i) => (
               <text
                 key={i}
@@ -327,7 +296,7 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
 
             <text
               x={PLOT_W - PAD_R}
-              y={PAD_T + innerH + 24}
+              y={PAD_T + innerH + 22}
               textAnchor="end"
               className="text-[10px] font-mono fill-[#1A1917] font-bold"
             >
@@ -339,31 +308,31 @@ export const MeanVarianceSection: React.FC<MeanVarianceSectionProps> = ({
               textAnchor="start"
               className="text-[10px] font-mono fill-[#1A1917] font-bold"
             >
-              Ensemble Variance σ_X²(t)
+              Ensemble Variance σ_X²(t) [V²]
             </text>
           </svg>
         </div>
       </div>
 
-      {/* 4. Meaningful Explanation Grid */}
+      {/* 3. Physical Meaning Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
         <div className="p-4 bg-white rounded-lg border border-[#E6E4DD] shadow-2xs space-y-2">
           <div className="font-mono font-bold text-sm text-[#1A1917] flex items-center gap-1.5">
             <BookOpen className="w-4 h-4 text-[#C85A32]" />
-            <span>Physical Significance of Ensemble Mean</span>
+            <span>Physical Meaning of Mean Over Time</span>
           </div>
           <p className="text-[#585651] leading-relaxed">
-            In communication circuits, <MathView math="\mu_X(t)" /> corresponds to the deterministic or DC carrier envelope. If <MathView math="\mu_X(t) \equiv 0" />, the process is completely balanced with zero DC bias. If <MathView math="\mu_X(t)" /> drifts, it indicates baseline drift, thermal drift, or modulation by an underlying non-stationary signal.
+            The ensemble mean corresponds to the deterministic DC or carrier baseline component of the random process. When <MathView math="\mu_X(t) = 0" />, the process is completely zero-mean balanced. If the mean varies with time, the signal contains a non-stationary carrier drift or time-varying deterministic trend.
           </p>
         </div>
 
         <div className="p-4 bg-white rounded-lg border border-[#E6E4DD] shadow-2xs space-y-2">
           <div className="font-mono font-bold text-sm text-[#1A1917] flex items-center gap-1.5">
             <TrendingUp className="w-4 h-4 text-[#C85A32]" />
-            <span>Physical Significance of Ensemble Variance</span>
+            <span>Physical Meaning of Variance Over Time</span>
           </div>
           <p className="text-[#585651] leading-relaxed">
-            Variance <MathView math="\sigma_X^2(t)" /> represents the instantaneous AC noise power or statistical uncertainty around the mean. Constant variance confirms that noise level does not depend on absolute time. An expanding variance envelope indicates non-stationary volatility growth (e.g. cumulative drift or fading bursts).
+            Variance represents the instantaneous statistical spread or fluctuating noise power of the realizations around their mean. Constant variance proves that the noise intensity does not depend on absolute time. An expanding envelope demonstrates non-stationary volatility expansion over time.
           </p>
         </div>
       </div>

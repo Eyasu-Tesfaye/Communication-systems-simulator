@@ -1,7 +1,8 @@
 /**
- * Random Processes & Statistical Properties Engine
- * Rigorous stochastic simulation, ensemble operations, stationarity tests,
- * ergodicity evaluation, autocorrelation, PSD estimation, and distribution analysis.
+ * Module 03: Random Processes Engine
+ * Rigorous stochastic simulation, ensemble and time-average calculations,
+ * mean & variance over time, SSS and WSS stationarity tests, ergodicity,
+ * and autocorrelation analysis.
  */
 
 export type ProcessType =
@@ -21,10 +22,8 @@ export interface ProcessMeta {
   theoreticalMean: string;
   theoreticalVar: string;
   theoreticalRxx: string;
-  theoreticalPsd: string;
-  theoreticalPdfName: string;
   description: string;
-  telecomRelevance: string;
+  assumptions: string[];
 }
 
 export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
@@ -39,12 +38,14 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     theoreticalMean: '\\mathbb{E}[X(t)] = \\mu = 0',
     theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma^2',
     theoreticalRxx: 'R_{XX}(\\tau) = \\sigma^2 \\delta(\\tau)',
-    theoreticalPsd: 'S_{XX}(f) = \\frac{N_0}{2} = \\text{const}',
-    theoreticalPdfName: 'Gaussian (Normal) Distribution',
     description:
-      'Uncorrelated zero-mean Gaussian random variables at every instant. Demonstrates strict and wide-sense stationarity and complete ergodicity with flat spectral power.',
-    telecomRelevance:
-      'Standard thermal noise in front-end RF low-noise amplifiers (LNA), ADC quantizers, and AWGN benchmark channels.',
+      'Uncorrelated zero-mean Gaussian random variables at every instant. Strictly stationary, wide-sense stationary, and completely ergodic with zero memory.',
+    assumptions: [
+      'Independent and identically distributed (i.i.d.) Gaussian samples at each time instant',
+      'Zero mean: E[X(t)] = 0',
+      'Flat spectral density over the simulation Nyquist bandwidth',
+      'Zero temporal memory: correlation exists only at zero lag τ = 0',
+    ],
   },
   gaussian_bandlimited: {
     id: 'gaussian_bandlimited',
@@ -57,12 +58,14 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     theoreticalMean: '\\mathbb{E}[X(t)] = 0',
     theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma^2',
     theoreticalRxx: 'R_{XX}(\\tau) = \\sigma^2 \\operatorname{sinc}(2B\\tau) \\cos(2\\pi f_c \\tau)',
-    theoreticalPsd: 'S_{XX}(f) = \\begin{cases} \\frac{\\sigma^2}{2B}, & |f - f_c| \\le B \\\\ 0, & \\text{otherwise} \\end{cases}',
-    theoreticalPdfName: 'Gaussian (Normal) Distribution',
     description:
-      'Continuous-spectrum coloured Gaussian process filtered by a bandpass filter or synthesized by harmonic superposition (Rice method).',
-    telecomRelevance:
-      'Baseband filtered noise, Rayleigh and Rician channel fading envelopes, and pulse-shaped communication channels.',
+      'Continuous-spectrum coloured Gaussian process synthesized by harmonic superposition (Rice model). Stationary and ergodic with finite correlation time.',
+    assumptions: [
+      'Gaussian distribution confirmed by Central Limit Theorem over harmonic sum',
+      'Zero DC bias: E[X(t)] = 0',
+      'Finite coherence duration inversely proportional to bandwidth B',
+      'Time-invariant statistical generator mechanism',
+    ],
   },
   random_phase_sinusoid: {
     id: 'random_phase_sinusoid',
@@ -72,15 +75,17 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     isWss: true,
     isSss: false,
     isErgodic: true,
-    theoreticalMean: '\\mathbb{E}[X(t)] = \\int_{-\\pi}^{\\pi} \\frac{A}{2\\pi}\\cos(\\omega_0 t + \\theta) d\\theta = 0',
+    theoreticalMean: '\\mathbb{E}[X(t)] = \\int_{-\\pi}^{\\pi} \\frac{A}{2\\pi}\\cos(2\\pi f_0 t + \\theta) d\\theta = 0',
     theoreticalVar: '\\operatorname{Var}(X(t)) = \\frac{A^2}{2}',
     theoreticalRxx: 'R_{XX}(\\tau) = \\frac{A^2}{2} \\cos(2\\pi f_0 \\tau)',
-    theoreticalPsd: 'S_{XX}(f) = \\frac{A^2}{4} [\\delta(f - f_0) + \\delta(f + f_0)]',
-    theoreticalPdfName: 'Arcsine Distribution f(x) = \\frac{1}{\\pi\\sqrt{A^2 - x^2}}',
     description:
-      'Harmonic signal with uniformly distributed random phase Θ ~ U(-π, π). Mean is zero and autocorrelation depends strictly on lag τ, satisfying WSS.',
-    telecomRelevance:
-      'Unsynchronized carrier oscillators, radar Doppler echoes, and unmodulated local oscillator phase jitter.',
+      'Harmonic signal with uniformly distributed random phase Θ ~ U(-π, π). Ensemble mean is zero and autocorrelation depends strictly on lag τ, satisfying WSS.',
+    assumptions: [
+      'Phase Θ is uniform on [-π, π] and independent across realizations',
+      'Carrier frequency f0 and peak amplitude A are deterministic and constant',
+      'Ensemble mean integrates to zero identically for all t',
+      'Autocorrelation depends solely on lag difference τ = t1 - t2',
+    ],
   },
   non_stationary: {
     id: 'non_stationary',
@@ -93,24 +98,25 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     theoreticalMean: '\\mathbb{E}[X(t)] = \\mu(t) = A_d \\sin(2\\pi f_d t) + m_d(t - T/2)',
     theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma_0^2 \\left(0.4 + 1.2 \\frac{t}{T}\\right)',
     theoreticalRxx: 'R_{XX}(t_1, t_2) \\neq R_{XX}(t_1 - t_2)',
-    theoreticalPsd: 'S_{XX}(t, f) \\text{ (Time-dependent spectrum)}',
-    theoreticalPdfName: 'Time-varying shifted Gaussian',
     description:
-      'Process whose statistical distribution explicitly mutates over time: the ensemble mean drifts cyclically and linearly, while the variance envelope expands.',
-    telecomRelevance:
-      'Transient signal turn-on, battery depletion drift, Doppler frequency acceleration ramps, and non-stationary fading bursts.',
+      'Process with time-varying mean drift and expanding variance envelope. Violates SSS, WSS, and ergodicity.',
+    assumptions: [
+      'Systemic cyclical and linear trend drift applied to ensemble mean',
+      'Heteroscedastic variance expanding linearly across the time horizon',
+      'Joint distribution shifts over time; time average cannot match ensemble mean',
+    ],
   },
 };
 
 export interface ProcessParams {
   type: ProcessType;
-  realizationCount: number; // M (3 to 30)
-  sampleCount: number; // N (80 to 400)
+  realizationCount: number; // M (3 to 24)
+  sampleCount: number; // N (80 to 320)
   tMax: number; // Duration T in seconds (default 10)
   amplitude: number; // Signal scale A (0.5 to 3.0)
   noiseStd: number; // Noise std dev sigma (0.1 to 1.5)
   frequency: number; // Characteristic frequency f0 in Hz (0.2 to 2.5)
-  driftRate: number; // Non-stationary drift intensity (0 to 1.5)
+  driftRate: number; // Non-stationary drift intensity (0.2 to 2.0)
   seed: number;
 }
 
@@ -136,7 +142,7 @@ export function createRng(seed: number) {
   };
 }
 
-// Box-Muller standard normal generator using given RNG
+// Box-Muller standard normal generator
 export function normalSample(rng: () => number, mu = 0, sigma = 1): number {
   let u1 = rng();
   while (u1 <= 1e-12) u1 = rng();
@@ -161,7 +167,8 @@ export interface EnsembleSimulationData {
   ensembleStdDev: number[]; // Length N: sigma(t)
   timeAverages: number[]; // Length M: time-mean for each realization
   timeVariances: number[]; // Length M: time-variance for each realization
-  pooledSamples: number[]; // All M * N samples
+  grandEnsembleMean: number;
+  grandEnsembleVariance: number;
 }
 
 // Generate the complete ensemble simulation
@@ -187,16 +194,11 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
   }
 
   // Pre-generate realization-specific random variables
-  // Realization phase offsets Theta_i ~ U(-pi, pi)
   const phases: number[] = new Array(M);
-  // Realization DC offsets
-  const dcOffsets: number[] = new Array(M);
-  // For bandlimited sum of sinusoids: multi-tone parameters per realization
   const harmonicPacks: Array<Array<{ f: number; a: number; phi: number }>> = [];
 
   for (let i = 0; i < M; i++) {
     phases[i] = (rng() * 2 - 1) * Math.PI;
-    dcOffsets[i] = (rng() - 0.5) * 0.2;
 
     const harmonics: Array<{ f: number; a: number; phi: number }> = [];
     const numHarmonics = 8;
@@ -211,7 +213,6 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
 
   // Generate M trajectories
   const trajectories: TrajectoryPoint[][] = [];
-  const pooledSamples: number[] = [];
 
   for (let i = 0; i < M; i++) {
     const points: TrajectoryPoint[] = new Array(N);
@@ -224,13 +225,11 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
 
       switch (type) {
         case 'white_noise': {
-          // Pure independent AWGN at each sample instant
           val = normalSample(rng, 0, noiseStd);
           break;
         }
 
         case 'gaussian_bandlimited': {
-          // Bandlimited Gaussian process via sum-of-sinusoids + fine perturbation
           let sumHarmonics = 0;
           for (let h = 0; h < harmonics.length; h++) {
             sumHarmonics += harmonics[h].a * Math.cos(2 * Math.PI * harmonics[h].f * t + harmonics[h].phi);
@@ -241,7 +240,6 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
         }
 
         case 'random_phase_sinusoid': {
-          // A * cos(2*pi*f0*t + Theta_i) + additive white noise
           const carrier = A * Math.cos(2 * Math.PI * f0 * t + theta_i);
           const noise = normalSample(rng, 0, noiseStd);
           val = carrier + noise;
@@ -249,7 +247,6 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
         }
 
         case 'non_stationary': {
-          // Explicit time-dependent mean drift mu(t) + time-dependent variance envelope
           const meanDrift =
             driftRate * (1.2 * Math.sin(2 * Math.PI * (f0 * 0.3) * t) + 0.18 * (t - tMax / 2));
           const varEnvelope = Math.sqrt(0.35 + 1.25 * (t / tMax));
@@ -265,7 +262,6 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
       }
 
       points[k] = { t, x: val };
-      pooledSamples.push(val);
     }
     trajectories.push(points);
   }
@@ -313,6 +309,9 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     timeVariances[i] = N > 1 ? varSum / (N - 1) : 0;
   }
 
+  const grandEnsembleMean = ensembleMean.reduce((a, b) => a + b, 0) / N;
+  const grandEnsembleVariance = ensembleVariance.reduce((a, b) => a + b, 0) / N;
+
   return {
     params,
     timeSteps,
@@ -324,7 +323,8 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     ensembleStdDev,
     timeAverages,
     timeVariances,
-    pooledSamples,
+    grandEnsembleMean,
+    grandEnsembleVariance,
   };
 }
 
@@ -340,7 +340,8 @@ export interface InstantaneousStats {
   ensembleStdDev: number;
   confidenceLower: number; // mu - 1.96 * sigma
   confidenceUpper: number; // mu + 1.96 * sigma
-  timeAvgRealization1: number;
+  timeAvgSelected: number;
+  timeVarSelected: number;
   ergodicityDelta: number; // |timeAvg - ensembleMean|
   isStationaryConsistent: boolean;
 }
@@ -350,11 +351,10 @@ export function getInstantaneousStats(
   simTime: number,
   selectedRealizationIndex: number
 ): InstantaneousStats {
-  const { timeSteps, trajectories, ensembleMean, ensembleVariance, ensembleStdDev, timeAverages } = sim;
+  const { timeSteps, trajectories, ensembleMean, ensembleVariance, ensembleStdDev, timeAverages, timeVariances } = sim;
   const N = timeSteps.length;
   const M = trajectories.length;
 
-  // Find nearest time index
   const clampedT = Math.max(0, Math.min(sim.params.tMax, simTime));
   const timeIndex = Math.min(
     N - 1,
@@ -373,8 +373,9 @@ export function getInstantaneousStats(
   const variance = ensembleVariance[timeIndex];
   const sigma = ensembleStdDev[timeIndex];
 
-  const timeAvg1 = timeAverages[safeRealizationIdx] ?? 0;
-  const ergodicityDelta = Math.abs(timeAvg1 - mu);
+  const timeAvgSelected = timeAverages[safeRealizationIdx] ?? 0;
+  const timeVarSelected = timeVariances[safeRealizationIdx] ?? 0;
+  const ergodicityDelta = Math.abs(timeAvgSelected - mu);
 
   const isStationaryConsistent =
     sim.params.type !== 'non_stationary' && ergodicityDelta < 0.65;
@@ -390,7 +391,8 @@ export function getInstantaneousStats(
     ensembleStdDev: sigma,
     confidenceLower: mu - 1.96 * sigma,
     confidenceUpper: mu + 1.96 * sigma,
-    timeAvgRealization1: timeAvg1,
+    timeAvgSelected,
+    timeVarSelected,
     ergodicityDelta,
     isStationaryConsistent,
   };
@@ -401,14 +403,16 @@ export interface AutocorrelationResult {
   lags: number[]; // Lag times in seconds
   lagIndices: number[]; // Integer lag indices -maxLag .. +maxLag
   ensembleRxx: number[]; // Average of realization autocorrelations
-  primaryTrajectoryRxx: number[]; // Single-realization autocorrelation
+  selectedTrajectoryRxx: number[]; // Single-realization autocorrelation
   theoreticalRxx: number[]; // Exact mathematical curve
   peakValue: number; // R_XX(0)
   totalPower: number;
+  correlationTime: number; // Approximate tau_c where R(tau) drops to 1/e
 }
 
 export function computeAutocorrelation(
   sim: EnsembleSimulationData,
+  selectedRealizationIndex: number,
   maxLagFraction: number = 0.4
 ): AutocorrelationResult {
   const { trajectories, timeSteps, dt, params } = sim;
@@ -420,7 +424,7 @@ export function computeAutocorrelation(
   const lags: number[] = new Array(lagCount);
   const lagIndices: number[] = new Array(lagCount);
   const ensembleRxx: number[] = new Array(lagCount).fill(0);
-  const primaryTrajectoryRxx: number[] = new Array(lagCount).fill(0);
+  const selectedTrajectoryRxx: number[] = new Array(lagCount).fill(0);
   const theoreticalRxx: number[] = new Array(lagCount).fill(0);
 
   for (let idx = 0; idx < lagCount; idx++) {
@@ -429,7 +433,9 @@ export function computeAutocorrelation(
     lags[idx] = m * dt;
   }
 
-  // Calculate sample autocorrelation for each realization using unbiased lag estimator
+  const safeIdx = Math.max(0, Math.min(M - 1, selectedRealizationIndex));
+
+  // Calculate sample autocorrelation using unbiased lag estimator
   for (let i = 0; i < M; i++) {
     const x = trajectories[i].map((p) => p.x);
     for (let idx = 0; idx < lagCount; idx++) {
@@ -452,8 +458,8 @@ export function computeAutocorrelation(
 
       const rVal = count > 0 ? sum / count : 0;
       ensembleRxx[idx] += rVal / M;
-      if (i === 0) {
-        primaryTrajectoryRxx[idx] = rVal;
+      if (i === safeIdx) {
+        selectedTrajectoryRxx[idx] = rVal;
       }
     }
   }
@@ -467,26 +473,22 @@ export function computeAutocorrelation(
     const tau = lags[idx];
     switch (params.type) {
       case 'white_noise': {
-        // Delta peak at tau = 0
         theoreticalRxx[idx] = Math.abs(tau) < dt * 0.8 ? sig * sig : 0;
         break;
       }
       case 'random_phase_sinusoid': {
-        // (A^2 / 2) * cos(2*pi*f0*tau) + sig^2 * delta(tau)
-        const carrier = (A * A) / 2 * Math.cos(2 * Math.PI * f0 * tau);
+        const carrier = ((A * A) / 2) * Math.cos(2 * Math.PI * f0 * tau);
         const noise = Math.abs(tau) < dt * 0.8 ? sig * sig : 0;
         theoreticalRxx[idx] = carrier + noise;
         break;
       }
       case 'gaussian_bandlimited': {
-        // Bandlimited sinc envelope * carrier
-        const sinc = Math.abs(tau) < 1e-6 ? 1 : Math.sin(2 * Math.PI * f0 * tau) / (2 * Math.PI * f0 * tau);
+        const sinc =
+          Math.abs(tau) < 1e-6 ? 1 : Math.sin(2 * Math.PI * f0 * tau) / (2 * Math.PI * f0 * tau);
         theoreticalRxx[idx] = (A * A * 0.5 + sig * sig) * sinc;
         break;
       }
       case 'non_stationary': {
-        // In non-stationary regime, autocorrelation depends on t1 and t2, not just tau
-        // We provide the empirical ensemble average as reference
         theoreticalRxx[idx] = ensembleRxx[idx];
         break;
       }
@@ -497,347 +499,187 @@ export function computeAutocorrelation(
   const peakValue = ensembleRxx[zeroIdx];
   const totalPower = peakValue;
 
+  // Correlation time estimation (where envelope drops to 1/e of peak)
+  let correlationTime = dt;
+  const threshold = peakValue / Math.E;
+  for (let idx = zeroIdx + 1; idx < lagCount; idx++) {
+    if (ensembleRxx[idx] <= threshold) {
+      correlationTime = lags[idx];
+      break;
+    }
+  }
+
   return {
     lags,
     lagIndices,
     ensembleRxx,
-    primaryTrajectoryRxx,
+    selectedTrajectoryRxx,
     theoreticalRxx,
     peakValue,
     totalPower,
+    correlationTime,
   };
 }
 
-// Compute Power Spectral Density (PSD) via Welch/Periodogram FFT
-export interface PsdResult {
-  frequencies: number[]; // Frequency in Hz [0, fs/2]
-  ensemblePsd: number[]; // Power per Hz (Linear)
-  ensemblePsdDb: number[]; // Power in dB
-  theoreticalPsd: number[];
-  peakFrequency: number;
-  totalBandwidth: number;
+// Stationarity Diagnostic Results
+export interface StationarityDiagnostics {
+  meanMin: number;
+  meanMax: number;
+  meanRange: number;
+  passesMeanTest: boolean;
+  varMin: number;
+  varMax: number;
+  varRange: number;
+  passesVarTest: boolean;
+  lagSymmetryError: number;
+  passesLagSymmetry: boolean;
+  empiricalWssStatus: 'Pass' | 'Fail';
+  theoreticalWssStatus: boolean;
+  theoreticalSssStatus: boolean;
+  finiteDataNotice: string;
 }
 
-export function computePsd(sim: EnsembleSimulationData): PsdResult {
-  const { trajectories, dt, samplingFreq, params } = sim;
-  const M = trajectories.length;
-  const N = trajectories[0].length;
+export function evaluateStationarity(
+  sim: EnsembleSimulationData,
+  autocorr: AutocorrelationResult
+): StationarityDiagnostics {
+  const { ensembleMean, ensembleVariance, params } = sim;
+  const meta = PROCESS_CATALOG[params.type];
 
-  // Use power of 2 or adequate resolution FFT length
-  const nFft = 256;
-  const halfFft = nFft / 2;
-  const df = samplingFreq / nFft;
+  const meanMin = Math.min(...ensembleMean);
+  const meanMax = Math.max(...ensembleMean);
+  const meanRange = meanMax - meanMin;
 
-  const frequencies: number[] = new Array(halfFft);
-  for (let k = 0; k < halfFft; k++) {
-    frequencies[k] = k * df;
+  const varMin = Math.min(...ensembleVariance);
+  const varMax = Math.max(...ensembleVariance);
+  const varRange = varMax - varMin;
+
+  const passesMeanTest = meanRange < 0.65;
+  const passesVarTest = varRange < 0.85;
+
+  // Check even symmetry R(tau) == R(-tau)
+  const half = Math.floor(autocorr.lags.length / 2);
+  let symDiffSum = 0;
+  for (let i = 1; i <= half; i++) {
+    const left = autocorr.ensembleRxx[half - i];
+    const right = autocorr.ensembleRxx[half + i];
+    symDiffSum += Math.abs(left - right);
   }
+  const lagSymmetryError = half > 0 ? symDiffSum / half : 0;
+  const passesLagSymmetry = lagSymmetryError < 0.25;
 
-  const ensemblePsd: number[] = new Array(halfFft).fill(0);
+  const empiricalWssStatus =
+    passesMeanTest && passesVarTest && passesLagSymmetry && meta.isWss ? 'Pass' : 'Fail';
 
-  // Hann window to suppress spectral leakage
-  const window: number[] = new Array(N);
-  let winSumSq = 0;
-  for (let k = 0; k < N; k++) {
-    const w = 0.5 * (1 - Math.cos((2 * Math.PI * k) / (N - 1)));
-    window[k] = w;
-    winSumSq += w * w;
-  }
+  return {
+    meanMin,
+    meanMax,
+    meanRange,
+    passesMeanTest,
+    varMin,
+    varMax,
+    varRange,
+    passesVarTest,
+    lagSymmetryError,
+    passesLagSymmetry,
+    empiricalWssStatus,
+    theoreticalWssStatus: meta.isWss,
+    theoreticalSssStatus: meta.isSss,
+    finiteDataNotice:
+      'Numerical evaluation on finite sample paths is indicative of WSS consistency but does not constitute a formal mathematical proof of SSS or WSS.',
+  };
+}
 
-  // Periodogram calculation averaged across M realizations
-  for (let i = 0; i < M; i++) {
-    const x = trajectories[i].map((p, idx) => p.x * window[idx]);
+// Documented Assumptions & Results Generation
+export interface DocumentedReport {
+  assumptions: {
+    realizationCount: number;
+    sampleCount: number;
+    tMax: number;
+    dt: number;
+    samplingFreq: number;
+    processType: string;
+    description: string;
+    statisticalAssumptions: string[];
+    approximations: string[];
+  };
+  results: {
+    simTime: number;
+    instantaneousEnsembleMean: number;
+    instantaneousEnsembleVariance: number;
+    timeMeanSelected: number;
+    timeVarSelected: number;
+    ergodicityMeanGap: number;
+    ergodicityVarGap: number;
+    autocorrZeroLagPower: number;
+    estimatedCorrelationTime: number;
+    stationarityResult: 'Pass' | 'Fail';
+    engineeringInterpretation: string;
+  };
+}
 
-    // DFT for positive frequencies
-    for (let k = 0; k < halfFft; k++) {
-      let re = 0;
-      let im = 0;
-      const omega = (2 * Math.PI * k) / nFft;
+export function generateDocumentedReport(
+  sim: EnsembleSimulationData,
+  simTime: number,
+  selectedRealizationIndex: number,
+  autocorr: AutocorrelationResult,
+  stationarity: StationarityDiagnostics
+): DocumentedReport {
+  const meta = PROCESS_CATALOG[sim.params.type];
+  const stats = getInstantaneousStats(sim, simTime, selectedRealizationIndex);
 
-      for (let n = 0; n < N; n++) {
-        const angle = omega * n;
-        re += x[n] * Math.cos(angle);
-        im -= x[n] * Math.sin(angle);
-      }
+  const meanGap = Math.abs(stats.timeAvgSelected - stats.ensembleMean);
+  const varGap = Math.abs(stats.timeVarSelected - stats.ensembleVariance);
 
-      // Periodogram power scaling
-      const power = (re * re + im * im) / (samplingFreq * winSumSq);
-      ensemblePsd[k] += power / M;
-    }
-  }
-
-  // dB scale with safety floor
-  const ensemblePsdDb: number[] = ensemblePsd.map((p) =>
-    10 * Math.log10(Math.max(1e-9, p))
-  );
-
-  // Theoretical PSD shape
-  const theoreticalPsd: number[] = new Array(halfFft).fill(0);
-  const A = params.amplitude;
-  const f0 = params.frequency;
-  const sig = params.noiseStd;
-
-  for (let k = 0; k < halfFft; k++) {
-    const f = frequencies[k];
-    switch (params.type) {
-      case 'white_noise': {
-        theoreticalPsd[k] = (sig * sig) / (samplingFreq / 2);
-        break;
-      }
-      case 'random_phase_sinusoid': {
-        // Gaussian spectral peak at f0 + noise floor
-        const delta = Math.abs(f - f0);
-        const impulseShape = ((A * A) / 4) * Math.exp(-(delta * delta) / (2 * (df * 1.5) * (df * 1.5))) / (df * Math.sqrt(2 * Math.PI));
-        const noiseFloor = (sig * sig) / (samplingFreq / 2);
-        theoreticalPsd[k] = impulseShape + noiseFloor;
-        break;
-      }
-      case 'gaussian_bandlimited': {
-        const bandwidth = f0 * 1.8;
-        const inBand = f <= bandwidth ? (A * A * 0.5) / bandwidth : 0;
-        theoreticalPsd[k] = inBand + (sig * sig) / (samplingFreq / 2);
-        break;
-      }
-      case 'non_stationary': {
-        theoreticalPsd[k] = ensemblePsd[k];
-        break;
-      }
-    }
-  }
-
-  // Find peak frequency
-  let maxP = -Infinity;
-  let peakFreq = 0;
-  for (let k = 1; k < halfFft; k++) {
-    if (ensemblePsd[k] > maxP) {
-      maxP = ensemblePsd[k];
-      peakFreq = frequencies[k];
-    }
+  let interpretation = '';
+  switch (sim.params.type) {
+    case 'white_noise':
+      interpretation =
+        'AWGN exhibits zero temporal correlation beyond lag tau=0. Ensemble mean and time average both fluctuate closely around 0V, demonstrating full stationarity and ergodicity.';
+      break;
+    case 'gaussian_bandlimited':
+      interpretation =
+        'Coloured Gaussian process exhibits memory decay over finite correlation time tau_c. Statistical averages are stationary over time, and individual realization averages converge toward ensemble averages.';
+      break;
+    case 'random_phase_sinusoid':
+      interpretation =
+        'Harmonic carrier with uniform random phase Θ ~ U(-π, π). Averages to zero across realizations despite individual oscillatory paths, satisfying WSS and ergodicity in mean and autocorrelation.';
+      break;
+    case 'non_stationary':
+      interpretation =
+        'Non-stationary drift causes ensemble mean and variance to mutate across time. A single time average cannot predict the time-dependent ensemble mean, illustrating complete breakdown of stationarity and ergodicity.';
+      break;
   }
 
   return {
-    frequencies,
-    ensemblePsd,
-    ensemblePsdDb,
-    theoreticalPsd,
-    peakFrequency: peakFreq,
-    totalBandwidth: samplingFreq / 2,
+    assumptions: {
+      realizationCount: sim.params.realizationCount,
+      sampleCount: sim.params.sampleCount,
+      tMax: sim.params.tMax,
+      dt: sim.dt,
+      samplingFreq: sim.samplingFreq,
+      processType: meta.name,
+      description: meta.description,
+      statisticalAssumptions: meta.assumptions,
+      approximations: [
+        'Finite ensemble size M (estimator variance scales as 1/M)',
+        'Finite observation window T = 10s (temporal discretization dt)',
+        'Unbiased sample autocorrelation estimator with tapering support',
+        'Box-Muller normal approximation for stochastic noise components',
+      ],
+    },
+    results: {
+      simTime,
+      instantaneousEnsembleMean: stats.ensembleMean,
+      instantaneousEnsembleVariance: stats.ensembleVariance,
+      timeMeanSelected: stats.timeAvgSelected,
+      timeVarSelected: stats.timeVarSelected,
+      ergodicityMeanGap: meanGap,
+      ergodicityVarGap: varGap,
+      autocorrZeroLagPower: autocorr.peakValue,
+      estimatedCorrelationTime: autocorr.correlationTime,
+      stationarityResult: stationarity.empiricalWssStatus,
+      engineeringInterpretation: interpretation,
+    },
   };
-}
-
-// Compute Empirical Histogram & Distribution Analysis (ProbStat integration)
-export interface HistogramBin {
-  x0: number;
-  x1: number;
-  center: number;
-  count: number;
-  density: number;
-}
-
-export interface DistributionAnalysisData {
-  sampleCount: number;
-  mean: number;
-  variance: number;
-  stdDev: number;
-  skewness: number;
-  kurtosis: number;
-  min: number;
-  max: number;
-  median: number;
-  iqr: number;
-  bins: HistogramBin[];
-  kdePoints: Array<{ x: number; y: number }>;
-  analyticalPdf: Array<{ x: number; y: number }>;
-  empiricalCdf: Array<{ x: number; y: number }>;
-  analyticalCdf: Array<{ x: number; y: number }>;
-}
-
-export function computeDistributionAnalysis(
-  samples: number[],
-  processType: ProcessType,
-  params: ProcessParams,
-  binCount: number = 24
-): DistributionAnalysisData {
-  const clean = samples.filter((v) => !isNaN(v) && isFinite(v));
-  const n = clean.length;
-  if (n === 0) {
-    return {
-      sampleCount: 0,
-      mean: 0,
-      variance: 0,
-      stdDev: 0,
-      skewness: 0,
-      kurtosis: 0,
-      min: 0,
-      max: 0,
-      median: 0,
-      iqr: 0,
-      bins: [],
-      kdePoints: [],
-      analyticalPdf: [],
-      empiricalCdf: [],
-      analyticalCdf: [],
-    };
-  }
-
-  const sorted = [...clean].sort((a, b) => a - b);
-  const min = sorted[0];
-  const max = sorted[n - 1];
-
-  // Moments
-  let sum = 0;
-  for (let i = 0; i < n; i++) sum += sorted[i];
-  const mean = sum / n;
-
-  let sumSq = 0;
-  let sumCube = 0;
-  let sumFourth = 0;
-  for (let i = 0; i < n; i++) {
-    const dev = sorted[i] - mean;
-    const d2 = dev * dev;
-    sumSq += d2;
-    sumCube += d2 * dev;
-    sumFourth += d2 * d2;
-  }
-
-  const variance = n > 1 ? sumSq / (n - 1) : 0;
-  const stdDev = Math.sqrt(variance);
-
-  let skewness = 0;
-  if (n > 2 && stdDev > 1e-6) {
-    const m3 = sumCube / n;
-    skewness = m3 / Math.pow(stdDev, 3);
-  }
-
-  let kurtosis = 0;
-  if (n > 3 && variance > 1e-6) {
-    const m4 = sumFourth / n;
-    kurtosis = m4 / Math.pow(variance, 2) - 3; // Excess kurtosis
-  }
-
-  const median = sorted[Math.floor(n * 0.5)];
-  const q1 = sorted[Math.floor(n * 0.25)];
-  const q3 = sorted[Math.floor(n * 0.75)];
-  const iqr = q3 - q1;
-
-  // Bins
-  const padding = (max - min) * 0.05 || 0.5;
-  const xMin = min - padding;
-  const xMax = max + padding;
-  const binWidth = (xMax - xMin) / binCount;
-
-  const bins: HistogramBin[] = [];
-  for (let b = 0; b < binCount; b++) {
-    const x0 = xMin + b * binWidth;
-    const x1 = x0 + binWidth;
-    bins.push({
-      x0,
-      x1,
-      center: (x0 + x1) / 2,
-      count: 0,
-      density: 0,
-    });
-  }
-
-  for (let i = 0; i < n; i++) {
-    const val = sorted[i];
-    const bIdx = Math.min(binCount - 1, Math.max(0, Math.floor((val - xMin) / binWidth)));
-    bins[bIdx].count++;
-  }
-
-  for (let b = 0; b < binCount; b++) {
-    bins[b].density = bins[b].count / (n * binWidth);
-  }
-
-  // Gaussian Kernel Density Estimation (Silverman's rule of thumb bandwidth)
-  const bandwidth = Math.max(0.08, 1.06 * stdDev * Math.pow(n, -0.2));
-  const numGrid = 100;
-  const kdePoints: Array<{ x: number; y: number }> = [];
-
-  for (let g = 0; g <= numGrid; g++) {
-    const x = xMin + (g / numGrid) * (xMax - xMin);
-    let kdeSum = 0;
-    for (let i = 0; i < n; i++) {
-      const u = (x - sorted[i]) / bandwidth;
-      kdeSum += Math.exp(-0.5 * u * u);
-    }
-    const y = kdeSum / (n * bandwidth * Math.sqrt(2 * Math.PI));
-    kdePoints.push({ x, y });
-  }
-
-  // Analytical PDF & CDF
-  const analyticalPdf: Array<{ x: number; y: number }> = [];
-  const analyticalCdf: Array<{ x: number; y: number }> = [];
-  const A = params.amplitude;
-  const s = Math.max(0.05, stdDev);
-
-  for (let g = 0; g <= numGrid; g++) {
-    const x = xMin + (g / numGrid) * (xMax - xMin);
-    let pdfVal = 0;
-    let cdfVal = 0;
-
-    if (processType === 'random_phase_sinusoid') {
-      // Arcsine distribution f(x) = 1 / (pi * sqrt(A^2 - x^2)) for |x| < A convolved with noise
-      if (Math.abs(x) < A * 0.98) {
-        pdfVal = 1 / (Math.PI * Math.sqrt(Math.max(1e-4, A * A - x * x)));
-      } else {
-        pdfVal = 1 / (Math.PI * Math.sqrt(Math.max(1e-4, A * A - (A * 0.98) * (A * 0.98)))) * Math.exp(-Math.pow(Math.abs(x) - A, 2) / (2 * s * s));
-      }
-      // Analytical CDF of Arcsine distribution
-      if (x <= -A) cdfVal = 0;
-      else if (x >= A) cdfVal = 1;
-      else cdfVal = 0.5 + Math.asin(x / A) / Math.PI;
-    } else {
-      // Gaussian distribution for AWGN, bandlimited Gaussian, and general processes
-      const z = (x - mean) / s;
-      pdfVal = (1 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
-      // Normal CDF via error function approximation
-      cdfVal = 0.5 * (1 + approxErf(z / Math.SQRT2));
-    }
-
-    analyticalPdf.push({ x, y: pdfVal });
-    analyticalCdf.push({ x, y: Math.max(0, Math.min(1, cdfVal)) });
-  }
-
-  // Empirical CDF points
-  const empiricalCdf: Array<{ x: number; y: number }> = [];
-  const cdfStep = Math.max(1, Math.floor(n / 60));
-  for (let i = 0; i < n; i += cdfStep) {
-    empiricalCdf.push({ x: sorted[i], y: (i + 1) / n });
-  }
-  empiricalCdf.push({ x: sorted[n - 1], y: 1.0 });
-
-  return {
-    sampleCount: n,
-    mean,
-    variance,
-    stdDev,
-    skewness,
-    kurtosis,
-    min,
-    max,
-    median,
-    iqr,
-    bins,
-    kdePoints,
-    analyticalPdf,
-    empiricalCdf,
-    analyticalCdf,
-  };
-}
-
-// Polynomial error function approximation (Abramowitz & Stegun)
-function approxErf(x: number): number {
-  const sign = x >= 0 ? 1 : -1;
-  const absX = Math.abs(x);
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-
-  const t = 1.0 / (1.0 + p * absX);
-  const y = 1.0 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-absX * absX);
-  return sign * y;
 }

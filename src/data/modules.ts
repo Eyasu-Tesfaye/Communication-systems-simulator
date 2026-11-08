@@ -79,28 +79,28 @@ export const MODULES: SignalModule[] = [
     id: 'random-processes',
     moduleNumber: 3,
     index: '03',
-    name: 'Random Processes & Statistical Properties',
-    shortName: 'Random Processes & Stats',
+    name: 'Random Process Properties',
+    shortName: 'Random Process',
     filename: 'Module3_RandomProcess.jsx',
     path: '/random-processes',
     legacyPaths: ['/module-3', '/module-6'],
-    description: 'Explore stochastic process generation, sample realizations, probability distributions (PDF/CDF), ensemble cross-sections, stationarity (SSS & WSS), ergodicity, autocorrelation, and PSD.',
-    tag: 'Stationarity & Probability',
+    description: 'Explore random-process realizations, ensemble and time averages, mean and variance over time, SSS and WSS stationarity tests, and ergodicity and autocorrelation.',
+    tag: 'Stationarity & Ergodicity',
     topics: [
-      'Stochastic Process Generation & Probability Distributions (PDF/CDF)',
+      'Ensemble Realizations vs. Time-Series Trajectories',
       'Strict-Sense & Wide-Sense Stationarity (SSS vs. WSS)',
-      'Ergodic Theorems, Autocorrelation Rxx(τ) & Power Spectral Density'
+      'Ergodic Theorems & Autocorrelation Analysis'
     ],
     formula: '\\mathbb{E}[X(t)] = \\mu_X, \\quad R_X(t_1, t_2) = R_X(t_1 - t_2)',
     formulaLabel: 'Wide-Sense Stationarity (WSS) Conditions',
     keywords: [
       'random', 'process', 'stochastic', 'stationarity', 'ergodicity',
-      'ensemble', 'realization', 'probability', 'pdf', 'cdf', 'psd', 'autocorrelation', 'wss', 'noise'
+      'ensemble', 'realization', 'time average', 'wss', 'sss', 'autocorrelation', 'noise'
     ],
     parameterHighlights: [
       'Ensemble Realizations (M)',
       'Time Horizon (T)',
-      'Distribution Model (PDF/CDF)',
+      'Stationarity Margin (Δμ)',
       'Correlation Lag (τ)'
     ]
   },

@@ -1,83 +1,95 @@
 /**
- * Module: Random Processes & Statistical Properties
- * Unified Educational Stochastic Simulation & Statistical Analysis Workbench
- * 
- * 9 Core Interactive Sections:
- * 1. Random Process Generation
- * 2. Sample Realizations
- * 3. Probability Distribution Analysis (ProbStat Studio Integration)
- * 4. Ensemble Analysis
- * 5. Mean and Variance
- * 6. Stationarity Analysis (SSS and WSS)
- * 7. Ergodicity
- * 8. Autocorrelation
- * 9. Power Spectral Density (PSD)
+ * Module 03: Random Processes Workspace
+ * Dedicated Educational Simulation & Analysis Workspace
+ *
+ * Strict Curricular Scope:
+ * 1. Random Processes and Sample Realizations
+ * 2. Ensemble and Time-Average Analysis
+ * 3. Mean and Variance Over Time
+ * 4. Strict-Sense Stationarity (SSS) and Wide-Sense Stationarity (WSS) Tests
+ * 5. Ergodicity and Autocorrelation Analysis
+ * 6. Dedicated Documented Assumptions and Results Area
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Sliders,
   Layers,
-  BarChart3,
-  Users,
   Activity,
   ShieldCheck,
   RefreshCw,
   GitBranch,
-  Radio,
-  ChevronLeft,
-  ChevronRight,
+  FileText,
   Maximize2,
   Minimize2,
+  Sparkles,
   BookOpen,
 } from 'lucide-react';
 
-import { PlaybackState } from '../../components/SimulationToolbar';
+import { PlaybackState, SimulationToolbar } from '../../components/SimulationToolbar';
+import { MathView } from '../../components/MathView';
 import {
+  ProcessType,
   ProcessParams,
   DEFAULT_PROCESS_PARAMS,
+  PROCESS_CATALOG,
   generateEnsembleSimulation,
+  computeAutocorrelation,
+  evaluateStationarity,
 } from './randomProcessEngine';
 
-import { ProcessGenerationSection } from './sections/ProcessGenerationSection';
-import { SampleRealizationsSection } from './sections/SampleRealizationsSection';
-import { DistributionAnalysisSection } from './sections/DistributionAnalysisSection';
-import { EnsembleAnalysisSection } from './sections/EnsembleAnalysisSection';
-import { MeanVarianceSection } from './sections/MeanVarianceSection';
-import { StationaritySection } from './sections/StationaritySection';
-import { ErgodicitySection } from './sections/ErgodicitySection';
-import { AutocorrelationSection } from './sections/AutocorrelationSection';
-import { PsdSection } from './sections/PsdSection';
+import { RandomProcessVisualizer } from './RandomProcessVisualizer';
+import { EnsembleTimeAveragePanel } from './components/EnsembleTimeAveragePanel';
+import { MeanVariancePanel } from './components/MeanVariancePanel';
+import { StationarityPanel } from './components/StationarityPanel';
+import { ErgodicityAutocorrPanel } from './components/ErgodicityAutocorrPanel';
+import { DocumentedReportPanel } from './components/DocumentedReportPanel';
 
-export type SectionId =
-  | 'generation'
-  | 'realizations'
-  | 'distribution'
-  | 'ensemble'
+export type WorkspaceTab =
+  | 'averages'
   | 'mean_var'
   | 'stationarity'
-  | 'ergodicity'
-  | 'autocorrelation'
-  | 'psd';
+  | 'ergodicity_autocorr'
+  | 'documented_report';
 
-interface SectionConfig {
-  id: SectionId;
-  num: string;
-  title: string;
-  shortTitle: string;
+interface TabConfig {
+  id: WorkspaceTab;
+  label: string;
+  shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-export const SECTIONS: SectionConfig[] = [
-  { id: 'generation', num: '01', title: 'Random Process Generation', shortTitle: '1. Generation', icon: Sliders },
-  { id: 'realizations', num: '02', title: 'Sample Realizations', shortTitle: '2. Realizations', icon: Layers },
-  { id: 'distribution', num: '03', title: 'Probability Distribution Analysis', shortTitle: '3. Distributions', icon: BarChart3 },
-  { id: 'ensemble', num: '04', title: 'Ensemble Analysis', shortTitle: '4. Ensemble Slice', icon: Users },
-  { id: 'mean_var', num: '05', title: 'Mean and Variance', shortTitle: '5. Mean & Var', icon: Activity },
-  { id: 'stationarity', num: '06', title: 'Stationarity Analysis (SSS & WSS)', shortTitle: '6. Stationarity', icon: ShieldCheck },
-  { id: 'ergodicity', num: '07', title: 'Ergodicity', shortTitle: '7. Ergodicity', icon: RefreshCw },
-  { id: 'autocorrelation', num: '08', title: 'Autocorrelation', shortTitle: '8. Autocorrelation', icon: GitBranch },
-  { id: 'psd', num: '09', title: 'Power Spectral Density (PSD)', shortTitle: '9. PSD Spectrum', icon: Radio },
+const WORKSPACE_TABS: TabConfig[] = [
+  {
+    id: 'averages',
+    label: 'Realizations & Ensemble vs. Time-Average',
+    shortLabel: '1. Ensemble & Time Averages',
+    icon: Layers,
+  },
+  {
+    id: 'mean_var',
+    label: 'Mean and Variance Over Time',
+    shortLabel: '2. Mean & Variance',
+    icon: Activity,
+  },
+  {
+    id: 'stationarity',
+    label: 'Stationarity Tests (SSS & WSS)',
+    shortLabel: '3. Stationarity Tests',
+    icon: ShieldCheck,
+  },
+  {
+    id: 'ergodicity_autocorr',
+    label: 'Ergodicity & Autocorrelation',
+    shortLabel: '4. Ergodicity & Autocorr',
+    icon: GitBranch,
+  },
+  {
+    id: 'documented_report',
+    label: 'Documented Assumptions & Results',
+    shortLabel: '5. Documented Report',
+    icon: FileText,
+  },
 ];
 
 const SPEED_FACTORS: Record<string, number> = {
@@ -92,19 +104,17 @@ interface RandomProcessesModuleProps {
   onNavigateHome?: () => void;
   onNavigateModule?: (pathOrNum: string | number) => void;
   isInstructorMode?: boolean;
-  initialSection?: SectionId;
 }
 
 export default function RandomProcessesModule({
   onNavigateHome,
   onNavigateModule,
   isInstructorMode = false,
-  initialSection = 'realizations',
 }: RandomProcessesModuleProps) {
-  // Navigation Section State
-  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
+  // Navigation Tab State
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('averages');
 
-  // Stochastic Process Parameters State
+  // Stochastic Parameters
   const [params, setParams] = useState<ProcessParams>(DEFAULT_PROCESS_PARAMS);
 
   // Playback & Animation State
@@ -113,17 +123,16 @@ export default function RandomProcessesModule({
   const [simTime, setSimTime] = useState<number>(1.5);
   const [selectedRealizationIndex, setSelectedRealizationIndex] = useState<number>(0);
 
-  // View Options
+  // Visualizer Layer Toggles
   const [isGridVisible, setIsGridVisible] = useState<boolean>(true);
   const [showEnvelope, setShowEnvelope] = useState<boolean>(true);
   const [showMeanCurve, setShowMeanCurve] = useState<boolean>(true);
   const [showAllRealizations, setShowAllRealizations] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false);
 
   const animFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
-
-  // Fullscreen container
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Handle ESC for fullscreen
@@ -141,6 +150,16 @@ export default function RandomProcessesModule({
   const simulation = useMemo(() => {
     return generateEnsembleSimulation(params);
   }, [params]);
+
+  // Calculate Autocorrelation
+  const autocorr = useMemo(() => {
+    return computeAutocorrelation(simulation, selectedRealizationIndex, 0.45);
+  }, [simulation, selectedRealizationIndex]);
+
+  // Calculate Stationarity Diagnostics
+  const stationarity = useMemo(() => {
+    return evaluateStationarity(simulation, autocorr);
+  }, [simulation, autocorr]);
 
   // Synchronized Animation Loop
   useEffect(() => {
@@ -195,24 +214,7 @@ export default function RandomProcessesModule({
     setParams((prev) => ({ ...prev, ...newParams }));
   }, []);
 
-  // Section Index for Prev/Next
-  const currentSectionIndex = useMemo(() => {
-    return SECTIONS.findIndex((s) => s.id === activeSection);
-  }, [activeSection]);
-
-  const handlePrevSection = () => {
-    if (currentSectionIndex > 0) {
-      setActiveSection(SECTIONS[currentSectionIndex - 1].id);
-      window.scrollTo({ top: 120, behavior: 'smooth' });
-    }
-  };
-
-  const handleNextSection = () => {
-    if (currentSectionIndex < SECTIONS.length - 1) {
-      setActiveSection(SECTIONS[currentSectionIndex + 1].id);
-      window.scrollTo({ top: 120, behavior: 'smooth' });
-    }
-  };
+  const currentMeta = PROCESS_CATALOG[params.type];
 
   return (
     <div
@@ -223,7 +225,7 @@ export default function RandomProcessesModule({
           : ''
       }`}
     >
-      {/* 1. Module Title & Context Banner */}
+      {/* 1. Header Banner */}
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-[#E6E4DD]">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -231,14 +233,14 @@ export default function RandomProcessesModule({
               MODULE 03
             </span>
             <span className="text-xs text-[#75736E] font-medium">
-              Unified Stochastic Systems & Statistical Properties
+              Stationarity, Ergodicity & Statistical Averages
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
-            Random Processes & Statistical Properties
+            Module 03 — Random Processes
           </h1>
           <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
-            Generate stochastic process ensembles, inspect individual sample paths, investigate probability distributions (PDF/CDF), evaluate strict and wide-sense stationarity, and verify ergodicity, autocorrelation, and power spectral density.
+            Stochastic process ensemble generation, individual sample paths, ensemble vs. time averages, mean & variance dynamics, strict and wide-sense stationarity tests, ergodicity, autocorrelation, and documented engineering analysis.
           </p>
         </div>
 
@@ -247,11 +249,11 @@ export default function RandomProcessesModule({
           <button
             type="button"
             onClick={handleReseed}
-            title="Generate new stochastic sample seeds"
+            title="Generate new realizations with new random seed"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-semibold text-[#585651] hover:text-[#1A1917] bg-white border border-[#E6E4DD] hover:border-[#8A8882] rounded-md shadow-2xs transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#C85A32]" />
-            <span>Re-seed Process</span>
+            <span>Generate New Realizations</span>
           </button>
 
           <button
@@ -285,136 +287,225 @@ export default function RandomProcessesModule({
         </div>
       </div>
 
-      {/* 2. Unified 9-Section Navigation Bar */}
-      <nav aria-label="Random Processes & Statistical Properties Sections" className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-[#75736E] font-semibold">
-            Module Curricular Sections (01–09)
+      {/* 2. Interactive Process Selector & Parameter Bar */}
+      <div className="mb-6 p-4 bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-[#C85A32]" />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#1A1917]">
+              Random Process Selection:
+            </span>
           </div>
 
-          {/* Prev / Next Section Quick Jump Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={currentSectionIndex === 0}
-              onClick={handlePrevSection}
-              className={`p-1.5 rounded border text-xs font-mono flex items-center gap-1 transition-colors ${
-                currentSectionIndex === 0
-                  ? 'border-[#E6E4DD] text-[#A8A69E] cursor-not-allowed'
-                  : 'bg-white border-[#E6E4DD] text-[#1A1917] hover:bg-[#FAF9F6] cursor-pointer'
-              }`}
-              title="Previous section"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Prev</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {(Object.keys(PROCESS_CATALOG) as ProcessType[]).map((typeKey) => {
+              const meta = PROCESS_CATALOG[typeKey];
+              const isSelected = params.type === typeKey;
 
-            <span className="text-xs font-mono text-[#75736E] px-1">
-              {currentSectionIndex + 1} / {SECTIONS.length}
-            </span>
-
-            <button
-              type="button"
-              disabled={currentSectionIndex === SECTIONS.length - 1}
-              onClick={handleNextSection}
-              className={`p-1.5 rounded border text-xs font-mono flex items-center gap-1 transition-colors ${
-                currentSectionIndex === SECTIONS.length - 1
-                  ? 'border-[#E6E4DD] text-[#A8A69E] cursor-not-allowed'
-                  : 'bg-white border-[#E6E4DD] text-[#1A1917] hover:bg-[#FAF9F6] cursor-pointer'
-              }`}
-              title="Next section"
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+              return (
+                <button
+                  key={typeKey}
+                  type="button"
+                  onClick={() => handleChangeParams({ type: typeKey })}
+                  className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#C85A32] text-white shadow-2xs ring-1 ring-[#C85A32]'
+                      : 'bg-white text-[#585651] border border-[#E6E4DD] hover:bg-[#F3F2EC]'
+                  }`}
+                >
+                  {meta.shortName}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Scrollable Section Strip */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1.5 p-1.5 bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg">
-          {SECTIONS.map((sec) => {
-            const isSelected = activeSection === sec.id;
-            const Icon = sec.icon;
+        {/* Parameter Sliders Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 pt-3 border-t border-[#E6E4DD]/70 text-xs">
+          <div>
+            <div className="flex justify-between font-mono mb-1">
+              <span className="text-[#75736E]">Realizations (M):</span>
+              <strong className="text-[#C85A32]">{params.realizationCount}</strong>
+            </div>
+            <input
+              type="range"
+              min="3"
+              max="20"
+              step="1"
+              value={params.realizationCount}
+              onChange={(e) => handleChangeParams({ realizationCount: parseInt(e.target.value, 10) })}
+              className="w-full accent-[#C85A32] cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between font-mono mb-1">
+              <span className="text-[#75736E]">Samples (N):</span>
+              <strong className="text-[#C85A32]">{params.sampleCount}</strong>
+            </div>
+            <input
+              type="range"
+              min="80"
+              max="300"
+              step="20"
+              value={params.sampleCount}
+              onChange={(e) => handleChangeParams({ sampleCount: parseInt(e.target.value, 10) })}
+              className="w-full accent-[#C85A32] cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between font-mono mb-1">
+              <span className="text-[#75736E]">Amplitude (A):</span>
+              <strong className="text-[#C85A32]">{params.amplitude.toFixed(1)} V</strong>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="3.0"
+              step="0.1"
+              value={params.amplitude}
+              onChange={(e) => handleChangeParams({ amplitude: parseFloat(e.target.value) })}
+              className="w-full accent-[#C85A32] cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between font-mono mb-1">
+              <span className="text-[#75736E]">Noise Std (σ):</span>
+              <strong className="text-[#C85A32]">{params.noiseStd.toFixed(2)} V</strong>
+            </div>
+            <input
+              type="range"
+              min="0.1"
+              max="1.2"
+              step="0.05"
+              value={params.noiseStd}
+              onChange={(e) => handleChangeParams({ noiseStd: parseFloat(e.target.value) })}
+              className="w-full accent-[#C85A32] cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between font-mono mb-1">
+              <span className="text-[#75736E]">Frequency (f₀):</span>
+              <strong className="text-[#C85A32]">{params.frequency.toFixed(1)} Hz</strong>
+            </div>
+            <input
+              type="range"
+              min="0.2"
+              max="2.0"
+              step="0.1"
+              value={params.frequency}
+              onChange={(e) => handleChangeParams({ frequency: parseFloat(e.target.value) })}
+              className="w-full accent-[#C85A32] cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Simulation Controls Toolbar & Waveform Visualizer */}
+      <div className="space-y-3 mb-6">
+        <SimulationToolbar
+          playbackState={playbackState}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onReset={handleReset}
+          speed={speed}
+          onSpeedChange={setSpeed}
+          isGridVisible={isGridVisible}
+          onToggleGrid={() => setIsGridVisible(!isGridVisible)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+          isLiveSimulationReady={true}
+        />
+
+        <RandomProcessVisualizer
+          simulation={simulation}
+          simTime={simTime}
+          onSeekTime={setSimTime}
+          selectedRealizationIndex={selectedRealizationIndex}
+          onSelectRealization={setSelectedRealizationIndex}
+          showEnvelope={showEnvelope}
+          showMeanCurve={showMeanCurve}
+          showAllRealizations={showAllRealizations}
+          isGridVisible={isGridVisible}
+          heightClass="min-h-[420px]"
+        />
+
+        {/* Display Toggles */}
+        <div className="p-3 bg-white rounded-lg border border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="font-mono text-[#75736E] text-[11px] font-semibold uppercase">
+            Waveform Display Toggles:
+          </div>
+          <div className="flex flex-wrap items-center gap-2 font-mono">
+            <button
+              type="button"
+              onClick={() => setShowAllRealizations(!showAllRealizations)}
+              className={`px-2.5 py-1 rounded border text-xs transition-colors cursor-pointer ${
+                showAllRealizations
+                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                  : 'bg-white text-[#585651] border-[#E6E4DD] hover:bg-[#FAF9F6]'
+              }`}
+            >
+              {showAllRealizations ? 'All Realizations (1..M)' : 'Single Realization'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMeanCurve(!showMeanCurve)}
+              className={`px-2.5 py-1 rounded border text-xs transition-colors cursor-pointer ${
+                showMeanCurve
+                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                  : 'bg-white text-[#585651] border-[#E6E4DD] hover:bg-[#FAF9F6]'
+              }`}
+            >
+              {showMeanCurve ? 'Hide Mean Curve' : 'Show Mean Curve'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEnvelope(!showEnvelope)}
+              className={`px-2.5 py-1 rounded border text-xs transition-colors cursor-pointer ${
+                showEnvelope
+                  ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                  : 'bg-white text-[#585651] border-[#E6E4DD] hover:bg-[#FAF9F6]'
+              }`}
+            >
+              {showEnvelope ? 'Hide ±1σ Envelope' : 'Show ±1σ Envelope'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Dedicated 5-Section Workspace Tabs */}
+      <div className="mb-6">
+        <div className="flex border-b border-[#E6E4DD] gap-1 overflow-x-auto">
+          {WORKSPACE_TABS.map((tab) => {
+            const isSelected = activeTab === tab.id;
+            const Icon = tab.icon;
 
             return (
               <button
-                key={sec.id}
+                key={tab.id}
                 type="button"
-                onClick={() => setActiveSection(sec.id)}
-                className={`py-2 px-2 rounded-md text-left transition-all cursor-pointer flex flex-col justify-between ${
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-3 px-3.5 text-xs font-mono font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
                   isSelected
-                    ? 'bg-white text-[#C85A32] border border-[#C85A32]/40 shadow-xs ring-1 ring-[#C85A32]/25'
-                    : 'text-[#585651] hover:text-[#1A1917] hover:bg-white/70'
+                    ? 'border-[#C85A32] text-[#C85A32] bg-[#FAF9F6]/60'
+                    : 'border-transparent text-[#75736E] hover:text-[#1A1917] hover:bg-[#FAF9F6]/30'
                 }`}
-                title={sec.title}
               >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span
-                    className={`text-[9px] font-mono font-bold px-1 rounded ${
-                      isSelected ? 'bg-[#FBF4F0] text-[#C85A32]' : 'text-[#8A8882]'
-                    }`}
-                  >
-                    {sec.num}
-                  </span>
-                  <Icon
-                    className={`w-3.5 h-3.5 ${
-                      isSelected ? 'text-[#C85A32]' : 'text-[#8A8882]'
-                    }`}
-                  />
-                </div>
-                <span className="text-[11px] font-bold font-sans tracking-tight truncate block leading-tight">
-                  {sec.shortTitle.replace(/^\d+\.\s*/, '')}
-                </span>
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-[#C85A32]' : 'text-[#8A8882]'}`} />
+                <span>{tab.shortLabel}</span>
               </button>
             );
           })}
         </div>
-      </nav>
+      </div>
 
-      {/* 3. Active Section Stage */}
-      <main className="animate-in fade-in duration-100 pb-12">
-        {activeSection === 'generation' && (
-          <ProcessGenerationSection
-            params={params}
-            onChangeParams={handleChangeParams}
-            onReseed={handleReseed}
-          />
-        )}
-
-        {activeSection === 'realizations' && (
-          <SampleRealizationsSection
-            simulation={simulation}
-            simTime={simTime}
-            onSeekTime={setSimTime}
-            playbackState={playbackState}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onReset={handleReset}
-            speed={speed}
-            onSpeedChange={setSpeed}
-            isGridVisible={isGridVisible}
-            onToggleGrid={() => setIsGridVisible(!isGridVisible)}
-            selectedRealizationIndex={selectedRealizationIndex}
-            onSelectRealization={setSelectedRealizationIndex}
-            showEnvelope={showEnvelope}
-            onToggleEnvelope={() => setShowEnvelope(!showEnvelope)}
-            showMeanCurve={showMeanCurve}
-            onToggleMeanCurve={() => setShowMeanCurve(!showMeanCurve)}
-            showAllRealizations={showAllRealizations}
-            onToggleAllRealizations={() => setShowAllRealizations(!showAllRealizations)}
-          />
-        )}
-
-        {activeSection === 'distribution' && (
-          <DistributionAnalysisSection
-            simulation={simulation}
-            simTime={simTime}
-            selectedRealizationIndex={selectedRealizationIndex}
-          />
-        )}
-
-        {activeSection === 'ensemble' && (
-          <EnsembleAnalysisSection
+      {/* 5. Active Analysis Panel View */}
+      <main className="animate-in fade-in duration-100">
+        {activeTab === 'averages' && (
+          <EnsembleTimeAveragePanel
             simulation={simulation}
             simTime={simTime}
             onSeekTime={setSimTime}
@@ -423,8 +514,8 @@ export default function RandomProcessesModule({
           />
         )}
 
-        {activeSection === 'mean_var' && (
-          <MeanVarianceSection
+        {activeTab === 'mean_var' && (
+          <MeanVariancePanel
             simulation={simulation}
             simTime={simTime}
             onSeekTime={setSimTime}
@@ -432,70 +523,33 @@ export default function RandomProcessesModule({
           />
         )}
 
-        {activeSection === 'stationarity' && (
-          <StationaritySection simulation={simulation} />
+        {activeTab === 'stationarity' && (
+          <StationarityPanel
+            simulation={simulation}
+            autocorr={autocorr}
+            stationarity={stationarity}
+          />
         )}
 
-        {activeSection === 'ergodicity' && (
-          <ErgodicitySection
+        {activeTab === 'ergodicity_autocorr' && (
+          <ErgodicityAutocorrPanel
             simulation={simulation}
+            autocorr={autocorr}
             selectedRealizationIndex={selectedRealizationIndex}
             onSelectRealization={setSelectedRealizationIndex}
           />
         )}
 
-        {activeSection === 'autocorrelation' && (
-          <AutocorrelationSection simulation={simulation} />
-        )}
-
-        {activeSection === 'psd' && (
-          <PsdSection simulation={simulation} />
+        {activeTab === 'documented_report' && (
+          <DocumentedReportPanel
+            simulation={simulation}
+            simTime={simTime}
+            selectedRealizationIndex={selectedRealizationIndex}
+            autocorr={autocorr}
+            stationarity={stationarity}
+          />
         )}
       </main>
-
-      {/* 4. Bottom Sequential Navigation Helper */}
-      <footer className="mt-8 pt-5 border-t border-[#E6E4DD] flex items-center justify-between text-xs font-mono text-[#75736E]">
-        <button
-          type="button"
-          disabled={currentSectionIndex === 0}
-          onClick={handlePrevSection}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded border transition-colors ${
-            currentSectionIndex === 0
-              ? 'opacity-40 cursor-not-allowed border-[#E6E4DD]'
-              : 'hover:bg-[#FAF9F6] text-[#1A1917] border-[#E6E4DD] cursor-pointer'
-          }`}
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>
-            {currentSectionIndex > 0
-              ? `Previous: ${SECTIONS[currentSectionIndex - 1].shortTitle}`
-              : 'First Section'}
-          </span>
-        </button>
-
-        <span className="hidden sm:inline text-[11px]">
-          Section {SECTIONS[currentSectionIndex].num} of 09 ·{' '}
-          {SECTIONS[currentSectionIndex].title}
-        </span>
-
-        <button
-          type="button"
-          disabled={currentSectionIndex === SECTIONS.length - 1}
-          onClick={handleNextSection}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded border transition-colors ${
-            currentSectionIndex === SECTIONS.length - 1
-              ? 'opacity-40 cursor-not-allowed border-[#E6E4DD]'
-              : 'hover:bg-[#FAF9F6] text-[#1A1917] border-[#E6E4DD] cursor-pointer'
-          }`}
-        >
-          <span>
-            {currentSectionIndex < SECTIONS.length - 1
-              ? `Next: ${SECTIONS[currentSectionIndex + 1].shortTitle}`
-              : 'Completed All Sections'}
-          </span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </footer>
     </div>
   );
 }

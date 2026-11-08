@@ -1,23 +1,19 @@
 /**
- * Module 3: Random Processes & Statistical Properties
+ * Module 03: Random Process Properties
  * Filename: Module3_RandomProcess.jsx
  *
- * Unified Module combining Random Process Properties and ProbStat Studio.
- * Integrates all 9 curricular sections:
- * 1. Random Process Generation
- * 2. Sample Realizations
- * 3. Probability Distribution Analysis
- * 4. Ensemble Analysis
- * 5. Mean and Variance
- * 6. Stationarity Analysis (SSS and WSS)
- * 7. Ergodicity
- * 8. Autocorrelation
- * 9. Power Spectral Density (PSD)
+ * Dedicated Random Process Analysis Workspace:
+ * 1. Random Processes and Sample Realizations
+ * 2. Ensemble and Time-Average Analysis
+ * 3. Mean and Variance Over Time
+ * 4. Strict-Sense Stationarity (SSS) and Wide-Sense Stationarity (WSS) Tests
+ * 5. Ergodicity and Autocorrelation Analysis
+ * 6. Documented Assumptions and Results
  */
 
 import React from 'react';
 import RandomProcessesModule from './random-process/RandomProcessesModule';
 
 export default function Module3_RandomProcess(props) {
-  return <RandomProcessesModule {...props} initialSection="realizations" />;
+  return <RandomProcessesModule {...props} />;
 }
