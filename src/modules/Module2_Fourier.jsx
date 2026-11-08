@@ -39,17 +39,21 @@ import {
   Layers,
   Activity,
   Check,
+  ChevronDown,
 } from 'lucide-react';
 import { MathView } from '../components/MathView';
 import { SimulationToolbar } from '../components/SimulationToolbar';
+import { EpicycleVisualizer } from './fourier/EpicycleVisualizer';
+import { FourierTransformVisualizer } from './fourier/FourierTransformVisualizer';
 
 export default function Module2_Fourier({
   onNavigateHome,
   onNavigateModule,
   isInstructorMode = true,
 }) {
-  // Navigation & View Mode: '2d' (Synthesis & Spectrum) | '3d' (3D Time-Frequency Waterfall)
+  // Navigation & View Mode: '2d' | 'epicycles' | 'transform' | '3d'
   const [viewMode, setViewMode] = useState('2d');
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [isGridVisible, setIsGridVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -57,6 +61,13 @@ export default function Module2_Fourier({
   const [playbackState, setPlaybackState] = useState('paused');
   const [speed, setSpeed] = useState('1×');
   const [animTime, setAnimTime] = useState(0);
+  const [resetTrigger, setResetTrigger] = useState(0);
+
+  const handleResetAnimation = () => {
+    setPlaybackState('paused');
+    setAnimTime(0);
+    setResetTrigger((prev) => prev + 1);
+  };
 
   // Fourier Series Approximation Parameters
   const [signalType, setSignalType] = useState('square'); // 'square' | 'sawtooth' | 'triangle'
@@ -1001,7 +1012,7 @@ export default function Module2_Fourier({
     <div className="w-full">
       {/* Module Title Header */}
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-[#E6E4DD]">
-        <div>
+        <div className="flex-1 min-w-0 pr-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
               MODULE 02
@@ -1011,43 +1022,153 @@ export default function Module2_Fourier({
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
             Module 2: Fourier Analysis
           </h1>
-          <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
+          <p className="mt-1.5 text-sm sm:text-base text-[#585651] max-w-2xl leading-relaxed">
             Deconstruct complex signals into orthogonal harmonics. Explore continuous series synthesis, discrete magnitude spectra, and interactive 3D time-frequency waterfalls.
           </p>
         </div>
 
-        {/* View Mode Switcher: 2D Synthesis vs 3D Spatial Transformation */}
-        <div className="flex items-center bg-[#FAF9F6] p-1 rounded-md border border-[#E6E4DD] shrink-0 self-start md:self-auto shadow-2xs">
+        {/* Compact View Mode Dropdown Menu */}
+        <div className="relative shrink-0 self-start md:self-end">
           <button
             type="button"
-            onClick={() => setViewMode('2d')}
-            className={`px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === '2d'
-                ? 'bg-white shadow-2xs text-[#C85A32] border border-[#E6E4DD]'
-                : 'text-[#585651] hover:text-[#1A1917]'
-            }`}
+            onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+            className="flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] hover:border-[#C85A32]/60 text-[#1A1917] font-semibold text-xs shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+            aria-haspopup="true"
+            aria-expanded={isViewMenuOpen}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>2D Synthesis & Spectrum</span>
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-[#FBF4F0] text-[#C85A32]">
+                {viewMode === '2d' && <Sparkles className="w-3.5 h-3.5" />}
+                {viewMode === '3d' && <Box className="w-3.5 h-3.5" />}
+                {viewMode === 'epicycles' && <RotateCcw className="w-3.5 h-3.5" />}
+                {viewMode === 'transform' && <TrendingUp className="w-3.5 h-3.5" />}
+              </span>
+              <div className="text-left">
+                <div className="text-[10px] text-[#75736E] uppercase font-mono tracking-wider font-semibold">
+                  Lab View
+                </div>
+                <div className="font-bold text-[#1A1917] leading-tight">
+                  {viewMode === '2d' && '2D Series & Spectrum'}
+                  {viewMode === '3d' && 'Interactive 3D Waterfall'}
+                  {viewMode === 'epicycles' && 'Phasor Epicycles (Drawing)'}
+                  {viewMode === 'transform' && 'Continuous Transform (CTFT)'}
+                </div>
+              </div>
+            </div>
+            <ChevronDown
+              className={`w-4 h-4 text-[#8A8882] transition-transform duration-200 ml-1 ${
+                isViewMenuOpen ? 'rotate-180 text-[#C85A32]' : ''
+              }`}
+            />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setViewMode('3d')}
-            className={`px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === '3d'
-                ? 'bg-white shadow-2xs text-[#C85A32] border border-[#E6E4DD]'
-                : 'text-[#585651] hover:text-[#1A1917]'
-            }`}
-          >
-            <Box className="w-3.5 h-3.5" />
-            <span>Interactive 3D Waterfall</span>
-          </button>
+          {/* Dropdown Menu Popover */}
+          {isViewMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setIsViewMenuOpen(false)}
+              />
+              <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-lg border border-[#E6E4DD] shadow-lg p-1.5 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                {[
+                  {
+                    id: '2d',
+                    label: '2D Series & Spectrum',
+                    desc: 'Time synthesis & 25-harmonic spectrum',
+                    icon: Sparkles,
+                  },
+                  {
+                    id: '3d',
+                    label: '3D Waterfall Space',
+                    desc: 'Time-frequency spatial waterfall simulation',
+                    icon: Box,
+                  },
+                  {
+                    id: 'epicycles',
+                    label: 'Phasor Epicycles',
+                    desc: 'Rotating harmonic chains & shape tracing',
+                    icon: RotateCcw,
+                  },
+                  {
+                    id: 'transform',
+                    label: 'Continuous Transform (CTFT)',
+                    desc: 'Elementary signals & live frequency transform',
+                    icon: TrendingUp,
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = viewMode === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setViewMode(item.id);
+                        setIsViewMenuOpen(false);
+                      }}
+                      className={`w-full flex items-start gap-2.5 p-2 rounded-md text-left transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FBF4F0] text-[#C85A32] font-semibold'
+                          : 'hover:bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917]'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-4 h-4 mt-0.5 shrink-0 ${
+                          isSelected ? 'text-[#C85A32]' : 'text-[#8A8882]'
+                        }`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`text-xs font-bold leading-tight ${
+                            isSelected ? 'text-[#C85A32]' : 'text-[#1A1917]'
+                          }`}
+                        >
+                          {item.label}
+                        </div>
+                        <div className="text-[10px] text-[#75736E] font-normal leading-tight mt-0.5">
+                          {item.desc}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-[#C85A32] shrink-0 mt-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Main Workspace Layout: Visualizer on Left, Controls on Right starting at EXACT SAME HEIGHT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Main Workspace Layout */}
+      {viewMode === 'epicycles' ? (
+        <div className="mb-8">
+          <EpicycleVisualizer
+            onToggleFullscreen={() => setIsFullscreen(true)}
+            isFullscreen={false}
+            playbackState={playbackState}
+            onTogglePlayback={() => setPlaybackState(playbackState === 'playing' ? 'paused' : 'playing')}
+            speed={speed}
+            onSpeedChange={setSpeed}
+            resetTrigger={resetTrigger}
+          />
+        </div>
+      ) : viewMode === 'transform' ? (
+        <div className="mb-8">
+          <FourierTransformVisualizer
+            onToggleFullscreen={() => setIsFullscreen(true)}
+            isFullscreen={false}
+            playbackState={playbackState}
+            onTogglePlayback={() => setPlaybackState(playbackState === 'playing' ? 'paused' : 'playing')}
+            speed={speed}
+            onSpeedChange={setSpeed}
+            resetTrigger={resetTrigger}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Interactive Visualization Stage */}
         <div className="lg:col-span-8 flex flex-col gap-4">
           {/* Integrated Simulation Toolbar Header - Perfectly Aligns Height with Right Controls */}
@@ -1079,10 +1200,7 @@ export default function Module2_Fourier({
               playbackState={playbackState}
               onPlay={() => setPlaybackState('playing')}
               onPause={() => setPlaybackState('paused')}
-              onReset={() => {
-                setPlaybackState('paused');
-                setAnimTime(0);
-              }}
+              onReset={handleResetAnimation}
               speed={speed}
               onSpeedChange={setSpeed}
               isGridVisible={isGridVisible}
@@ -1387,28 +1505,35 @@ export default function Module2_Fourier({
           </ul>
         </div>
       </div>
+      </>
+      )}
 
-      {/* FULLSCREEN IMMERSIVE LAB VIEW (Side-by-Side 2D, Maximized 3D Height, Non-Overlapping Sticky Controls) */}
+      {/* FULLSCREEN IMMERSIVE LAB VIEW */}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col p-4 sm:p-5 overflow-hidden">
           {/* Fullscreen Header Strip */}
           <div className="flex items-center justify-between pb-3 border-b border-[#E6E4DD] shrink-0">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-mono font-bold text-[#C85A32] bg-[#FBF4F0] px-2.5 py-0.5 rounded border border-[#C85A32]/20">
-                FULLSCREEN LAB
-              </span>
               <span className="text-sm font-bold text-[#1A1917]">
-                Module 2: Fourier Analysis ({viewMode === '2d' ? '2D Side-by-Side View' : '3D Space'})
+                Module 2: Fourier Analysis ({
+                  viewMode === '2d'
+                    ? '2D Side-by-Side View'
+                    : viewMode === '3d'
+                    ? '3D Waterfall Space'
+                    : viewMode === 'epicycles'
+                    ? 'Phasor Epicycles'
+                    : 'Continuous Transform (CTFT)'
+                })
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               {/* View Switcher inside Fullscreen */}
-              <div className="flex items-center bg-white p-0.5 rounded border border-[#E6E4DD] text-xs shadow-2xs">
+              <div className="flex items-center flex-wrap gap-1 bg-white p-0.5 rounded border border-[#E6E4DD] text-xs shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setViewMode('2d')}
-                  className={`px-3 py-1 rounded font-semibold cursor-pointer ${
+                  className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${
                     viewMode === '2d' ? 'bg-[#1A1917] text-white' : 'text-[#585651]'
                   }`}
                 >
@@ -1417,11 +1542,29 @@ export default function Module2_Fourier({
                 <button
                   type="button"
                   onClick={() => setViewMode('3d')}
-                  className={`px-3 py-1 rounded font-semibold cursor-pointer ${
+                  className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${
                     viewMode === '3d' ? 'bg-[#1A1917] text-white' : 'text-[#585651]'
                   }`}
                 >
                   3D View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('epicycles')}
+                  className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${
+                    viewMode === 'epicycles' ? 'bg-[#1A1917] text-white' : 'text-[#585651]'
+                  }`}
+                >
+                  Phasors
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('transform')}
+                  className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${
+                    viewMode === 'transform' ? 'bg-[#1A1917] text-white' : 'text-[#585651]'
+                  }`}
+                >
+                  CTFT
                 </button>
               </div>
 
@@ -1441,12 +1584,9 @@ export default function Module2_Fourier({
 
               <button
                 type="button"
-                onClick={() => {
-                  setPlaybackState('paused');
-                  setAnimTime(0);
-                }}
+                onClick={handleResetAnimation}
                 className="p-1.5 bg-white border border-[#E6E4DD] rounded text-[#585651] hover:text-[#1A1917] cursor-pointer shadow-2xs"
-                title="Reset animation"
+                title="Reset animation, shape & signal"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -1487,8 +1627,32 @@ export default function Module2_Fourier({
             </div>
           </div>
 
-          {/* Fullscreen Body: 9:3 Grid for 3D View, Side-by-Side for 2D View */}
-          {viewMode === '3d' ? (
+          {/* Fullscreen Body: Epicycles, CTFT, 9:3 Grid for 3D View, or Side-by-Side for 2D View */}
+          {viewMode === 'epicycles' ? (
+            <div className="flex-1 min-h-0 pt-2 flex flex-col overflow-hidden">
+              <EpicycleVisualizer
+                isFullscreen={true}
+                onToggleFullscreen={() => setIsFullscreen(false)}
+                playbackState={playbackState}
+                onTogglePlayback={() => setPlaybackState(playbackState === 'playing' ? 'paused' : 'playing')}
+                speed={speed}
+                onSpeedChange={setSpeed}
+                resetTrigger={resetTrigger}
+              />
+            </div>
+          ) : viewMode === 'transform' ? (
+            <div className="flex-1 min-h-0 pt-3 overflow-y-auto">
+              <FourierTransformVisualizer
+                isFullscreen={true}
+                onToggleFullscreen={() => setIsFullscreen(false)}
+                playbackState={playbackState}
+                onTogglePlayback={() => setPlaybackState(playbackState === 'playing' ? 'paused' : 'playing')}
+                speed={speed}
+                onSpeedChange={setSpeed}
+                resetTrigger={resetTrigger}
+              />
+            </div>
+          ) : viewMode === '3d' ? (
             <div className="flex-1 min-h-0 pt-3 grid grid-cols-12 gap-3.5 overflow-hidden">
               {/* Left Side: 9 Columns for 3D Waterfall Visualizer */}
               <div className="col-span-12 lg:col-span-9 h-full min-h-0 flex flex-col">
