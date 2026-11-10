@@ -2,11 +2,11 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   Calculator,
   Sliders,
-  Grid,
+  SlidersHorizontal,
+  Sparkles,
+  RotateCcw,
   Columns,
   Rows,
-  HelpCircle,
-  Percent,
 } from 'lucide-react';
 import { MathView } from '../../components/MathView';
 import {
@@ -50,8 +50,6 @@ export const Module2_Computations: React.FC = () => {
   const [boundA, setBoundA] = useState<number>(-1);
   const [boundB, setBoundB] = useState<number>(1);
 
-  // Hover state
-  const [hoverPt, setHoverPt] = useState<{ x: number; y: number; cdf: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const isDiscrete =
@@ -192,8 +190,8 @@ export const Module2_Computations: React.FC = () => {
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const padLeft = 40;
-    const padRight = 20;
+    const padLeft = 50;
+    const padRight = 30;
     const plotW = rect.width - padLeft - padRight;
     if (clickX >= padLeft && clickX <= rect.width - padRight) {
       const ratio = (clickX - padLeft) / plotW;
@@ -290,33 +288,33 @@ export const Module2_Computations: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Header & Layout Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E6E4DD]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/20">
               MODULE 02
             </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">
+            <span className="text-xs font-semibold text-[#75736E] uppercase tracking-wider font-mono">
               Analytical Query Engine
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1A1917]">
             PMF, CDF & PDF Computations
           </h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-600">
+          <p className="mt-1 text-xs sm:text-sm text-[#585651]">
             Compute cumulative probabilities, survival tails, discrete point masses, and definite integrals.
           </p>
         </div>
 
         {/* Layout Mode Switcher */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-mono">Layout:</span>
-          <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-[#fcfbf9]">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-[#75736E] font-mono">Layout:</span>
+          <div className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6]">
             <button
               type="button"
               onClick={() => setLayoutMode('split')}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
-                layoutMode === 'split' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
+              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
+                layoutMode === 'split' ? 'bg-white shadow-2xs text-[#1A1917]' : 'text-[#75736E] hover:text-[#1A1917]'
               }`}
               title="Split view (Side-by-side)"
             >
@@ -326,8 +324,8 @@ export const Module2_Computations: React.FC = () => {
             <button
               type="button"
               onClick={() => setLayoutMode('cockpit')}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
-                layoutMode === 'cockpit' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
+              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
+                layoutMode === 'cockpit' ? 'bg-white shadow-2xs text-[#1A1917]' : 'text-[#75736E] hover:text-[#1A1917]'
               }`}
               title="Cockpit view (Controllers below graph)"
             >
@@ -339,8 +337,8 @@ export const Module2_Computations: React.FC = () => {
       </div>
 
       {/* 2. Distribution Selection Ribbon */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-        <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider pl-2 pr-1">
+      <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-lg border border-[#E6E4DD] shadow-2xs">
+        <span className="text-xs font-mono font-bold text-[#8A8882] uppercase tracking-wider pl-2 pr-1">
           Distribution:
         </span>
         {(
@@ -367,10 +365,10 @@ export const Module2_Computations: React.FC = () => {
                 setBoundB(10);
               }
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border ${
               dist === item.id
-                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                : 'bg-[#fcfbf9] text-slate-700 border-slate-200 hover:bg-slate-100'
+                ? 'bg-[#C85A32] text-white border-[#C85A32] shadow-2xs'
+                : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:bg-white hover:text-[#1A1917]'
             }`}
           >
             {item.label}
@@ -378,14 +376,14 @@ export const Module2_Computations: React.FC = () => {
         ))}
 
         {dist === 'uniform' && (
-          <div className="ml-auto flex items-center gap-1 border-l border-slate-200 pl-3">
+          <div className="ml-auto flex items-center gap-1 border-l border-[#E6E4DD] pl-3">
             <button
               type="button"
               onClick={() => setUniformMode('continuous')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono cursor-pointer border ${
+              className={`px-2 py-0.5 rounded text-[11px] font-mono cursor-pointer border ${
                 uniformMode === 'continuous'
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200'
+                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                  : 'bg-white text-[#585651] border-[#E6E4DD]'
               }`}
             >
               Continuous
@@ -393,10 +391,10 @@ export const Module2_Computations: React.FC = () => {
             <button
               type="button"
               onClick={() => setUniformMode('discrete')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono cursor-pointer border ${
+              className={`px-2 py-0.5 rounded text-[11px] font-mono cursor-pointer border ${
                 uniformMode === 'discrete'
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200'
+                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                  : 'bg-white text-[#585651] border-[#E6E4DD]'
               }`}
             >
               Discrete
@@ -406,26 +404,26 @@ export const Module2_Computations: React.FC = () => {
       </div>
 
       {/* 3. Main Stage (Split or Cockpit Layout) */}
-      <div className={layoutMode === 'split' ? 'grid grid-cols-1 lg:grid-cols-12 gap-6' : 'space-y-6'}>
+      <div className={layoutMode === 'split' ? 'grid grid-cols-1 lg:grid-cols-12 gap-5' : 'space-y-5'}>
         {/* Graph Display Area */}
         <div className={layoutMode === 'split' ? 'lg:col-span-7 space-y-4' : 'space-y-4'}>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-[#1A1917]">
                   Definite Integral & Probability Shading
                 </h3>
-                <span className="text-[11px] text-slate-500 font-mono">
+                <span className="text-[11px] text-[#75736E] font-mono">
                   Click anywhere on the plot to snap threshold bound x
                 </span>
               </div>
-              <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                {queryResult.prob.toFixed(4)}
+              <span className="text-xs font-mono font-bold text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/20">
+                P = {queryResult.prob.toFixed(4)}
               </span>
             </div>
 
             {/* SVG Plot */}
-            <div className="relative w-full h-64 bg-[#fcfbf9] rounded-xl border border-slate-200 select-none overflow-hidden">
+            <div className="relative w-full h-64 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none overflow-hidden">
               <svg
                 ref={svgRef}
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -433,17 +431,17 @@ export const Module2_Computations: React.FC = () => {
                 className="w-full h-full cursor-crosshair"
               >
                 {/* Horizontal Baseline */}
-                <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#94a3b8" strokeWidth="1.5" />
+                <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#8A8882" strokeWidth="1.5" />
 
                 {/* Shaded Continuous Integrals */}
                 {continuousPaths &&
                   continuousPaths.shadedSegments.map((dStr, idx) => (
-                    <path key={idx} d={dStr} fill="rgba(217, 119, 6, 0.3)" />
+                    <path key={idx} d={dStr} fill="rgba(200, 90, 50, 0.22)" />
                   ))}
 
                 {/* Continuous Curve */}
                 {continuousPaths && (
-                  <path d={continuousPaths.fullPath} fill="none" stroke="#d97706" strokeWidth="2.5" />
+                  <path d={continuousPaths.fullPath} fill="none" stroke="#C85A32" strokeWidth="2.5" />
                 )}
 
                 {/* Discrete Bars */}
@@ -458,8 +456,8 @@ export const Module2_Computations: React.FC = () => {
                           y={bar.py}
                           width={bW}
                           height={barH}
-                          fill={bar.isShaded ? '#d97706' : 'rgba(148, 163, 184, 0.3)'}
-                          stroke={bar.isShaded ? '#b45309' : '#94a3b8'}
+                          fill={bar.isShaded ? '#C85A32' : 'rgba(138, 136, 130, 0.25)'}
+                          stroke={bar.isShaded ? '#B54E28' : '#8A8882'}
                           strokeWidth="1"
                         />
                       </g>
@@ -473,17 +471,17 @@ export const Module2_Computations: React.FC = () => {
                     y1={pad.top}
                     x2={xToPx(boundX)}
                     y2={pad.top + plotH}
-                    stroke="#1e293b"
+                    stroke="#1A1917"
                     strokeWidth="1.5"
                     strokeDasharray="4 4"
                   />
                 )}
 
                 {/* Ticks and values */}
-                <text x={pad.left} y={pad.top + plotH + 16} fill="#64748b" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                <text x={pad.left} y={pad.top + plotH + 16} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
                   {domain.min.toFixed(1)}
                 </text>
-                <text x={pad.left + plotW} y={pad.top + plotH + 16} fill="#64748b" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                <text x={pad.left + plotW} y={pad.top + plotH + 16} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
                   {domain.max.toFixed(1)}
                 </text>
               </svg>
@@ -493,496 +491,541 @@ export const Module2_Computations: React.FC = () => {
 
         {/* Controllers & Query Engine Area */}
         <div className={layoutMode === 'split' ? 'lg:col-span-5 space-y-4' : 'space-y-4'}>
-          {/* Distribution Parameters Control Bar */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-amber-600" />
-                <h3 className="text-sm font-bold text-slate-900">Distribution Parameter Bars</h3>
+          {/* EXACT IMAGE 1 PARAMETER CONTROLLING BAR */}
+          <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
+            {/* Header with Title and Mode Indicator */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+              <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
+                <span>Distribution Parameters & Signal Controls</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (dist === 'normal') setParams((p) => ({ ...p, mu: 0, sigma: 1 }));
-                  else if (dist === 'binomial') setParams((p) => ({ ...p, n: 16, p: 0.5 }));
-                  else if (dist === 'poisson') setParams((p) => ({ ...p, lambda: 4 }));
-                  else if (dist === 'exponential') setParams((p) => ({ ...p, lambda: 1 }));
-                  else if (dist === 'uniform') setParams((p) => ({ ...p, a: -2, b: 2 }));
-                }}
-                className="text-[11px] font-mono text-slate-500 hover:text-amber-700 underline cursor-pointer"
-              >
-                Reset Default
-              </button>
+
+              <div className="flex items-center gap-2">
+                {/* Parameter Badge Capsule */}
+                <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
+                  {dist === 'normal' && (
+                    <>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                        μ = {params.mu.toFixed(1)}
+                      </span>
+                      <span className="text-[#8A8882] text-xs">·</span>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                        σ = {params.sigma.toFixed(1)}
+                      </span>
+                    </>
+                  )}
+                  {dist === 'binomial' && (
+                    <>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                        n = {params.n}
+                      </span>
+                      <span className="text-[#8A8882] text-xs">·</span>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                        p = {params.p.toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                  {dist === 'poisson' && (
+                    <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                      λ = {params.lambda.toFixed(1)}
+                    </span>
+                  )}
+                  {dist === 'exponential' && (
+                    <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                      λ = {params.lambda.toFixed(1)}
+                    </span>
+                  )}
+                  {dist === 'uniform' && (
+                    <>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                        a = {params.a.toFixed(1)}
+                      </span>
+                      <span className="text-[#8A8882] text-xs">·</span>
+                      <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                        b = {params.b.toFixed(1)}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dist === 'normal') setParams((p) => ({ ...p, mu: 0, sigma: 1 }));
+                    else if (dist === 'binomial') setParams((p) => ({ ...p, n: 16, p: 0.5 }));
+                    else if (dist === 'poisson') setParams((p) => ({ ...p, lambda: 4 }));
+                    else if (dist === 'exponential') setParams((p) => ({ ...p, lambda: 1 }));
+                    else if (dist === 'uniform') setParams((p) => ({ ...p, a: -2, b: 2 }));
+                  }}
+                  className="px-2 py-1 text-xs font-mono text-[#75736E] hover:text-[#C85A32] hover:bg-white rounded border border-transparent hover:border-[#E6E4DD] flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Reset distribution defaults"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              </div>
             </div>
 
-            {/* Parameter Sliders depending on active distribution */}
+            {/* Parameter Sliders Grid - matching Image 1 layout */}
             {dist === 'normal' && (
-              <div className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Mean mu */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Mean (<MathView math="\mu" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.mu.toFixed(1)}
-                    </span>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Mean (μ)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.mu.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, mu: Math.max(-10, Math.round((p.mu - 0.5) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -0.5
-                    </button>
-                    <input
-                      type="range"
-                      min="-10"
-                      max="10"
-                      step="0.1"
-                      value={params.mu}
-                      onChange={(e) => setParams((p) => ({ ...p, mu: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, mu: Math.min(10, Math.round((p.mu + 0.5) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +0.5
-                    </button>
+                  <input
+                    type="range"
+                    min="-10"
+                    max="10"
+                    step="0.1"
+                    value={params.mu}
+                    onChange={(e) => setParams((p) => ({ ...p, mu: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>-10.0</span>
+                    <span className="font-semibold text-[#1A1917]">Center: {params.mu.toFixed(1)}</span>
+                    <span>+10.0</span>
                   </div>
                 </div>
 
                 {/* Std Dev sigma */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Standard Deviation (<MathView math="\sigma" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.sigma.toFixed(1)}
-                    </span>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Std Dev (σ)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.sigma.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, sigma: Math.max(0.2, Math.round((p.sigma - 0.2) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -0.2
-                    </button>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="8"
-                      step="0.1"
-                      value={params.sigma}
-                      onChange={(e) => setParams((p) => ({ ...p, sigma: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, sigma: Math.min(8, Math.round((p.sigma + 0.2) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +0.2
-                    </button>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="8"
+                    step="0.1"
+                    value={params.sigma}
+                    onChange={(e) => setParams((p) => ({ ...p, sigma: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>Sharp (0.2)</span>
+                    <span className="font-semibold text-[#1A1917]">Spread: {params.sigma.toFixed(1)}</span>
+                    <span>Diffuse (8.0)</span>
                   </div>
                 </div>
               </div>
             )}
 
             {dist === 'binomial' && (
-              <div className="space-y-3.5">
-                {/* Number of trials n */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Trials (<MathView math="n" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.n}
-                    </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Trials n */}
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Trials (n)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.n}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, n: Math.max(1, p.n - 1) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -1
-                    </button>
-                    <input
-                      type="range"
-                      min="1"
-                      max="50"
-                      step="1"
-                      value={params.n}
-                      onChange={(e) => setParams((p) => ({ ...p, n: parseInt(e.target.value, 10) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, n: Math.min(50, p.n + 1) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +1
-                    </button>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={params.n}
+                    onChange={(e) => setParams((p) => ({ ...p, n: parseInt(e.target.value, 10) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>n = 1</span>
+                    <span className="font-semibold text-[#1A1917]">Mean: {(params.n * params.p).toFixed(1)}</span>
+                    <span>n = 50</span>
                   </div>
                 </div>
 
-                {/* Success probability p */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Success Probability (<MathView math="p" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.p.toFixed(2)}
-                    </span>
+                {/* Probability p */}
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Probability (p)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.p.toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, p: Math.max(0.01, Math.round((p.p - 0.05) * 100) / 100) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -0.05
-                    </button>
-                    <input
-                      type="range"
-                      min="0.01"
-                      max="0.99"
-                      step="0.01"
-                      value={params.p}
-                      onChange={(e) => setParams((p) => ({ ...p, p: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, p: Math.min(0.99, Math.round((p.p + 0.05) * 100) / 100) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +0.05
-                    </button>
+                  <input
+                    type="range"
+                    min="0.01"
+                    max="0.99"
+                    step="0.01"
+                    value={params.p}
+                    onChange={(e) => setParams((p) => ({ ...p, p: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>0.01</span>
+                    <span className="font-semibold text-[#1A1917]">{params.p < 0.5 ? 'Right-skewed' : params.p > 0.5 ? 'Left-skewed' : 'Symmetric'}</span>
+                    <span>0.99</span>
                   </div>
                 </div>
               </div>
             )}
 
             {dist === 'poisson' && (
-              <div className="space-y-3.5">
-                {/* Rate lambda */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Rate Parameter (<MathView math="\lambda" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.lambda.toFixed(1)}
-                    </span>
+              <div className="grid grid-cols-1 gap-3.5">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Rate Parameter (λ)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.lambda.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lambda: Math.max(0.2, Math.round((p.lambda - 0.5) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -0.5
-                    </button>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="20"
-                      step="0.2"
-                      value={params.lambda}
-                      onChange={(e) => setParams((p) => ({ ...p, lambda: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lambda: Math.min(20, Math.round((p.lambda + 0.5) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +0.5
-                    </button>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="15"
+                    step="0.2"
+                    value={params.lambda}
+                    onChange={(e) => setParams((p) => ({ ...p, lambda: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>Sparse arrivals (0.2)</span>
+                    <span className="font-semibold text-[#1A1917]">μ = Var = {params.lambda.toFixed(1)}</span>
+                    <span>Dense bursts (15.0)</span>
                   </div>
                 </div>
               </div>
             )}
 
             {dist === 'exponential' && (
-              <div className="space-y-3.5">
-                {/* Rate lambda */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Decay / Rate (<MathView math="\lambda" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.lambda.toFixed(2)}
-                    </span>
+              <div className="grid grid-cols-1 gap-3.5">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Decay Rate (λ)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.lambda.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lambda: Math.max(0.1, Math.round((p.lambda - 0.2) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -0.2
-                    </button>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="5"
-                      step="0.05"
-                      value={params.lambda}
-                      onChange={(e) => setParams((p) => ({ ...p, lambda: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lambda: Math.min(5, Math.round((p.lambda + 0.2) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +0.2
-                    </button>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="5"
+                    step="0.1"
+                    value={params.lambda}
+                    onChange={(e) => setParams((p) => ({ ...p, lambda: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>Slow tail (0.2)</span>
+                    <span className="font-semibold text-[#1A1917]">Mean lifetime = {(1 / params.lambda).toFixed(2)}s</span>
+                    <span>Rapid decay (5.0)</span>
                   </div>
                 </div>
               </div>
             )}
 
             {dist === 'uniform' && (
-              <div className="space-y-3.5">
-                {/* Lower bound a */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Lower Bound (<MathView math="a" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.a.toFixed(1)}
-                    </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Lower Bound (a)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.a.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, a: Math.max(-15, Math.round((p.a - 1) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -1
-                    </button>
-                    <input
-                      type="range"
-                      min="-15"
-                      max={params.b - 0.5}
-                      step="0.5"
-                      value={params.a}
-                      onChange={(e) => setParams((p) => ({ ...p, a: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, a: Math.min(params.b - 0.5, Math.round((p.a + 1) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +1
-                    </button>
+                  <input
+                    type="range"
+                    min="-15"
+                    max={params.b - 0.5}
+                    step="0.5"
+                    value={params.a}
+                    onChange={(e) => setParams((p) => ({ ...p, a: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>-15.0</span>
+                    <span className="font-semibold text-[#1A1917]">Min: {params.a.toFixed(1)}</span>
+                    <span>{(params.b - 0.5).toFixed(1)}</span>
                   </div>
                 </div>
 
-                {/* Upper bound b */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      Upper Bound (<MathView math="b" />)
-                    </span>
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      {params.b.toFixed(1)}
-                    </span>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Upper Bound (b)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{params.b.toFixed(1)}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, b: Math.max(params.a + 0.5, Math.round((p.b - 1) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      -1
-                    </button>
-                    <input
-                      type="range"
-                      min={params.a + 0.5}
-                      max="15"
-                      step="0.5"
-                      value={params.b}
-                      onChange={(e) => setParams((p) => ({ ...p, b: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, b: Math.min(15, Math.round((p.b + 1) * 10) / 10) }))}
-                      className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                    >
-                      +1
-                    </button>
+                  <input
+                    type="range"
+                    min={params.a + 0.5}
+                    max="15"
+                    step="0.5"
+                    value={params.b}
+                    onChange={(e) => setParams((p) => ({ ...p, b: parseFloat(e.target.value) }))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>{(params.a + 0.5).toFixed(1)}</span>
+                    <span className="font-semibold text-[#1A1917]">Max: {params.b.toFixed(1)}</span>
+                    <span>+15.0</span>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Presets Row - Exactly matching Image 1 */}
+            <div className="pt-2 border-t border-[#E6E4DD]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1 text-xs text-[#75736E] font-mono mr-1">
+                  <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
+                  <span>Presets:</span>
+                </div>
+
+                {dist === 'normal' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, mu: 0, sigma: 1 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Standard Normal (0, 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, mu: 0, sigma: 0.5 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Sharp Peak (0, 0.5)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, mu: 5, sigma: 2 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Offset (5, 2)
+                    </button>
+                  </>
+                )}
+
+                {dist === 'binomial' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, n: 16, p: 0.5 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Fair Coin (16, 0.5)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, n: 30, p: 0.1 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Rare Event (30, 0.1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, n: 24, p: 0.85 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      High Success (24, 0.85)
+                    </button>
+                  </>
+                )}
+
+                {dist === 'poisson' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 1 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Rare / Low Rate (λ = 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 4 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Medium (λ = 4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 10 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      High Traffic (λ = 10)
+                    </button>
+                  </>
+                )}
+
+                {dist === 'exponential' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 1 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Unit Decay (λ = 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 2.5 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Rapid Decay (λ = 2.5)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, lambda: 0.4 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Long Lifetime (λ = 0.4)
+                    </button>
+                  </>
+                )}
+
+                {dist === 'uniform' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, a: -2, b: 2 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Symmetric [-2, 2]
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, a: 0, b: 1 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Standard Unit [0, 1]
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParams((p) => ({ ...p, a: -5, b: 5 }))}
+                      className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Wide [-5, 5]
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Query Formulation Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-              <Calculator className="w-4 h-4 text-amber-600" />
-              <h3 className="text-sm font-bold text-slate-900">Query Engine</h3>
+          {/* EXACT IMAGE 1 QUERY ENGINE CONTROLS */}
+          <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+              <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+                <Calculator className="w-3.5 h-3.5 text-[#C85A32]" />
+                <span>Analytical Query Engine & Bounds</span>
+              </div>
+              <div className="bg-white px-2.5 py-0.5 rounded border border-[#E6E4DD] text-xs font-mono font-bold text-[#C85A32]">
+                P = {queryResult.prob.toFixed(4)}
+              </div>
             </div>
 
             {/* Operator Buttons */}
-            <div className="grid grid-cols-4 gap-1.5 text-xs font-mono">
-              {[
-                { op: 'eq', label: 'P(X = x)' },
-                { op: 'le', label: 'P(X ≤ x)' },
-                { op: 'lt', label: 'P(X < x)' },
-                { op: 'ge', label: 'P(X ≥ x)' },
-                { op: 'gt', label: 'P(X > x)' },
-                { op: 'between', label: 'P(a ≤ X ≤ b)' },
-                { op: 'exterior', label: 'Exterior' },
-              ].map((item) => (
-                <button
-                  key={item.op}
-                  type="button"
-                  onClick={() => setQueryOp(item.op as QueryOp)}
-                  className={`py-1.5 px-2 rounded-lg text-center font-semibold border transition-colors cursor-pointer ${
-                    queryOp === item.op
-                      ? 'bg-amber-600 text-white border-amber-600'
-                      : 'bg-[#fcfbf9] text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div>
+              <div className="text-[11px] font-mono text-[#75736E] uppercase mb-1.5">
+                Evaluation Operator:
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 text-xs font-mono">
+                {[
+                  { op: 'eq', label: 'P(X = x)' },
+                  { op: 'le', label: 'P(X ≤ x)' },
+                  { op: 'lt', label: 'P(X < x)' },
+                  { op: 'ge', label: 'P(X ≥ x)' },
+                  { op: 'gt', label: 'P(X > x)' },
+                  { op: 'between', label: 'P(a ≤ X ≤ b)' },
+                  { op: 'exterior', label: 'Exterior' },
+                ].map((item) => (
+                  <button
+                    key={item.op}
+                    type="button"
+                    onClick={() => setQueryOp(item.op as QueryOp)}
+                    className={`py-1.5 px-2 rounded-md text-center font-semibold border transition-colors cursor-pointer ${
+                      queryOp === item.op
+                        ? 'bg-[#C85A32] text-white border-[#C85A32] shadow-2xs'
+                        : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Cutoff Input Fields */}
+            {/* Cutoff Input Fields formatted cleanly like Image 1 */}
             {queryOp === 'between' || queryOp === 'exterior' ? (
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
-                    <span>Lower Bound (a)</span>
-                    <span className="font-bold text-amber-700">{boundA.toFixed(isDiscrete ? 0 : 1)}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Lower Bound (a)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{boundA.toFixed(isDiscrete ? 0 : 2)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setBoundA((v) => Math.round((v - (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                      className="px-1.5 py-1 text-[11px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="range"
-                      min={domain.min}
-                      max={domain.max}
-                      step={isDiscrete ? '1' : '0.1'}
-                      value={boundA}
-                      onChange={(e) => setBoundA(parseFloat(e.target.value))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setBoundA((v) => Math.round((v + (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                      className="px-1.5 py-1 text-[11px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
-                    <span>Upper Bound (b)</span>
-                    <span className="font-bold text-amber-700">{boundB.toFixed(isDiscrete ? 0 : 1)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setBoundB((v) => Math.round((v - (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                      className="px-1.5 py-1 text-[11px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="range"
-                      min={domain.min}
-                      max={domain.max}
-                      step={isDiscrete ? '1' : '0.1'}
-                      value={boundB}
-                      onChange={(e) => setBoundB(parseFloat(e.target.value))}
-                      className="flex-1 accent-amber-600 cursor-pointer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setBoundB((v) => Math.round((v + (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                      className="px-1.5 py-1 text-[11px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-xs">
-                  <span className="font-medium text-slate-700">Cutoff Value Bound (x)</span>
-                  <span className="font-mono text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    {boundX.toFixed(isDiscrete ? 0 : 2)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setBoundX((v) => Math.round((v - (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                    className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                  >
-                    -{isDiscrete ? '1' : '0.5'}
-                  </button>
                   <input
                     type="range"
                     min={domain.min}
                     max={domain.max}
                     step={isDiscrete ? '1' : '0.1'}
-                    value={boundX}
-                    onChange={(e) => setBoundX(parseFloat(e.target.value))}
-                    className="flex-1 accent-amber-600 cursor-pointer"
+                    value={boundA}
+                    onChange={(e) => setBoundA(parseFloat(e.target.value))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setBoundX((v) => Math.round((v + (isDiscrete ? 1 : 0.5)) * 10) / 10)}
-                    className="px-2 py-1 text-xs font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                  >
-                    +{isDiscrete ? '1' : '0.5'}
-                  </button>
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>{domain.min.toFixed(0)}</span>
+                    <span className="font-semibold text-[#1A1917]">a = {boundA.toFixed(isDiscrete ? 0 : 2)}</span>
+                    <span>{domain.max.toFixed(0)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-[#1A1917]">Upper Bound (b)</span>
+                    <span className="font-mono text-[#C85A32] font-semibold">{boundB.toFixed(isDiscrete ? 0 : 2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={domain.min}
+                    max={domain.max}
+                    step={isDiscrete ? '1' : '0.1'}
+                    value={boundB}
+                    onChange={(e) => setBoundB(parseFloat(e.target.value))}
+                    className="w-full accent-[#C85A32] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                    <span>{domain.min.toFixed(0)}</span>
+                    <span className="font-semibold text-[#1A1917]">b = {boundB.toFixed(isDiscrete ? 0 : 2)}</span>
+                    <span>{domain.max.toFixed(0)}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-1">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-medium text-[#1A1917]">Cutoff Value Bound (x)</span>
+                  <span className="font-mono text-[#C85A32] font-semibold">{boundX.toFixed(isDiscrete ? 0 : 2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={domain.min}
+                  max={domain.max}
+                  step={isDiscrete ? '1' : '0.1'}
+                  value={boundX}
+                  onChange={(e) => setBoundX(parseFloat(e.target.value))}
+                  className="w-full accent-[#C85A32] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                  <span>{domain.min.toFixed(0)}</span>
+                  <span className="font-semibold text-[#1A1917]">Active Cutoff: {boundX.toFixed(isDiscrete ? 0 : 2)}</span>
+                  <span>{domain.max.toFixed(0)}</span>
                 </div>
               </div>
             )}
 
             {/* Result Display Banner */}
-            <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50/50 rounded-xl border border-amber-200 flex items-center justify-between">
+            <div className="p-3.5 bg-white rounded-md border border-[#C85A32]/30 flex items-center justify-between shadow-2xs">
               <div>
-                <span className="text-[11px] font-mono text-amber-800 uppercase block font-semibold">
+                <span className="text-[11px] font-mono text-[#C85A32] uppercase block font-semibold">
                   Probability Result
                 </span>
-                <span className="text-sm font-mono font-bold text-slate-900">
+                <span className="text-sm font-mono font-bold text-[#1A1917]">
                   <MathView math={queryResult.latexLabel} />
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-mono font-extrabold text-amber-700">
+                <span className="text-2xl font-mono font-extrabold text-[#C85A32]">
                   {queryResult.prob.toFixed(4)}
                 </span>
-                <span className="text-xs font-mono text-slate-500 block">
+                <span className="text-xs font-mono text-[#75736E] block">
                   ({(queryResult.prob * 100).toFixed(2)}%)
                 </span>
               </div>

@@ -5,12 +5,8 @@ import {
   RotateCcw,
   Sparkles,
   TrendingUp,
-  Sliders,
-  Minus,
-  Plus,
-  Info,
-  CheckCircle2,
-  ArrowRight,
+  SlidersHorizontal,
+  Play,
 } from 'lucide-react';
 import { MathView } from '../../components/MathView';
 import { binomialPmf, normalPdf } from './math';
@@ -129,72 +125,72 @@ export const Module1_RandomVariables: React.FC = () => {
   }, [morphN, morphP]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* 1. Header Section */}
-      <div>
+      <div className="pb-4 border-b border-[#E6E4DD]">
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/20">
             MODULE 01
           </span>
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">
+          <span className="text-xs font-semibold text-[#75736E] uppercase tracking-wider font-mono">
             Conceptual Foundations & Parameter Dynamics
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1A1917]">
           Random Variables: Discrete vs. Continuous
         </h2>
-        <p className="mt-1 text-xs sm:text-sm text-slate-600 max-w-3xl leading-relaxed">
+        <p className="mt-1 text-xs sm:text-sm text-[#585651] max-w-3xl leading-relaxed">
           Manipulate variables across different states to explore discrete point masses vs. continuous probability densities,
           inspect how asymmetry and trial counts govern the continuous limit, and test dice bias parameters in real time.
         </p>
       </div>
 
       {/* 2. Side-by-side Comparative Conceptual Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Discrete Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E6E4DD]">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-600" />
-              <h3 className="text-base font-bold text-slate-900">Discrete Random Variables</h3>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C85A32]" />
+              <h3 className="text-sm font-bold text-[#1A1917]">Discrete Random Variables</h3>
             </div>
-            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/20">
               Countable Values
             </span>
           </div>
 
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-[#585651] leading-relaxed">
             Takes on discrete, separate values (e.g. integers, packet counts, coin flips). Probability is concentrated
             in exact point masses called the <strong>Probability Mass Function (PMF)</strong>.
           </p>
 
-          <div className="space-y-3 pt-1">
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+          <div className="space-y-2.5 pt-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Summation to Unity Axiom:
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="\sum_{k} P(X = k) = 1, \quad P(X = k) \ge 0" displayMode={true} />
               </div>
             </div>
 
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Cumulative Distribution Function (CDF):
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="F(x) = P(X \le x) = \sum_{k \le x} P(X = k)" displayMode={true} />
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">
+              <span className="text-[11px] text-[#75736E] mt-1 block">
                 Forms a right-continuous step/staircase function with discrete jumps.
               </span>
             </div>
 
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Expectation & Moments:
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="\mathbb{E}[X] = \sum_k k \cdot P(X = k)" displayMode={true} />
               </div>
             </div>
@@ -202,49 +198,49 @@ export const Module1_RandomVariables: React.FC = () => {
         </div>
 
         {/* Continuous Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E6E4DD]">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-slate-900" />
-              <h3 className="text-base font-bold text-slate-900">Continuous Random Variables</h3>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#1A1917]" />
+              <h3 className="text-sm font-bold text-[#1A1917]">Continuous Random Variables</h3>
             </div>
-            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#FAF9F6] text-[#585651] border border-[#E6E4DD]">
               Uncountable Continuum
             </span>
           </div>
 
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-[#585651] leading-relaxed">
             Takes on values over an unbroken interval of real numbers (e.g. voltage, time, physical noise).
             The probability of any exact single point is identically zero: <MathView math="P(X = c) = 0" />.
           </p>
 
-          <div className="space-y-3 pt-1">
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+          <div className="space-y-2.5 pt-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Integral to Unity Axiom:
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="\int_{-\infty}^{\infty} f(x) \, dx = 1, \quad f(x) \ge 0" displayMode={true} />
               </div>
             </div>
 
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Area Under Density as Probability:
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="P(a \le X \le b) = \int_a^b f(x) \, dx = F(b) - F(a)" displayMode={true} />
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">
+              <span className="text-[11px] text-[#75736E] mt-1 block">
                 Continuous S-curve CDF with density <MathView math="f(x) = F'(x)" />.
               </span>
             </div>
 
-            <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block mb-1">
+            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
+              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
                 Continuous Expectation:
               </span>
-              <div className="text-xs font-semibold text-slate-900 overflow-x-auto">
+              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
                 <MathView math="\mathbb{E}[X] = \int_{-\infty}^{\infty} x f(x) \, dx" displayMode={true} />
               </div>
             </div>
@@ -252,153 +248,28 @@ export const Module1_RandomVariables: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. "Continuous Limit" Morph Demonstration with Parameter Control Bars */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      {/* 3. "Continuous Limit" Morph Demonstration - Styled to match Image 1 */}
+      <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-4">
+        {/* Title & Technical Note */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-amber-600" />
-              <h3 className="text-base font-bold text-slate-900">
+              <TrendingUp className="w-4 h-4 text-[#C85A32]" />
+              <h3 className="text-sm font-bold text-[#1A1917]">
                 The "Continuous Limit" Morph Demonstration
               </h3>
             </div>
-            <p className="text-xs text-slate-600">
-              Adjust the <strong>Granularity ($n$)</strong> and <strong>Success Probability ($p$)</strong> parameter bars to observe
-              how discrete Binomial point masses converge into the continuous Gaussian bell curve (de Moivre–Laplace Theorem).
+            <p className="text-xs text-[#585651]">
+              Adjust parameter sliders below to observe how discrete Binomial point masses converge into the continuous Gaussian bell curve (de Moivre–Laplace Theorem).
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-bold">
-              n = {morphN} · p = {morphP.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Dual Parameter Controlling Bars */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-[#fcfbf9] p-4 rounded-xl border border-slate-200">
-          {/* Bar 1: Trials n */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-600" />
-                <span>Sample Granularity (n Trials):</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setMorphN((prev) => Math.max(2, prev - 2))}
-                  className="w-5 h-5 rounded bg-white border border-slate-200 hover:border-amber-600 flex items-center justify-center text-slate-600 hover:text-amber-700 cursor-pointer"
-                  title="Step -2"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <span className="font-mono text-amber-700 font-bold w-12 text-center bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                  {morphN}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMorphN((prev) => Math.min(100, prev + 2))}
-                  className="w-5 h-5 rounded bg-white border border-slate-200 hover:border-amber-600 flex items-center justify-center text-slate-600 hover:text-amber-700 cursor-pointer"
-                  title="Step +2"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-            <input
-              type="range"
-              min="2"
-              max="100"
-              step="2"
-              value={morphN}
-              onChange={(e) => setMorphN(parseInt(e.target.value, 10))}
-              className="w-full accent-amber-600 cursor-pointer"
-            />
-            <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-              <span>n = 2 (Few Discrete Spikes)</span>
-              <div className="flex gap-1">
-                {[2, 4, 10, 30, 60, 100].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setMorphN(v)}
-                    className={`px-1.5 py-0.5 rounded border cursor-pointer ${
-                      morphN === v ? 'bg-amber-600 text-white border-amber-600 font-bold' : 'bg-white text-slate-600 border-slate-200'
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <span>n = 100</span>
-            </div>
-          </div>
-
-          {/* Bar 2: Success Probability p */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-600" />
-                <span>Success Probability (p) [Skewness Control]:</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setMorphP((prev) => Math.max(0.05, parseFloat((prev - 0.05).toFixed(2))))}
-                  className="w-5 h-5 rounded bg-white border border-slate-200 hover:border-amber-600 flex items-center justify-center text-slate-600 hover:text-amber-700 cursor-pointer"
-                  title="Step -0.05"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <span className="font-mono text-amber-700 font-bold w-12 text-center bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                  {morphP.toFixed(2)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMorphP((prev) => Math.min(0.95, parseFloat((prev + 0.05).toFixed(2))))}
-                  className="w-5 h-5 rounded bg-white border border-slate-200 hover:border-amber-600 flex items-center justify-center text-slate-600 hover:text-amber-700 cursor-pointer"
-                  title="Step +0.05"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-            <input
-              type="range"
-              min="0.05"
-              max="0.95"
-              step="0.05"
-              value={morphP}
-              onChange={(e) => setMorphP(parseFloat(e.target.value))}
-              className="w-full accent-amber-600 cursor-pointer"
-            />
-            <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-              <span>p = 0.05 (Skewed Left)</span>
-              <div className="flex gap-1">
-                {[0.1, 0.25, 0.5, 0.75, 0.9].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setMorphP(v)}
-                    className={`px-1.5 py-0.5 rounded border cursor-pointer ${
-                      Math.abs(morphP - v) < 0.01 ? 'bg-amber-600 text-white border-amber-600 font-bold' : 'bg-white text-slate-600 border-slate-200'
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <span>p = 0.95 (Skewed Right)</span>
-            </div>
           </div>
         </div>
 
         {/* High-Resolution SVG Morph Visualization */}
-        <div className="relative w-full h-64 bg-[#fcfbf9] rounded-xl border border-slate-200 p-4 overflow-hidden">
-          <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="w-full h-full">
+        <div className="relative w-full h-64 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] p-4 overflow-hidden">
+          <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="w-full h-full select-none">
             {/* Grid baseline */}
-            <line x1="20" y1="170" x2="580" y2="170" stroke="#cbd5e1" strokeWidth="1.5" />
+            <line x1="20" y1="170" x2="580" y2="170" stroke="#8A8882" strokeWidth="1.5" />
 
             {/* Binomial discrete bars */}
             {morphData.bars.map((bar) => {
@@ -412,8 +283,8 @@ export const Module1_RandomVariables: React.FC = () => {
                   y={170 - barH}
                   width={barW}
                   height={barH}
-                  fill="rgba(217, 119, 6, 0.4)"
-                  stroke="#d97706"
+                  fill="rgba(200, 90, 50, 0.35)"
+                  stroke="#C85A32"
                   strokeWidth="0.75"
                 />
               );
@@ -429,191 +300,214 @@ export const Module1_RandomVariables: React.FC = () => {
                 })
                 .join(' ')}
               fill="none"
-              stroke="#1e293b"
+              stroke="#1A1917"
               strokeWidth="2.5"
             />
           </svg>
         </div>
 
-        {/* Dynamic Moments Readout Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-xs font-mono">
-          <div className="p-2.5 bg-[#fcfbf9] rounded-lg border border-slate-200">
-            <span className="text-[10px] text-slate-500 uppercase block">Mean (μ = np)</span>
-            <span className="text-sm font-bold text-slate-900">{morphData.mu.toFixed(2)}</span>
+        {/* EXACT IMAGE 1 PARAMETER CONTROLLING BAR */}
+        <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
+          {/* Header with Title and Mode Indicator */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+            <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
+              <span>Convergence Controls & Signal Parameters</span>
+            </div>
+
+            {/* Parameter Badge Capsule */}
+            <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
+              <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                n = {morphN}
+              </span>
+              <span className="text-[#8A8882] text-xs">·</span>
+              <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                p = {morphP.toFixed(2)}
+              </span>
+            </div>
           </div>
-          <div className="p-2.5 bg-[#fcfbf9] rounded-lg border border-slate-200">
-            <span className="text-[10px] text-slate-500 uppercase block">Variance (σ² = np(1-p))</span>
-            <span className="text-sm font-bold text-slate-900">{morphData.variance.toFixed(2)}</span>
+
+          {/* Parameter Sliders Grid - matching Image 1 layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* 1. Sample Granularity (n) */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Trials (n)</span>
+                <span className="font-mono text-[#C85A32] font-semibold">{morphN}</span>
+              </div>
+              <input
+                type="range"
+                min="2"
+                max="100"
+                step="2"
+                value={morphN}
+                onChange={(e) => setMorphN(parseInt(e.target.value, 10))}
+                className="w-full accent-[#C85A32] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Discrete (n=2)</span>
+                <span className="font-semibold text-[#1A1917]">Limit (n=100)</span>
+              </div>
+            </div>
+
+            {/* 2. Success Probability (p) */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Probability (p)</span>
+                <span className="font-mono text-[#C85A32] font-semibold">{morphP.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.95"
+                step="0.05"
+                value={morphP}
+                onChange={(e) => setMorphP(parseFloat(e.target.value))}
+                className="w-full accent-[#C85A32] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Skewed Left (0.05)</span>
+                <span className="font-semibold text-[#1A1917]">Right (0.95)</span>
+              </div>
+            </div>
+
+            {/* 3. Readout: Mean np */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Mean (μ = np)</span>
+                <span className="font-mono text-[#C85A32] font-semibold">{morphData.mu.toFixed(2)}</span>
+              </div>
+              <div className="h-6 flex items-center">
+                <div className="w-full bg-white border border-[#E6E4DD] rounded px-2.5 py-1 text-xs font-mono text-[#1A1917] flex justify-between">
+                  <span className="text-[#8A8882]">Std Dev (σ):</span>
+                  <span className="font-bold text-[#C85A32]">{morphData.sigma.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Variance (σ²):</span>
+                <span className="font-semibold text-[#1A1917]">{morphData.variance.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* 4. Readout: Skewness */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Skewness (γ₁)</span>
+                <span className="font-mono text-[#C85A32] font-semibold">
+                  {morphData.skewness.toFixed(3)}
+                </span>
+              </div>
+              <div className="h-6 flex items-center">
+                <div className="w-full bg-white border border-[#E6E4DD] rounded px-2.5 py-1 text-xs font-mono text-[#1A1917] flex justify-between">
+                  <span className="text-[#8A8882]">Profile:</span>
+                  <span className="font-bold text-[#1A1917]">
+                    {Math.abs(morphData.skewness) < 0.1 ? 'Symmetric' : morphData.skewness > 0 ? 'Right Skew' : 'Left Skew'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Continuum fit:</span>
+                <span className="font-semibold text-[#1A1917]">{morphN >= 30 ? 'De Moivre OK' : 'Point Masses'}</span>
+              </div>
+            </div>
           </div>
-          <div className="p-2.5 bg-[#fcfbf9] rounded-lg border border-slate-200">
-            <span className="text-[10px] text-slate-500 uppercase block">Std Dev (σ)</span>
-            <span className="text-sm font-bold text-amber-700">{morphData.sigma.toFixed(2)}</span>
-          </div>
-          <div className="p-2.5 bg-[#fcfbf9] rounded-lg border border-slate-200">
-            <span className="text-[10px] text-slate-500 uppercase block">Skewness (γ₁)</span>
-            <span className="text-sm font-bold text-slate-900">
-              {morphData.skewness.toFixed(3)} {Math.abs(morphData.skewness) < 0.1 ? '(Symmetric)' : ''}
+
+          {/* Presets Row - matching Image 1 */}
+          <div className="pt-2 border-t border-[#E6E4DD]/80 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-mono text-[#75736E] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
+              <span>Presets:</span>
             </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setMorphN(4);
+                  setMorphP(0.5);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  morphN === 4 && morphP === 0.5
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                n=4 Fair (Sparse Spikes)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMorphN(16);
+                  setMorphP(0.25);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  morphN === 16 && morphP === 0.25
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                n=16 Asymmetric (p=0.25)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMorphN(30);
+                  setMorphP(0.5);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  morphN === 30 && morphP === 0.5
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                n=30 Standard Gaussian Fit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMorphN(100);
+                  setMorphP(0.5);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  morphN === 100 && morphP === 0.5
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                n=100 Continuous Limit
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 4. Interactive Dice Lab with Side-Count & Bias Parameter Bars */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      {/* 4. Interactive Dice Lab - matching Image 1 layout */}
+      <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-4">
+        {/* Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center text-white shadow-xs">
+            <div className="w-9 h-9 rounded-md bg-[#FBF4F0] border border-[#C85A32]/20 flex items-center justify-center text-[#C85A32] shadow-2xs">
               <Dices className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Interactive Dice & Polyhedral Lab</h3>
-              <p className="text-xs text-slate-600">
+              <h3 className="text-sm font-bold text-[#1A1917]">Interactive Dice & Polyhedral Lab</h3>
+              <p className="text-xs text-[#585651]">
                 Explore uniform vs. biased discrete variables. Control the number of die faces and bias weighting.
               </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => rollDice(1)}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              +1 Roll
-            </button>
-            <button
-              type="button"
-              onClick={() => rollDice(100)}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              +100
-            </button>
-            <button
-              type="button"
-              onClick={() => rollDice(1000)}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              +1,000 Rolls
-            </button>
-            <button
-              type="button"
-              onClick={resetDice}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
-              title="Reset Dice Rolls"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Dice Lab Parameter Controlling Bars */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-[#fcfbf9] p-4 rounded-xl border border-slate-200">
-          {/* Die Faces Selector Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <Dices className="w-3.5 h-3.5 text-amber-600" />
-                <span>Polyhedral Die Faces:</span>
-              </span>
-              <span className="font-mono text-amber-700 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
-                D{diceFaces} ({diceFaces} Sides)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {[4, 6, 8, 12, 20].map((sides) => (
-                <button
-                  key={sides}
-                  type="button"
-                  onClick={() => {
-                    setDiceFaces(sides);
-                    setDiceRolls([]);
-                    setLastRolled(null);
-                  }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors cursor-pointer ${
-                    diceFaces === sides
-                      ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  D{sides}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Die Fairness / Bias Weight Slider Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-600" />
-                <span>Die Weighting / Bias towards Top Face (Face {diceFaces}):</span>
-              </span>
-              <span className="font-mono text-amber-700 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
-                {diceBiasWeight === 0 ? 'Fair (Uniform)' : `+${(diceBiasWeight * 100).toFixed(0)}% Loaded`}
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="0.6"
-              step="0.05"
-              value={diceBiasWeight}
-              onChange={(e) => setDiceBiasWeight(parseFloat(e.target.value))}
-              className="w-full accent-amber-600 cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-slate-400">
-              <span>0% (Fair 1/{diceFaces})</span>
-              <span>Loaded Top Face ({((diceStats.theoreticalProb[diceFaces - 1] || 0) * 100).toFixed(1)}% prob)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Dice Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Total Rolls (N)</span>
-            <div className="text-xl font-mono font-bold text-slate-900 mt-0.5">
-              {diceStats.total.toLocaleString()}
-            </div>
-          </div>
-
-          <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Sample Mean (x̄)</span>
-            <div className="text-xl font-mono font-bold text-amber-700 mt-0.5">
-              {diceStats.total > 0 ? diceStats.mean.toFixed(3) : '—'}
-            </div>
-            <div className="text-[10px] text-slate-500">
-              Target E[X] = {diceStats.theoreticalMean.toFixed(2)}
-            </div>
-          </div>
-
-          <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Convergence Error</span>
-            <div className="text-xl font-mono font-bold text-slate-900 mt-0.5">
-              {diceStats.total > 0 ? `|${(diceStats.mean - diceStats.theoreticalMean).toFixed(4)}|` : '—'}
-            </div>
-            <div className="text-[10px] text-slate-500">|x̄ - E[X]|</div>
-          </div>
-
-          <div className="p-3 bg-[#fcfbf9] rounded-xl border border-slate-200">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Last Rolled Face</span>
-            <div className="text-xl font-mono font-bold text-amber-700 mt-0.5">
-              {lastRolled !== null ? `[ ${lastRolled} ]` : '—'}
             </div>
           </div>
         </div>
 
         {/* Live Histogram SVG */}
-        <div className="relative w-full h-56 bg-[#fcfbf9] rounded-xl border border-slate-200 p-4">
-          <svg viewBox="0 0 600 160" preserveAspectRatio="none" className="w-full h-full">
+        <div className="relative w-full h-56 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] p-4">
+          <svg viewBox="0 0 600 160" preserveAspectRatio="none" className="w-full h-full select-none">
             {/* Grid line at fair theoretical */}
-            <line x1="30" y1="50" x2="570" y2="50" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="4 4" />
-            <text x="575" y="53" fill="#f43f5e" fontSize="9" fontFamily="monospace" textAnchor="start">
+            <line x1="30" y1="50" x2="570" y2="50" stroke="#C85A32" strokeWidth="1.5" strokeDasharray="4 4" />
+            <text x="575" y="53" fill="#C85A32" fontSize="9" fontFamily="monospace" textAnchor="start">
               Fair P ≈ {(diceStats.fairP * 100).toFixed(1)}%
             </text>
 
             {/* Baseline */}
-            <line x1="30" y1="130" x2="570" y2="130" stroke="#cbd5e1" strokeWidth="1.5" />
+            <line x1="30" y1="130" x2="570" y2="130" stroke="#8A8882" strokeWidth="1.5" />
 
             {/* K Face bars */}
             {Array.from({ length: diceFaces }, (_, idx) => {
@@ -632,16 +526,16 @@ export const Module1_RandomVariables: React.FC = () => {
                     y={130 - barH}
                     width={bW}
                     height={barH}
-                    fill="rgba(217, 119, 6, 0.6)"
-                    stroke="#b45309"
+                    fill="rgba(200, 90, 50, 0.45)"
+                    stroke="#C85A32"
                     strokeWidth="1.5"
                     rx="2"
                   />
-                  <text x={px} y="146" textAnchor="middle" fill="#1e293b" fontSize={diceFaces > 12 ? '9' : '11'} fontFamily="monospace" fontWeight="bold">
+                  <text x={px} y={146} textAnchor="middle" fill="#1A1917" fontSize={diceFaces > 12 ? '9' : '11'} fontFamily="monospace" fontWeight="bold">
                     {face}
                   </text>
                   {diceStats.total > 0 && (
-                    <text x={px} y={122 - barH} textAnchor="middle" fill="#78350f" fontSize="9" fontFamily="monospace">
+                    <text x={px} y={122 - barH} textAnchor="middle" fill="#C85A32" fontSize="9" fontFamily="monospace" fontWeight="semibold">
                       {(freq * 100).toFixed(1)}%
                     </text>
                   )}
@@ -649,6 +543,214 @@ export const Module1_RandomVariables: React.FC = () => {
               );
             })}
           </svg>
+        </div>
+
+        {/* Dice Lab Controls Panel - matching Image 1 */}
+        <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+            <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
+              <span>Dice Simulation Controls & Signal Parameters</span>
+            </div>
+
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#E6E4DD] text-[#585651] font-bold">
+              {diceStats.total.toLocaleString()} Rolls Active
+            </span>
+          </div>
+
+          {/* Action Row - Start / Roll buttons matching Image 1 playback row */}
+          <div className="p-3 bg-white rounded-md border border-[#E6E4DD] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => rollDice(1)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#C85A32] text-white hover:bg-[#B54E28] transition font-mono text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>+1 Roll</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => rollDice(100)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-[#E6E4DD] text-[#1A1917] hover:bg-[#F3F2EC] transition font-mono text-xs font-medium cursor-pointer"
+              >
+                <span>+100</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => rollDice(1000)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1A1917] text-white hover:bg-[#33322E] transition font-mono text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                <span>+1,000 Rolls</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={resetDice}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-[#E6E4DD] text-[#585651] hover:text-[#1A1917] hover:bg-[#F3F2EC] transition font-mono text-xs font-medium cursor-pointer"
+                title="Reset simulation"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+
+            {/* Quick Face Buttons inline */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-mono text-[#75736E] shrink-0">Sides:</span>
+              <div className="flex items-center gap-1 bg-[#FAF9F6] p-0.5 rounded border border-[#E6E4DD]">
+                {[4, 6, 8, 12, 20].map((sides) => (
+                  <button
+                    key={sides}
+                    type="button"
+                    onClick={() => {
+                      setDiceFaces(sides);
+                      setDiceRolls([]);
+                      setLastRolled(null);
+                    }}
+                    className={`px-2 py-0.5 text-xs font-mono font-bold rounded cursor-pointer transition ${
+                      diceFaces === sides
+                        ? 'bg-[#C85A32] text-white shadow-2xs'
+                        : 'text-[#585651] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    D{sides}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sliders Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {/* 1. Loaded Bias Slider */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Top Face Bias Weight</span>
+                <span className="font-mono text-[#C85A32] font-semibold">
+                  {diceBiasWeight === 0 ? '0% (Fair)' : `+${(diceBiasWeight * 100).toFixed(0)}% Loaded`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="0.6"
+                step="0.05"
+                value={diceBiasWeight}
+                onChange={(e) => setDiceBiasWeight(parseFloat(e.target.value))}
+                className="w-full accent-[#C85A32] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Fair (1/{diceFaces})</span>
+                <span className="font-semibold text-[#1A1917]">
+                  Top P ≈ {((diceStats.theoreticalProb[diceFaces - 1] || 0) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Mean Convergence */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Sample Mean (x̄)</span>
+                <span className="font-mono text-[#C85A32] font-semibold">
+                  {diceStats.total > 0 ? diceStats.mean.toFixed(3) : '—'}
+                </span>
+              </div>
+              <div className="h-6 flex items-center">
+                <div className="w-full bg-white border border-[#E6E4DD] rounded px-2.5 py-1 text-xs font-mono text-[#1A1917] flex justify-between">
+                  <span className="text-[#8A8882]">Target E[X]:</span>
+                  <span className="font-bold text-[#1A1917]">{diceStats.theoreticalMean.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Convergence error:</span>
+                <span className="font-semibold text-[#1A1917]">
+                  {diceStats.total > 0 ? `|Δ|=${Math.abs(diceStats.mean - diceStats.theoreticalMean).toFixed(4)}` : 'Awaiting rolls'}
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Last Rolled Face */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-medium text-[#1A1917]">Last Face Rolled</span>
+                <span className="font-mono text-[#C85A32] font-semibold">
+                  {lastRolled !== null ? `Face ${lastRolled}` : 'None'}
+                </span>
+              </div>
+              <div className="h-6 flex items-center">
+                <div className="w-full bg-white border border-[#E6E4DD] rounded px-2.5 py-1 text-xs font-mono text-[#1A1917] flex justify-between">
+                  <span className="text-[#8A8882]">Total in history:</span>
+                  <span className="font-bold text-[#C85A32]">{diceStats.total.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                <span>Die Type:</span>
+                <span className="font-semibold text-[#1A1917]">Polyhedral D{diceFaces}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Presets Row */}
+          <div className="pt-2 border-t border-[#E6E4DD]/80 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-mono text-[#75736E] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
+              <span>Presets:</span>
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setDiceFaces(6);
+                  setDiceBiasWeight(0);
+                  setDiceRolls([]);
+                  setLastRolled(null);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  diceFaces === 6 && diceBiasWeight === 0
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                Fair Standard D6
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDiceFaces(6);
+                  setDiceBiasWeight(0.3);
+                  setDiceRolls([]);
+                  setLastRolled(null);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  diceFaces === 6 && diceBiasWeight === 0.3
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                Loaded D6 (+30% Top Face)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDiceFaces(20);
+                  setDiceBiasWeight(0);
+                  setDiceRolls([]);
+                  setLastRolled(null);
+                }}
+                className={`text-xs font-mono px-2.5 py-1 rounded border transition cursor-pointer ${
+                  diceFaces === 20 && diceBiasWeight === 0
+                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                    : 'bg-white border-[#E6E4DD] hover:bg-[#F3F2EC] text-[#1A1917]'
+                }`}
+              >
+                Fair D20 Polyhedral
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
