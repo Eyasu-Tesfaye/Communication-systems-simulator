@@ -125,14 +125,6 @@ export function evaluateSignal(config, t, domain) {
       }
     }
 
-    case 'damped_sinusoid': {
-      if (tau < 0) return 0;
-      const omega = 2 * Math.PI * frequency;
-      const angle = omega * tau + phase;
-      const osc = subType === 'sin' ? Math.sin(angle) : Math.cos(angle);
-      return amplitude * Math.exp(-decayRate * tau) * osc;
-    }
-
     case 'sinc': {
       if (Math.abs(tau) < EPSILON) return amplitude;
       const arg = Math.PI * frequency * tau;
@@ -352,7 +344,7 @@ export function computeSignalMetrics(config, domain, samples) {
     classification = 'Power Signal';
     const theoreticalPower = (amplitude * amplitude) / 2;
     notes.push(`Unit step carries infinite total energy E = ∞, but finite average power P = A²/2 = ${theoreticalPower.toFixed(3)} W.`);
-  } else if (['rectangular', 'triangular', 'impulse', 'exponential', 'damped_sinusoid'].includes(waveform)) {
+  } else if (['rectangular', 'triangular', 'impulse', 'exponential'].includes(waveform)) {
     classification = 'Energy Signal';
     notes.push('Finite duration / decaying signal: 0 < E < ∞ and average power P → 0 over infinite horizon.');
   } else if (waveform === 'ramp') {
@@ -402,9 +394,6 @@ export function computeSignalMetrics(config, domain, samples) {
       break;
     case 'triangular':
       formula = `x(${domVar}) = ${amplitude}·Λ(${argStr} / ${pulseWidth})`;
-      break;
-    case 'damped_sinusoid':
-      formula = `x(${domVar}) = ${amplitude}·e^{-${decayRate}·${argStr}}·${subType}(2π·${frequency}·${argStr})·u${argStr}`;
       break;
     case 'sinc':
       formula = `x(${domVar}) = ${amplitude}·sinc(${frequency}·${argStr})`;
@@ -552,26 +541,6 @@ export const PRESET_SIGNALS = [
       phase: 0,
       timeShift: 0,
       decayRate: 0.6,
-      pulseWidth: 2,
-      color: '#C05621',
-    },
-    defaultMode: 'single',
-  },
-  {
-    id: 'damped_osc',
-    name: 'Damped Oscillation (RLC Circuit)',
-    domain: 'continuous',
-    description: 'Underdamped system response with exponential decay envelope multiplied by harmonic cosine.',
-    config: {
-      id: 'sig_1',
-      name: 'Damped Oscillation',
-      waveform: 'damped_sinusoid',
-      subType: 'cos',
-      amplitude: 2.5,
-      frequency: 1.0,
-      phase: 0,
-      timeShift: 0,
-      decayRate: 0.4,
       pulseWidth: 2,
       color: '#C05621',
     },
@@ -1912,7 +1881,6 @@ export const SidebarControls = ({
     { id: 'exponential', label: 'Exponential', notation: `e^{-σ${domVar}}` },
     { id: 'rectangular', label: 'Rectangular', notation: `rect(${domVar})` },
     { id: 'triangular', label: 'Triangular', notation: `Λ(${domVar})` },
-    { id: 'damped_sinusoid', label: 'Damped Sine', notation: `e^{-σ${domVar}}cos(ω${domVar})` },
     { id: 'sinc', label: 'Sinc Pulse', notation: `sinc(${domVar})` },
   ];
 
@@ -2040,7 +2008,7 @@ export const SidebarControls = ({
           />
         </div>
 
-        {['sinusoid', 'damped_sinusoid', 'sinc'].includes(config.waveform) && (
+        {['sinusoid', 'sinc'].includes(config.waveform) && (
           <div>
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-neutral-600 font-medium">Frequency (f)</span>
