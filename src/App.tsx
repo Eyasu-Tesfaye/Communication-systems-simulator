@@ -5,14 +5,21 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from './router';
-import { MODULES, SignalModule, findModuleByPathOrId } from './data/modules';
+import {
+  MODULES,
+  AM_MODULES,
+  SignalModule,
+  AMSubTopic,
+  findModuleByPathOrId,
+  findAMModuleByPathOrId,
+} from './data/modules';
 import { NavigationRail } from './components/NavigationRail';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { FeaturedWorkspace } from './components/FeaturedWorkspace';
 import { ModuleExplorer } from './components/ModuleExplorer';
 import { SettingsModal } from './components/SettingsModal';
 
-// Exact isolated component slots imported cleanly:
+// Signals & Random Processes Modules:
 import Module1_Convolution from './modules/Module1_Convolution.jsx';
 import Module2_Fourier from './modules/Module2_Fourier.jsx';
 import Module3_RandomProcess from './modules/Module3_RandomProcess.jsx';
@@ -21,38 +28,65 @@ import Module5_Correlation from './modules/Module5_Correlation.jsx';
 import Module6_EulerSignals from './modules/Module6_EulerSignals.jsx';
 import Module7_Probability from './modules/Module7_Probability.jsx';
 
+// Amplitude Modulation Modules (2.1 – 2.7):
+import {
+  Module2_1_CAM,
+  Module2_2_DSBSC,
+  Module2_3_SSB,
+  Module2_4_VSB,
+  Module2_5_FM,
+  Module2_6_AM_PM,
+  Module2_7_Demodulation,
+} from './modules/am';
+
 export default function App() {
   const { currentPath, navigate } = useRouter();
-  const [activeSection, setActiveSection] = useState<'workspace' | 'modules' | 'module-view'>('workspace');
+  const [activeSection, setActiveSection] = useState<'workspace' | 'modules' | 'module-view' | 'am-view'>('workspace');
+  const [activeChapter, setActiveChapter] = useState<'signals' | 'am'>('signals');
   const [currentModuleNumber, setCurrentModuleNumber] = useState<number>(1); // Default to Module 1 Convolution
+  const [currentAmId, setCurrentAmId] = useState<string>('cam'); // Default to CAM
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showSubtleGrid, setShowSubtleGrid] = useState<boolean>(false);
   const [selectedHubModuleId, setSelectedHubModuleId] = useState<string>('convolution');
 
-  // Sync route path to activeSection and currentModuleNumber
+  // Sync route path to activeSection, chapter, and active module/sub-topic
   useEffect(() => {
     if (currentPath === '/') {
       setActiveSection('workspace');
       setSelectedHubModuleId(MODULES[0].id);
       setCurrentModuleNumber(MODULES[0].moduleNumber);
+      setActiveChapter('signals');
     } else {
+      // Check if it matches an AM Sub-topic
+      const amFound = findAMModuleByPathOrId(currentPath);
+      if (amFound) {
+        setCurrentAmId(amFound.id);
+        setActiveChapter('am');
+        setActiveSection('am-view');
+        return;
+      }
+
+      // Check if it matches a Signals module
       const found = findModuleByPathOrId(currentPath);
       if (found) {
         setCurrentModuleNumber(found.moduleNumber);
         setSelectedHubModuleId(found.id);
+        setActiveChapter('signals');
         setActiveSection('module-view');
+        return;
       }
     }
   }, [currentPath]);
 
-  // Jump directly to module by number (1 to 7 in original order)
+  // Jump directly to a module by number (1 to 7)
   const handleSelectModuleNumber = useCallback(
     (num: number) => {
       const target = MODULES.find((m) => m.moduleNumber === num);
       if (target) {
         setCurrentModuleNumber(num);
         setSelectedHubModuleId(target.id);
+        setActiveChapter('signals');
         setActiveSection('module-view');
         navigate(target.path);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -61,16 +95,47 @@ export default function App() {
     [navigate]
   );
 
-  // Return to workspace hub: always choose the first module (Module 1)
+  // Jump directly to an AM sub-topic by id (cam, dsb-sc, ssb, vsb, demodulation)
+  const handleSelectAmSubTopic = useCallback(
+    (subTopicId: string) => {
+      const target = AM_MODULES.find((m) => m.id === subTopicId);
+      if (target) {
+        setCurrentAmId(target.id);
+        setActiveChapter('am');
+        setActiveSection('am-view');
+        navigate(target.path);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    },
+    [navigate]
+  );
+
+  // Switch between Signals and Amplitude Modulation
+  const handleSelectChapter = useCallback(
+    (chapter: 'signals' | 'am') => {
+      setActiveChapter(chapter);
+      if (chapter === 'am') {
+        const target = AM_MODULES.find((m) => m.id === currentAmId) || AM_MODULES[0];
+        handleSelectAmSubTopic(target.id);
+      } else {
+        const target = MODULES.find((m) => m.moduleNumber === currentModuleNumber) || MODULES[0];
+        handleSelectModuleNumber(target.moduleNumber);
+      }
+    },
+    [currentAmId, currentModuleNumber, handleSelectAmSubTopic, handleSelectModuleNumber]
+  );
+
+  // Return to workspace hub
   const handleNavigateHome = useCallback(() => {
     setActiveSection('workspace');
     setSelectedHubModuleId(MODULES[0].id);
     setCurrentModuleNumber(MODULES[0].moduleNumber);
+    setActiveChapter('signals');
     navigate('/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [navigate]);
 
-  // Global keyboard shortcuts for instructor (keys 1-7, [ and ] for prev/next)
+  // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -80,15 +145,34 @@ export default function App() {
 
       if (e.key >= '1' && e.key <= '7' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        handleSelectModuleNumber(parseInt(e.key, 10));
+        const num = parseInt(e.key, 10);
+        if (activeChapter === 'am') {
+          if (num >= 1 && num <= AM_MODULES.length) {
+            handleSelectAmSubTopic(AM_MODULES[num - 1].id);
+          }
+        } else {
+          handleSelectModuleNumber(num);
+        }
       } else if (e.key === '[' || (e.altKey && e.key === 'ArrowLeft')) {
         e.preventDefault();
-        const prev = currentModuleNumber > 1 ? currentModuleNumber - 1 : 7;
-        handleSelectModuleNumber(prev);
+        if (activeChapter === 'am') {
+          const idx = AM_MODULES.findIndex((m) => m.id === currentAmId);
+          const prev = idx > 0 ? AM_MODULES[idx - 1] : AM_MODULES[AM_MODULES.length - 1];
+          handleSelectAmSubTopic(prev.id);
+        } else {
+          const prev = currentModuleNumber > 1 ? currentModuleNumber - 1 : 7;
+          handleSelectModuleNumber(prev);
+        }
       } else if (e.key === ']' || (e.altKey && e.key === 'ArrowRight')) {
         e.preventDefault();
-        const next = currentModuleNumber < 7 ? currentModuleNumber + 1 : 1;
-        handleSelectModuleNumber(next);
+        if (activeChapter === 'am') {
+          const idx = AM_MODULES.findIndex((m) => m.id === currentAmId);
+          const next = idx < AM_MODULES.length - 1 ? AM_MODULES[idx + 1] : AM_MODULES[0];
+          handleSelectAmSubTopic(next.id);
+        } else {
+          const next = currentModuleNumber < 7 ? currentModuleNumber + 1 : 1;
+          handleSelectModuleNumber(next);
+        }
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
         setIsSidebarCollapsed((prev) => !prev);
@@ -97,14 +181,14 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentModuleNumber, handleSelectModuleNumber]);
+  }, [activeChapter, currentAmId, currentModuleNumber, handleSelectAmSubTopic, handleSelectModuleNumber]);
 
   const handleBrowseModules = () => {
     setActiveSection('modules');
     document.getElementById('module-explorer')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Render the active module component slot in original order
+  // Render the active module component slot for Signals & Random Processes
   const renderActiveModuleSlot = () => {
     const commonProps = {
       onNavigateHome: handleNavigateHome,
@@ -114,19 +198,15 @@ export default function App() {
         } else {
           const mod = findModuleByPathOrId(pathOrNum);
           if (mod) handleSelectModuleNumber(mod.moduleNumber);
+          else {
+            const amMod = findAMModuleByPathOrId(pathOrNum);
+            if (amMod) handleSelectAmSubTopic(amMod.id);
+          }
         }
       },
       isInstructorMode: true,
     };
 
-    // Clean 1-to-1 mapping matching filenames Module1 to Module7:
-    // 1: convolution -> Module1_Convolution
-    // 2: fourier -> Module2_Fourier
-    // 3: random-processes -> Module3_RandomProcess
-    // 4: signals -> Module4_SignalExplorer
-    // 5: correlation-spectrum -> Module5_Correlation
-    // 6: complex-signals -> Module6_EulerSignals
-    // 7: probability -> Module7_Probability
     switch (currentModuleNumber) {
       case 1:
         return <Module1_Convolution {...commonProps} />;
@@ -147,29 +227,126 @@ export default function App() {
     }
   };
 
+  // Render the active view for Amplitude Modulation (2.1 to 2.7)
+  const renderActiveAmSlot = () => {
+    const handleAmNavigate = (path: string) => {
+      const am = findAMModuleByPathOrId(path);
+      if (am) {
+        handleSelectAmSubTopic(am.id);
+      } else {
+        const sig = findModuleByPathOrId(path);
+        if (sig) handleSelectModuleNumber(sig.moduleNumber);
+        else navigate(path);
+      }
+    };
+
+    switch (currentAmId) {
+      case 'cam':
+      case '2.1':
+      case '01':
+        return (
+          <Module2_1_CAM
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'dsb-sc':
+      case '2.2':
+      case '02':
+        return (
+          <Module2_2_DSBSC
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'ssb':
+      case '2.3':
+      case '03':
+        return (
+          <Module2_3_SSB
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'vsb':
+      case '2.4':
+      case '04':
+        return (
+          <Module2_4_VSB
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'fm':
+      case '2.5':
+      case '05':
+        return (
+          <Module2_5_FM
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'am-pm':
+      case 'pm':
+      case '2.6':
+      case '06':
+        return (
+          <Module2_6_AM_PM
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      case 'demodulation':
+      case '2.7':
+      case '07':
+        return (
+          <Module2_7_Demodulation
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+      default:
+        return (
+          <Module2_1_CAM
+            onNavigateHome={handleNavigateHome}
+            onNavigateModule={handleAmNavigate}
+          />
+        );
+    }
+  };
+
   return (
     <div
       className={`min-h-screen bg-white text-[#1A1917] flex flex-col md:flex-row ${
         showSubtleGrid ? 'bg-[radial-gradient(#E6E4DD_1px,transparent_1px)] [background-size:24px_24px]' : ''
       }`}
     >
-      {/* 1. Collapsible Sidebar (without Workspace Hub icon) */}
+      {/* 1. Collapsible Sidebar Navigation Rail */}
       <NavigationRail
         currentSection={activeSection}
-        isWorkspaceHub={activeSection !== 'module-view'}
+        activeChapter={activeChapter}
+        isWorkspaceHub={activeSection !== 'module-view' && activeSection !== 'am-view'}
         currentModuleNumber={currentModuleNumber}
+        currentAmId={currentAmId}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        onSelectChapter={handleSelectChapter}
         onSelectModule={handleSelectModuleNumber}
+        onSelectAmSubTopic={handleSelectAmSubTopic}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onNavigateHome={handleNavigateHome}
       />
 
-      {/* Main Content Area */}
+      {/* 2. Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          {activeSection === 'module-view' ? (
-            /* Dedicated Module Slot Workspace */
+          {activeSection === 'am-view' ? (
+            /* Dedicated Amplitude Modulation Workspace */
+            <div className="animate-in fade-in duration-100">
+              {renderActiveAmSlot()}
+            </div>
+          ) : activeSection === 'module-view' ? (
+            /* Dedicated Signals Module Slot Workspace */
             <div className="animate-in fade-in duration-100">
               {renderActiveModuleSlot()}
             </div>
@@ -193,24 +370,26 @@ export default function App() {
                 onOpenWorkspace={(path: string) => {
                   const m = findModuleByPathOrId(path);
                   if (m) handleSelectModuleNumber(m.moduleNumber);
+                  else {
+                    const am = findAMModuleByPathOrId(path);
+                    if (am) handleSelectAmSubTopic(am.id);
+                  }
                 }}
               />
             </div>
           )}
         </main>
 
-        {/* Quiet Minimal Footer */}
-        <footer className="border-t border-[#E6E4DD] bg-[#FAF9F6] py-5 mt-10 text-xs text-[#75736E]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 font-mono">
+        {/* Compact Minimal Global Footer */}
+        <footer className="border-t border-[#E6E4DD]/80 bg-[#FAF9F6] py-2 px-4 sm:px-6 lg:px-8 mt-4 text-[11px] text-[#8C8983]">
+          <div className="max-w-6xl mx-auto flex items-center justify-between font-mono">
+            <div className="flex items-center gap-1.5">
               <span className="font-semibold text-[#1A1917]">SIGNAL LAB</span>
-              <span>·</span>
-              <span>Interactive Signals & Communication Systems Laboratory</span>
+              <span className="text-[#D1CFCE]">·</span>
+              <span>Communication Systems Simulator</span>
             </div>
-            <div className="flex items-center gap-4 text-[#75736E] font-mono text-[11px]">
-              <span>7 Modules in Original Order</span>
-              <span>·</span>
-              <span>Hotkeys: Press [1]–[7]</span>
+            <div className="text-[10px] text-[#A8A69E]">
+              Hotkeys: [1]–[7]
             </div>
           </div>
         </footer>
