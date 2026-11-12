@@ -383,25 +383,25 @@ export const AM_MODULES: AMSubTopic[] = [
     moduleNumber: '2.6',
     index: '06',
     filename: 'Module2_6_AM_PM.tsx',
-    name: 'Phase & Amplitude Modulation (AM / PM)',
-    shortName: 'AM & PM',
+    name: 'Phase Modulation and Demodulation',
+    shortName: 'PM & Demod',
     path: '/am/pm',
     legacyPaths: ['/pm', '/phase-modulation', '/am-pm', '/angle-modulation/pm', '/am/am-pm'],
-    description: 'Direct carrier phase modulation s(t) = Ac cos(2π fc t + kp m(t)) and comparative analysis with Amplitude Modulation. Observe how modulating baseband signals manipulate carrier envelope amplitude vs phase angles.',
+    description: 'Interactive signal-processing workbench illustrating instantaneous phase encoding, constant-envelope transmission, PM vs. FM behavior, and real 4-stage frequency-discriminator recovery.',
     tag: 'Phase & Angle Modulation',
     topics: [
-      'Phase Modulation Rule: s_PM(t) = Ac cos(2π fc t + kp m(t)) with Phase Sensitivity kp',
-      'Relationship between PM and FM: PM is FM with Differentiated Baseband d m(t) / dt',
-      'Modulation Architecture Comparison: AM (Envelope Variation) vs FM (Frequency Variation) vs PM (Phase Variation)'
+      'Phase Modulation Rule: s(t) = Ac cos(2π fc t + kp m(t)) with Phase Sensitivity kp',
+      'Relationship between PM and FM: Instantaneous Frequency fi(t) = fc + (kp/2π) dm(t)/dt',
+      '4-Stage Frequency Discriminator Demodulation: Differentiation, Envelope Detection, DC Blocking & Integration'
     ],
-    formula: 's_{PM}(t) = A_c \\cos\\left(2\\pi f_c t + k_p m(t)\\right) = A_c \\cos\\left(2\\pi f_c t + \\Delta\\phi \\cos(2\\pi f_m t)\\right)',
-    formulaLabel: 'Phase Modulated (PM) Signal & AM Comparison Formulation',
-    keywords: ['pm', 'am', 'phase modulation', 'amplitude modulation', 'phase deviation', 'angle modulation', 'comparison', 'iq'],
+    formula: 's_{PM}(t) = A_c \\cos\\left(2\\pi f_c t + k_p m(t)\\right), \\quad f_i(t) = f_c + \\frac{k_p}{2\\pi}\\frac{dm(t)}{dt}',
+    formulaLabel: 'Phase Modulated (PM) Signal & Instantaneous Frequency',
+    keywords: ['pm', 'phase modulation', 'demodulation', 'discriminator', 'phase deviation', 'angle modulation', 'differentiator', 'integrator'],
     parameterHighlights: [
-      'Phase Sensitivity (kp / Δϕ)',
-      'Modulating Frequency (fm)',
-      'Carrier Frequency (fc)',
-      'Comparison Mode (AM vs PM)'
+      'Phase Sensitivity (kp)',
+      'Carrier Amplitude & Frequency (Ac, fc)',
+      'Message Waveform & Slope (m(t), fm)',
+      '4-Stage Discriminator Recovery'
     ]
   },
   {
