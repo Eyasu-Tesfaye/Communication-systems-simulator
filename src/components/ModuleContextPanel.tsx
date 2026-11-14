@@ -1,11 +1,11 @@
 import React from 'react';
 import { ArrowRight, BookOpen, Layers, Activity } from 'lucide-react';
-import { SignalModule } from '../data/modules';
+import { SignalModule, AMSubTopic } from '../data/modules';
 import { ModuleGlyph } from './ModuleGlyphs';
 import { MathView } from './MathView';
 
 interface ModuleContextPanelProps {
-  module: SignalModule;
+  module: SignalModule | AMSubTopic;
   onOpenWorkspace: (path: string) => void;
 }
 

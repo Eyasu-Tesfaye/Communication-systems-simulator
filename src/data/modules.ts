@@ -279,21 +279,21 @@ export const AM_MODULES: AMSubTopic[] = [
     shortName: 'DSB-SC',
     path: '/am/dsb-sc',
     legacyPaths: ['/dsb-sc', '/dsbsc', '/suppressed-carrier'],
-    description: 'Multiplier-based balanced modulation eliminating the high-power carrier component. 100% transmitted power in message sidebands with phase reversals at zero-crossings.',
-    tag: 'Suppressed Carrier Modulation',
+    description: 'Multiplier-based balanced modulation eliminating the high-power carrier component and synchronous coherent demodulation with local oscillator phase/frequency tracking and low-pass filtering.',
+    tag: 'Suppressed Carrier & Coherent Recovery',
     topics: [
       'Balanced Multiplier Formulation: s(t) = Ac m(t) cos(2π fc t)',
       'Phase Reversal Dynamics: 180° Phase Flip at Message Zero Crossings',
-      '100% Sideband Power Efficiency & Transmission Bandwidth B_T = 2W'
+      'Coherent Product Demodulation, Quadrature Null (cos θ) & Ideal LPF Recovery'
     ],
     formula: 's_{DSB}(t) = A_c \\cdot m(t) \\cdot \\cos(2\\pi f_c t)',
     formulaLabel: 'DSB-SC Modulated Signal Representation',
-    keywords: ['dsb-sc', 'balanced modulator', 'suppressed carrier', 'phase reversal', 'efficiency', 'ring modulator'],
+    keywords: ['dsb-sc', 'balanced modulator', 'suppressed carrier', 'phase reversal', 'efficiency', 'coherent demodulation', 'quadrature null', 'lpf'],
     parameterHighlights: [
-      'Carrier Frequency (fc)',
-      'Message Bandwidth (W)',
-      'RF Peak Amplitude (Ac)',
-      'Sideband Power Ratio (100%)'
+      'Message Frequency (fm) & Amp (Am)',
+      'Carrier Frequency (fc) & Amp (Ac)',
+      'LO Phase Error (θ) & Offset (Δf)',
+      'Low-Pass Filter Cutoff (fcut)'
     ]
   },
   {

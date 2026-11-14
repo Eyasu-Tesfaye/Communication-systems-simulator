@@ -1,7 +1,7 @@
 {
   "name": "Actual Signal Lab Workspace",
   "description": "An educational visual workspace for exploring signals, communication systems, and mathematical transforms.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

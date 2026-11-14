@@ -47,9 +47,20 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
     isWorkspaceHub ?? (currentSection === 'workspace' || currentSection === 'modules');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Independent toggable section collapse/expand states
-  const [isSignalsOpen, setIsSignalsOpen] = useState(true);
-  const [isAmOpen, setIsAmOpen] = useState(true);
+  // Mutually exclusive section collapse/expand states (auto-collapse inactive section)
+  const [isSignalsOpen, setIsSignalsOpen] = useState(activeChapter === 'signals');
+  const [isAmOpen, setIsAmOpen] = useState(activeChapter === 'am');
+
+  // Collapse the inactive section whenever activeChapter changes
+  useEffect(() => {
+    if (activeChapter === 'am') {
+      setIsAmOpen(true);
+      setIsSignalsOpen(false);
+    } else {
+      setIsSignalsOpen(true);
+      setIsAmOpen(false);
+    }
+  }, [activeChapter]);
 
   // Close drawer on Escape
   useEffect(() => {
@@ -174,6 +185,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                 type="button"
                 onClick={() => {
                   setIsSignalsOpen(true);
+                  setIsAmOpen(false);
                   onSelectChapter('signals');
                 }}
                 className={`relative flex items-center justify-center w-9 h-8 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
@@ -190,6 +202,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                 type="button"
                 onClick={() => {
                   setIsAmOpen(true);
+                  setIsSignalsOpen(false);
                   onSelectChapter('am');
                 }}
                 className={`relative flex items-center justify-center w-9 h-8 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
@@ -211,6 +224,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   type="button"
                   onClick={() => {
                     setIsSignalsOpen(true);
+                    setIsAmOpen(false);
                     onSelectChapter('signals');
                   }}
                   className={`flex-1 py-1 px-2 text-[11px] font-mono font-semibold rounded transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -227,6 +241,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   type="button"
                   onClick={() => {
                     setIsAmOpen(true);
+                    setIsSignalsOpen(false);
                     onSelectChapter('am');
                   }}
                   className={`flex-1 py-1 px-2 text-[11px] font-mono font-semibold rounded transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -254,7 +269,11 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             {!isCollapsed && (
               <button
                 type="button"
-                onClick={() => setIsSignalsOpen((prev) => !prev)}
+                onClick={() => {
+                  const next = !isSignalsOpen;
+                  setIsSignalsOpen(next);
+                  if (next) setIsAmOpen(false);
+                }}
                 className="w-full flex items-center justify-between px-2 py-1.5 rounded transition-colors text-left cursor-pointer group hover:bg-[#FAF9F6]"
                 title={isSignalsOpen ? 'Collapse Signals section' : 'Expand Signals section'}
               >
@@ -372,7 +391,11 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
             {!isCollapsed && (
               <button
                 type="button"
-                onClick={() => setIsAmOpen((prev) => !prev)}
+                onClick={() => {
+                  const next = !isAmOpen;
+                  setIsAmOpen(next);
+                  if (next) setIsSignalsOpen(false);
+                }}
                 className="w-full flex items-center justify-between px-2 py-1.5 rounded transition-colors text-left cursor-pointer group mt-2.5 hover:bg-[#FAF9F6]"
                 title={isAmOpen ? 'Collapse Amplitude Modulation section' : 'Expand Amplitude Modulation section'}
               >
@@ -596,6 +619,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   type="button"
                   onClick={() => {
                     setIsSignalsOpen(true);
+                    setIsAmOpen(false);
                     onSelectChapter('signals');
                   }}
                   className={`flex-1 py-1.5 px-2 text-xs font-mono font-semibold rounded transition-all text-center ${
@@ -610,6 +634,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   type="button"
                   onClick={() => {
                     setIsAmOpen(true);
+                    setIsSignalsOpen(false);
                     onSelectChapter('am');
                   }}
                   className={`flex-1 py-1.5 px-2 text-xs font-mono font-semibold rounded transition-all text-center ${
