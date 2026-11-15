@@ -5,13 +5,13 @@
  * 4th-order Butterworth LPF (cascaded BiquadFilterNodes), and live AnalyserNode telemetry.
  */
 
-export type AudioSourceType = 'voice' | 'mic' | 'chord' | 'tone' | 'upload';
+export type AudioSourceType = 'melody' | 'voice' | 'chord' | 'tone' | 'mic' | 'upload';
 export type AudioProbeStage = 'original' | 'dsbsc' | 'envelope' | 'coherent';
 
 export interface DsbScAudioParams {
   sourceType: AudioSourceType;
   probeStage: AudioProbeStage;
-  fcAudio: number;       // Audible carrier frequency in Hz (1500 - 5000)
+  fcAudio: number;       // Audible carrier frequency in Hz (1600 - 4500)
   thetaDeg: number;      // Receiver LO phase error (-180 to 180 deg)
   freqOffsetHz: number;  // Receiver LO frequency offset Δf (-250 to 250 Hz)
   lpfEnabled: boolean;   // Enable/bypass 4th-order Butterworth LPF
@@ -151,39 +151,214 @@ export class DsbScAudioEngine {
   }
 
   /**
-   * Generate baseband message sample m(t) at time t for built-in test sources.
+   * Pre-render an unmistakable, normalized baseband message buffer m(t) for built-in sources
+   * so listeners can immediately discern the sound before modulation, during DSB-SC, and after demodulation.
    */
-  private evaluateBuiltInMessage(sourceType: AudioSourceType, t: number): number {
+  private buildBuiltInMessageBuffer(
+    sourceType: AudioSourceType,
+    sampleRate: number
+  ): { samples: Float32Array; durationSec: number } {
+    const durationSec =
+      sourceType === 'melody' || sourceType === 'chord'
+        ? 4.8
+        : sourceType === 'voice'
+        ? 4.4
+        : 4.0;
+    const totalSamples = Math.max(1024, Math.floor(sampleRate * durationSec));
+    const buf = new Float32Array(totalSamples);
+
     if (sourceType === 'tone') {
-      // Clear 330 Hz + subtle 660 Hz harmonic so Δf & phase inversion are unmistakable
-      const env = Math.min(1, t / 0.04) * Math.min(1, (DEFAULT_DURATION_SEC - t) / 0.04);
-      return (0.72 * Math.sin(2 * Math.PI * 330 * t) + 0.22 * Math.sin(2 * Math.PI * 660 * t)) * env;
+      // Crisp pulsed 440 Hz + 880 Hz acoustic chime pings with clear silent gaps
+      const pingTimes = [0.1, 1.05, 2.0, 2.95];
+      const pingDur = 0.6;
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let val = 0;
+        for (const start of pingTimes) {
+          const dt = t - start;
+          if (dt >= 0 && dt < pingDur) {
+            const attack = Math.min(1, dt / 0.012);
+            const decay = Math.exp(-dt * 4.5);
+            const endFade = Math.min(1, (pingDur - dt) / 0.03);
+            const env = attack * decay * endFade;
+            val +=
+              env *
+              (0.76 * Math.sin(2 * Math.PI * 440 * dt) +
+                0.22 * Math.sin(2 * Math.PI * 880 * dt) +
+                0.08 * Math.sin(2 * Math.PI * 1320 * dt));
+          }
+        }
+        buf[i] = val;
+      }
+    } else if (sourceType === 'chord') {
+      // Clear 4-chord acoustic progression (C -> F -> G7 -> C) with gentle arpeggio attack & pauses
+      const chords: Array<{ start: number; dur: number; freqs: number[] }> = [
+        { start: 0.06, dur: 1.04, freqs: [261.63, 329.63, 392.0, 523.25] },   // C major
+        { start: 1.22, dur: 1.04, freqs: [174.61, 261.63, 349.23, 440.0] },   // F major
+        { start: 2.38, dur: 1.04, freqs: [196.0, 293.66, 392.0, 493.88] },    // G major
+        { start: 3.54, dur: 1.08, freqs: [261.63, 329.63, 392.0, 523.25] },   // C major resolve
+      ];
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let val = 0;
+        for (const ch of chords) {
+          const dt = t - ch.start;
+          if (dt >= 0 && dt < ch.dur) {
+            ch.freqs.forEach((f, noteIdx) => {
+              const ndt = dt - noteIdx * 0.045;
+              if (ndt > 0) {
+                const attack = Math.min(1, ndt / 0.015);
+                const decay = Math.exp(-ndt * 1.9);
+                const rel = Math.min(1, (ch.dur - dt) / 0.06);
+                val +=
+                  attack *
+                  decay *
+                  rel *
+                  (0.75 * Math.sin(2 * Math.PI * f * ndt) +
+                    0.22 * Math.sin(2 * Math.PI * (2 * f) * ndt));
+              }
+            });
+          }
+        }
+        buf[i] = val;
+      }
+    } else if (sourceType === 'voice') {
+      // True Rosenberg glottal pulse train + 3 parallel biquad vocal tract formants (F1, F2, F3)
+      // Speaks 4 unmistakable vowel syllables: "Ah" -> "Ee" -> "Oh" -> "Oo" with silent pauses
+      const syllables = [
+        { start: 0.12, dur: 0.72, f0Start: 138, f0End: 162, f1: 730, bw1: 75, f2: 1090, bw2: 95, f3: 1850, bw3: 130 },  // "Ah"
+        { start: 1.12, dur: 0.72, f0Start: 158, f0End: 175, f1: 310, bw1: 60, f2: 1880, bw2: 110, f3: 2050, bw3: 140 }, // "Ee"
+        { start: 2.12, dur: 0.72, f0Start: 164, f0End: 144, f1: 480, bw1: 70, f2: 840, bw2: 85, f3: 1820, bw3: 130 },   // "Oh"
+        { start: 3.12, dur: 0.88, f0Start: 145, f0End: 116, f1: 340, bw1: 65, f2: 880, bw2: 85, f3: 1780, bw3: 130 },   // "Oo"
+      ];
+
+      // 3-resonator filter state
+      let y1a = 0, y2a = 0, y1b = 0, y2b = 0, y1c = 0, y2c = 0;
+      let glottalPhase = 0;
+      let prevGlottal = 0;
+      let noiseRng = 987651;
+
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let activeSyl: (typeof syllables)[number] | null = null;
+        for (const syl of syllables) {
+          if (t >= syl.start && t < syl.start + syl.dur) {
+            activeSyl = syl;
+            break;
+          }
+        }
+
+        if (!activeSyl) {
+          // Exponentially let resonators ring down naturally during silence
+          y1a *= 0.992; y2a *= 0.992;
+          y1b *= 0.992; y2b *= 0.992;
+          y1c *= 0.992; y2c *= 0.992;
+          buf[i] = 0.55 * y1a + 0.38 * y1b + 0.18 * y1c;
+          continue;
+        }
+
+        const dt = t - activeSyl.start;
+        const u = dt / activeSyl.dur;
+        const f0 =
+          activeSyl.f0Start +
+          (activeSyl.f0End - activeSyl.f0Start) * u +
+          2.2 * Math.sin(2 * Math.PI * 5.2 * dt);
+
+        glottalPhase = (glottalPhase + f0 / sampleRate) % 1;
+        // Rosenberg glottal wave (open phase 0..0.62)
+        const tp = 0.42;
+        const tn = 0.18;
+        let glottal = 0;
+        if (glottalPhase < tp) {
+          glottal = 0.5 * (1 - Math.cos((Math.PI * glottalPhase) / tp));
+        } else if (glottalPhase < tp + tn) {
+          glottal = Math.cos((Math.PI * (glottalPhase - tp)) / (2 * tn));
+        }
+        // Derivative of glottal pulse gives natural -6dB/oct radiation slope
+        const glottalDeriv = glottal - prevGlottal;
+        prevGlottal = glottal;
+
+        // Subtle /h/ breath aspiration at the very start of each syllable
+        noiseRng = (noiseRng * 1664525 + 1013904223) >>> 0;
+        const white = (noiseRng / 4294967296) * 2 - 1;
+        const breathEnv = Math.exp(-dt * 24) * 0.04;
+        const voiceEnv = Math.min(1, dt / 0.03) * Math.min(1, (activeSyl.dur - dt) / 0.055);
+        const excitation = (glottalDeriv * 2.4 + white * breathEnv) * voiceEnv;
+
+        // Update 3 parallel 2-pole resonators (F1, F2, F3)
+        const stepResonator = (x: number, f: number, bw: number, y1: number, y2: number) => {
+          const r = Math.exp((-Math.PI * bw) / sampleRate);
+          const a1 = -2 * r * Math.cos((2 * Math.PI * f) / sampleRate);
+          const a2 = r * r;
+          const y0 = (1 - r) * x - a1 * y1 - a2 * y2;
+          return [y0, y1] as const;
+        };
+
+        const [n1a, n2a] = stepResonator(excitation, activeSyl.f1, activeSyl.bw1, y1a, y2a);
+        y1a = n1a; y2a = n2a;
+        const [n1b, n2b] = stepResonator(excitation, activeSyl.f2, activeSyl.bw2, y1b, y2b);
+        y1b = n1b; y2b = n2b;
+        const [n1c, n2c] = stepResonator(excitation, activeSyl.f3, activeSyl.bw3, y1c, y2c);
+        y1c = n1c; y2c = n2c;
+
+        buf[i] = 0.65 * y1a + 0.48 * y1b + 0.2 * y1c;
+      }
+    } else {
+      // 'melody' (Default): Unmistakable "Ode to Joy" 15-note acoustic piano/chime phrase
+      // Fundamental notes 261-392 Hz + clean harmonics (< 1600 Hz) and short inter-note pauses
+      const notes: Array<{ freq: number; start: number; dur: number }> = [
+        { freq: 329.63, start: 0.06, dur: 0.25 }, // E4
+        { freq: 329.63, start: 0.34, dur: 0.25 }, // E4
+        { freq: 349.23, start: 0.62, dur: 0.25 }, // F4
+        { freq: 392.00, start: 0.90, dur: 0.25 }, // G4
+        { freq: 392.00, start: 1.18, dur: 0.25 }, // G4
+        { freq: 349.23, start: 1.46, dur: 0.25 }, // F4
+        { freq: 329.63, start: 1.74, dur: 0.25 }, // E4
+        { freq: 293.66, start: 2.02, dur: 0.25 }, // D4
+        { freq: 261.63, start: 2.30, dur: 0.25 }, // C4
+        { freq: 261.63, start: 2.58, dur: 0.25 }, // C4
+        { freq: 293.66, start: 2.86, dur: 0.25 }, // D4
+        { freq: 329.63, start: 3.14, dur: 0.25 }, // E4
+        { freq: 329.63, start: 3.42, dur: 0.38 }, // E4 (dotted)
+        { freq: 293.66, start: 3.84, dur: 0.16 }, // D4
+        { freq: 293.66, start: 4.04, dur: 0.48 }, // D4 (hold)
+      ];
+
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let val = 0;
+        for (const n of notes) {
+          const dt = t - n.start;
+          if (dt >= 0 && dt < n.dur) {
+            const attack = Math.min(1, dt / 0.008);
+            const decay = Math.exp(-dt * 4.2);
+            const release = Math.min(1, (n.dur - dt) / 0.028);
+            const env = attack * decay * release;
+            const h1 = Math.sin(2 * Math.PI * n.freq * dt);
+            const h2 = 0.42 * Math.sin(2 * Math.PI * (2 * n.freq) * dt);
+            const h3 = 0.18 * Math.sin(2 * Math.PI * (3 * n.freq) * dt) * Math.exp(-dt * 3.0);
+            const h4 = 0.08 * Math.sin(2 * Math.PI * (4 * n.freq) * dt) * Math.exp(-dt * 6.0);
+            val += env * (h1 + h2 + h3 + h4);
+          }
+        }
+        buf[i] = val;
+      }
     }
 
-    if (sourceType === 'chord') {
-      // Warm C-major triad with gentle swell so frequency offset detuning stands out
-      const swell = 0.65 + 0.35 * Math.sin(2 * Math.PI * 0.5 * t);
-      const c4 = Math.sin(2 * Math.PI * 261.63 * t);
-      const e4 = 0.75 * Math.sin(2 * Math.PI * 329.63 * t);
-      const g4 = 0.65 * Math.sin(2 * Math.PI * 392.0 * t);
-      const c5 = 0.35 * Math.sin(2 * Math.PI * 523.25 * t);
-      return 0.38 * swell * (c4 + e4 + g4 + c5);
+    // Peak-normalize built-in message to 0.85 so Before / Modulated / After have balanced loudness
+    let peak = 0;
+    for (let i = 0; i < totalSamples; i++) {
+      const a = Math.abs(buf[i]);
+      if (a > peak) peak = a;
+    }
+    if (peak > 1e-4) {
+      const scale = 0.85 / peak;
+      for (let i = 0; i < totalSamples; i++) {
+        buf[i] *= scale;
+      }
     }
 
-    // 'voice': Speech-like cadence with distinct syllable pauses (great for hearing suppressed carrier silence!)
-    const phrasePos = (t * 1.5) % 1.0; // 1.5 syllables/sec
-    // Smooth vowel gate with silent pauses between phrases so suppressed-carrier silence is audible
-    const gate =
-      phrasePos < 0.72
-        ? Math.sin((Math.PI * phrasePos) / 0.72) ** 0.7
-        : 0;
-    const f0 = 155 + 28 * Math.sin(2 * Math.PI * 1.1 * t) + 12 * Math.sin(2 * Math.PI * 5.2 * t);
-    const formant1 = Math.sin(2 * Math.PI * f0 * t);
-    const formant2 = 0.65 * Math.sin(2 * Math.PI * (2 * f0) * t + 0.4);
-    const formant3 = 0.45 * Math.sin(2 * Math.PI * (3 * f0) * t + 0.9);
-    const formant4 = 0.25 * Math.sin(2 * Math.PI * (5 * f0) * t + 1.3);
-    const formant5 = 0.14 * Math.sin(2 * Math.PI * (7 * f0) * t + 0.2);
-    return 0.45 * gate * (formant1 + formant2 + formant3 + formant4 + formant5);
+    return { samples: buf, durationSec };
   }
 
   /**
@@ -200,7 +375,17 @@ export class DsbScAudioEngine {
       (params.sourceType === 'upload' || params.sourceType === 'mic') &&
       uploaded &&
       uploaded.samples.length > 0;
-    const durationSec = useSampled ? uploaded.durationSec : DEFAULT_DURATION_SEC;
+
+    let durationSec: number;
+    let builtInSamples: Float32Array | null = null;
+    if (useSampled && uploaded) {
+      durationSec = uploaded.durationSec;
+    } else {
+      const builtIn = this.buildBuiltInMessageBuffer(params.sourceType, sampleRate);
+      builtInSamples = builtIn.samples;
+      durationSec = builtIn.durationSec;
+    }
+
     const totalSamples = Math.max(1024, Math.floor(sampleRate * durationSec));
     this.currentDurationSec = durationSec;
 
@@ -231,8 +416,8 @@ export class DsbScAudioEngine {
         const idx1 = Math.min(uploaded.samples.length - 1, idx0 + 1);
         const frac = srcPos - idx0;
         m = uploaded.samples[idx0] * (1 - frac) + uploaded.samples[idx1] * frac;
-      } else {
-        m = this.evaluateBuiltInMessage(params.sourceType, t);
+      } else if (builtInSamples) {
+        m = builtInSamples[i] ?? 0;
       }
 
       let sample = m;
@@ -257,18 +442,32 @@ export class DsbScAudioEngine {
       }
 
       // Soft safety clamp so headphones/speakers never hard-clip
-      out[i] = Math.max(-0.98, Math.min(0.98, sample * 0.65));
+      out[i] = Math.max(-0.98, Math.min(0.98, sample * 0.72));
     }
 
     this.activeBuffer = buf;
 
-    // Capture a 512-point preview slice (40ms window at t=0.25s) for paused oscilloscope display
+    // Capture a 512-point preview slice (40ms window centered on an active signal segment)
     const previewCount = 512;
     const preview = new Float32Array(previewCount);
-    const startSample = Math.min(Math.max(0, Math.floor(sampleRate * 0.25)), Math.max(0, totalSamples - previewCount));
-    const windowSamples = Math.min(Math.floor(sampleRate * 0.04), totalSamples - startSample);
+    const windowSamples = Math.min(Math.floor(sampleRate * 0.04), totalSamples);
+    let bestStart = Math.min(Math.max(0, Math.floor(sampleRate * 0.16)), Math.max(0, totalSamples - windowSamples));
+    let bestEnergy = -1;
+    const scanLimit = Math.max(1, totalSamples - windowSamples);
+    const hop = Math.max(1, Math.floor(sampleRate * 0.05));
+    for (let s = 0; s < scanLimit; s += hop) {
+      let e = 0;
+      for (let j = 0; j < windowSamples; j += 16) {
+        const v = out[s + j];
+        e += v * v;
+      }
+      if (e > bestEnergy) {
+        bestEnergy = e;
+        bestStart = s;
+      }
+    }
     for (let k = 0; k < previewCount; k++) {
-      const idx = startSample + Math.floor((k / previewCount) * Math.max(1, windowSamples));
+      const idx = bestStart + Math.floor((k / previewCount) * Math.max(1, windowSamples));
       preview[k] = out[idx] ?? 0;
     }
     this.previewWaveform = preview;

@@ -28,16 +28,49 @@ import {
 } from './dsbscAudioEngine';
 
 const DEFAULT_AUDIO_PARAMS: DsbScAudioParams = {
-  sourceType: 'voice',
-  probeStage: 'coherent',
-  fcAudio: 2800,
+  sourceType: 'melody',
+  probeStage: 'original',
+  fcAudio: 2600,
   thetaDeg: 0,
   freqOffsetHz: 0,
   lpfEnabled: true,
-  lpfCutoffHz: 2200,
+  lpfCutoffHz: 2100,
   noiseLevel: 0,
-  volume: 0.75,
+  volume: 0.78,
 };
+
+const SOURCE_OPTIONS: Array<{ id: AudioSourceType; label: string; hint: string }> = [
+  {
+    id: 'melody',
+    label: 'Melody',
+    hint: 'Familiar "Ode to Joy" chime tune — clear pitch & pauses before modulation vs metallic sidebands after.',
+  },
+  {
+    id: 'voice',
+    label: 'Speech',
+    hint: 'Formant-synthesized spoken vowels ("Ah — Ee — Oh — Oo") with silent pauses between syllables.',
+  },
+  {
+    id: 'chord',
+    label: 'Chords',
+    hint: '4-bar acoustic chord cadence (C → F → G → C) — makes Δf out-of-tune detuning unmistakable.',
+  },
+  {
+    id: 'tone',
+    label: 'Tone',
+    hint: 'Pulsed 440 Hz chime pings with silent gaps — hear pure frequency shift and carrier suppression.',
+  },
+  {
+    id: 'mic',
+    label: 'Mic',
+    hint: 'Your own recorded voice from the microphone — hear your words modulated and restored.',
+  },
+  {
+    id: 'upload',
+    label: 'File',
+    hint: 'Custom uploaded audio (.wav / .mp3 / .ogg) processed through real DSB-SC DSP.',
+  },
+];
 
 export interface DsbScAudioLabProps {
   isFullscreen?: boolean;
@@ -52,6 +85,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
 }) => {
   const [params, setParams] = useState<DsbScAudioParams>(DEFAULT_AUDIO_PARAMS);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isAutoComparing, setIsAutoComparing] = useState<boolean>(false);
   const [uploadedAudio, setUploadedAudio] = useState<DecodedAudioInfo | null>(null);
   const [micAudio, setMicAudio] = useState<DecodedAudioInfo | null>(null);
   const [isRecordingMic, setIsRecordingMic] = useState<boolean>(false);
@@ -101,6 +135,20 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
       }
     };
   }, []);
+
+  // Auto Compare A->B->C walkthrough: cycles Before Mod m(t) -> Modulated s(t) -> After Demod m̂(t)
+  useEffect(() => {
+    if (!isAutoComparing) return;
+    const stages: AudioProbeStage[] = ['original', 'dsbsc', 'coherent'];
+    const id = window.setInterval(() => {
+      setParams((prev) => {
+        const curIdx = stages.indexOf(prev.probeStage);
+        const nextStage = stages[(curIdx + 1) % stages.length];
+        return { ...prev, probeStage: nextStage };
+      });
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [isAutoComparing]);
 
   // Rebuild buffer when DSP synthesis params change (debounce lightly when playing for smooth slider drags)
   useEffect(() => {
@@ -415,12 +463,34 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     return () => obs.disconnect();
   }, [paintCanvas, isFullscreen]);
 
+  const selectProbeStage = (stage: AudioProbeStage) => {
+    setIsAutoComparing(false);
+    setParams((p) => ({ ...p, probeStage: stage }));
+  };
+
+  const handleToggleAutoCompare = () => {
+    if (isRecordingMic) return;
+    if (isAutoComparing) {
+      setIsAutoComparing(false);
+      return;
+    }
+    const nextParams: DsbScAudioParams = { ...paramsRef.current, probeStage: 'original' };
+    setParams(nextParams);
+    const engine = getEngine();
+    engine.resetPlayhead();
+    engine.prepareBuffer(nextParams, activeSampledAudio);
+    engine.play();
+    setIsPlaying(true);
+    setIsAutoComparing(true);
+  };
+
   const handlePlayPause = () => {
     if (isRecordingMic) return;
     const engine = getEngine();
     if (isPlaying) {
       engine.pause();
       setIsPlaying(false);
+      setIsAutoComparing(false);
     } else {
       engine.prepareBuffer(params, activeSampledAudio);
       engine.play();
@@ -432,6 +502,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     const engine = getEngine();
     engine.stop();
     setIsPlaying(false);
+    setIsAutoComparing(false);
   };
 
   const handleStopMicRecording = useCallback(async () => {
@@ -462,6 +533,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
   const handleStartMicRecording = async () => {
     setMicError(null);
     setUploadError(null);
+    setIsAutoComparing(false);
     const engine = getEngine();
     if (isPlaying) {
       engine.stop();
@@ -505,6 +577,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
   };
 
   const applyAudioPreset = (preset: 'coherent' | 'quadrature' | 'beat' | 'shift' | 'diodeFail') => {
+    setIsAutoComparing(false);
     if (preset === 'coherent') {
       setParams((p) => ({
         ...p,
@@ -512,7 +585,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
         thetaDeg: 0,
         freqOffsetHz: 0,
         lpfEnabled: true,
-        lpfCutoffHz: 2200,
+        lpfCutoffHz: 2100,
       }));
     } else if (preset === 'quadrature') {
       setParams((p) => ({
@@ -529,7 +602,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
         thetaDeg: 0,
         freqOffsetHz: 2,
         lpfEnabled: true,
-        lpfCutoffHz: 2200,
+        lpfCutoffHz: 2100,
       }));
     } else if (preset === 'shift') {
       setParams((p) => ({
@@ -538,14 +611,14 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
         thetaDeg: 0,
         freqOffsetHz: 85,
         lpfEnabled: true,
-        lpfCutoffHz: 2500,
+        lpfCutoffHz: 2400,
       }));
     } else if (preset === 'diodeFail') {
       setParams((p) => ({
         ...p,
         probeStage: 'envelope',
         lpfEnabled: true,
-        lpfCutoffHz: 2200,
+        lpfCutoffHz: 2100,
       }));
     }
   };
@@ -563,22 +636,22 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
 
   const acousticStatusText =
     params.probeStage === 'original'
-      ? 'Clean Reference Message m(t) — Unmodulated baseband audio'
+      ? 'BEFORE MODULATION m(t) — Clean original sound with clear pauses'
       : params.probeStage === 'dsbsc'
-      ? `TX Suppressed-Carrier s(t) around ${params.fcAudio} Hz — Notice silence during speech pauses`
+      ? `MODULATED DSB-SC s(t) @ ${params.fcAudio}Hz — Shifted metallic sidebands & silent gaps (carrier suppressed)`
       : params.probeStage === 'envelope'
-      ? 'Non-Coherent Envelope |s(t)| — Full-wave rectification mangles DSB-SC!'
+      ? 'DIODE ENVELOPE |s(t)| — Distorted & octave-doubled (proves AM radio fails on DSB-SC)'
       : !params.lpfEnabled
-      ? `LPF Bypassed — Baseband plus high-frequency 2fc (${2 * params.fcAudio} Hz) image leaking`
+      ? `AFTER DEMODULATION m̂(t) — LPF Bypassed: high-pitched 2fc (${2 * params.fcAudio}Hz) whistle leaking`
       : isQuadratureNull
-      ? 'Quadrature Null (θ = ±90°) — Recovered audio canceled to silence'
+      ? 'AFTER DEMODULATION m̂(t) — Quadrature Null (θ = ±90°): signal canceled to silence'
       : Math.abs(params.freqOffsetHz) >= 15
-      ? `Frequency Shift Δf = ${params.freqOffsetHz > 0 ? '+' : ''}${params.freqOffsetHz} Hz — Sidebands detuned ("Donald Duck" effect)`
+      ? `AFTER DEMODULATION m̂(t) — Frequency shift Δf = ${params.freqOffsetHz > 0 ? '+' : ''}${params.freqOffsetHz}Hz detunes pitch`
       : Math.abs(params.freqOffsetHz) >= 0.5
-      ? `Slow Beat Drift Δf = ${params.freqOffsetHz.toFixed(1)} Hz — Periodic cos(2πΔft) loudness fading`
+      ? `AFTER DEMODULATION m̂(t) — Slow Beat Δf = ${params.freqOffsetHz.toFixed(1)}Hz fades volume in & out`
       : isLocked
-      ? 'Coherent Lock (θ = 0°, Δf = 0 Hz) — Crystal-clear synchronous recovery'
-      : `Phase Attenuation (θ = ${params.thetaDeg}°) — Volume scaled by cos θ = ${cosTheta.toFixed(2)}`;
+      ? 'AFTER DEMODULATION m̂(t) — Coherent Lock (θ = 0°, Δf = 0Hz): clean original sound restored!'
+      : `AFTER DEMODULATION m̂(t) — Phase Error θ = ${params.thetaDeg}° attenuates volume by cos θ = ${cosTheta.toFixed(2)}`;
 
   const renderAudioCanvasCard = (fullscreenMode: boolean) => (
     <div
@@ -619,15 +692,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#75736E] shrink-0">
         <span>
-          Probe:{' '}
+          Stage:{' '}
           <strong className="text-[#1A1917]">
             {params.probeStage === 'original'
-              ? 'Baseband Input m(t)'
+              ? '1. Before Modulation m(t)'
               : params.probeStage === 'dsbsc'
-              ? `Suppressed-Carrier s(t) @ ${params.fcAudio}Hz`
+              ? `2. Modulated DSB-SC s(t) @ ${params.fcAudio}Hz`
               : params.probeStage === 'envelope'
-              ? 'Non-Coherent Rectified |s(t)|'
-              : 'Synchronous Multiplier + 4th-Order Butterworth LPF'}
+              ? 'Diode Envelope |s(t)| (Distorted)'
+              : '3. After Demodulation m̂(t) (Coherent + LPF)'}
           </strong>
         </span>
         <span className="tabular-nums">
@@ -684,16 +757,16 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             <div className="flex items-center flex-wrap gap-1 bg-white p-0.5 rounded border border-[#E6E4DD] text-[11px] font-mono shadow-2xs">
               {(
                 [
-                  { id: 'original', label: '01 m(t)', activeCls: 'bg-[#0284C7] text-white' },
-                  { id: 'dsbsc', label: '03 s(t)', activeCls: 'bg-[#C85A32] text-white' },
+                  { id: 'original', label: '1. Before m(t)', activeCls: 'bg-[#0284C7] text-white' },
+                  { id: 'dsbsc', label: '2. Mod s(t)', activeCls: 'bg-[#C85A32] text-white' },
+                  { id: 'coherent', label: '3. After m̂(t)', activeCls: 'bg-[#059669] text-white' },
                   { id: 'envelope', label: 'Diode Fail', activeCls: 'bg-[#DC2626] text-white' },
-                  { id: 'coherent', label: '05 m̂(t)', activeCls: 'bg-[#059669] text-white' },
                 ] as Array<{ id: AudioProbeStage; label: string; activeCls: string }>
               ).map((probe) => (
                 <button
                   key={probe.id}
                   type="button"
-                  onClick={() => setParams((p) => ({ ...p, probeStage: probe.id }))}
+                  onClick={() => selectProbeStage(probe.id)}
                   className={`px-2 py-1 rounded font-semibold cursor-pointer transition-colors ${
                     params.probeStage === probe.id
                       ? probe.activeCls
@@ -703,6 +776,18 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   {probe.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={handleToggleAutoCompare}
+                className={`px-2 py-1 rounded font-semibold cursor-pointer transition-colors ${
+                  isAutoComparing
+                    ? 'bg-[#1A1917] text-white'
+                    : 'text-[#C85A32] hover:bg-[#FBF4F0]'
+                }`}
+                title="Automatically cycle Before -> Modulated -> After every 3.2s"
+              >
+                {isAutoComparing ? 'Stop 1→2→3' : 'Auto 1→2→3'}
+              </button>
             </div>
           </div>
 
@@ -754,7 +839,10 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
 
             <button
               type="button"
-              onClick={() => setParams(DEFAULT_AUDIO_PARAMS)}
+              onClick={() => {
+                setIsAutoComparing(false);
+                setParams(DEFAULT_AUDIO_PARAMS);
+              }}
               className="px-2.5 py-1 bg-white border border-[#E6E4DD] rounded text-xs font-mono text-[#585651] hover:text-[#C85A32] cursor-pointer shadow-2xs flex items-center gap-1"
               title="Reset Audio Lab parameters"
               aria-label="Reset Audio Lab parameters"
@@ -799,15 +887,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Left: Source Picker + Upload */}
             <div className="flex flex-wrap items-center gap-1">
-              {(
-                [
-                  { id: 'voice', label: 'Voice' },
-                  { id: 'mic', label: 'Mic' },
-                  { id: 'chord', label: 'Chord' },
-                  { id: 'tone', label: 'Tone' },
-                  { id: 'upload', label: 'File' },
-                ] as Array<{ id: AudioSourceType; label: string }>
-              ).map((src) => (
+              {SOURCE_OPTIONS.map((src) => (
                 <button
                   key={src.id}
                   type="button"
@@ -890,7 +970,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   max="180"
                   step="5"
                   value={params.thetaDeg}
-                  onChange={(e) => setParams((p) => ({ ...p, thetaDeg: parseInt(e.target.value, 10) }))}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const nextTheta = parseInt(e.target.value, 10);
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      thetaDeg: nextTheta,
+                    }));
+                  }}
                   className="w-24 accent-[#D97706] cursor-pointer"
                   aria-label="Phase error"
                 />
@@ -906,7 +994,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   max="250"
                   step="1"
                   value={params.freqOffsetHz}
-                  onChange={(e) => setParams((p) => ({ ...p, freqOffsetHz: parseInt(e.target.value, 10) }))}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const nextDf = parseInt(e.target.value, 10);
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      freqOffsetHz: nextDf,
+                    }));
+                  }}
                   className="w-24 accent-[#C85A32] cursor-pointer"
                   aria-label="Frequency offset"
                 />
@@ -916,7 +1012,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 <input
                   type="checkbox"
                   checked={params.lpfEnabled}
-                  onChange={(e) => setParams((p) => ({ ...p, lpfEnabled: e.target.checked }))}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const checked = e.target.checked;
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      lpfEnabled: checked,
+                    }));
+                  }}
                   className="accent-[#059669] rounded"
                 />
                 <span>LPF</span>
@@ -933,7 +1037,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                     max="6000"
                     step="50"
                     value={params.lpfCutoffHz}
-                    onChange={(e) => setParams((p) => ({ ...p, lpfCutoffHz: parseInt(e.target.value, 10) }))}
+                    onChange={(e) => {
+                      setIsAutoComparing(false);
+                      const cutoff = parseInt(e.target.value, 10);
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        lpfCutoffHz: cutoff,
+                      }));
+                    }}
                     className="w-24 accent-[#059669] cursor-pointer"
                     aria-label="LPF cutoff"
                   />
@@ -1034,24 +1146,24 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             </div>
           </div>
 
-          {/* Listen Probe Stage Bar (Instant Live A/B Switching) */}
+          {/* Listen Probe Stage Bar (Instant Live A/B/C Switching: Before -> Modulated -> After) */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0EFEA] text-[11px] font-mono">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#75736E] font-semibold mr-1">
-                Listen To:
+              <span className="text-[10px] uppercase tracking-wider text-[#75736E] font-semibold mr-0.5">
+                Hear Stage:
               </span>
               {(
                 [
-                  { id: 'original', label: '01 Original m(t)', activeCls: 'bg-[#0284C7] text-white border-[#0284C7]' },
-                  { id: 'dsbsc', label: '03 TX DSB-SC s(t)', activeCls: 'bg-[#C85A32] text-white border-[#C85A32]' },
+                  { id: 'original', label: '1. Before Mod m(t)', activeCls: 'bg-[#0284C7] text-white border-[#0284C7]' },
+                  { id: 'dsbsc', label: '2. Modulated s(t)', activeCls: 'bg-[#C85A32] text-white border-[#C85A32]' },
+                  { id: 'coherent', label: '3. After Demod m̂(t)', activeCls: 'bg-[#059669] text-white border-[#059669]' },
                   { id: 'envelope', label: 'Diode |s(t)| (Fails)', activeCls: 'bg-[#DC2626] text-white border-[#DC2626]' },
-                  { id: 'coherent', label: '05 Coherent m̂(t)', activeCls: 'bg-[#059669] text-white border-[#059669]' },
                 ] as Array<{ id: AudioProbeStage; label: string; activeCls: string }>
               ).map((probe) => (
                 <button
                   key={probe.id}
                   type="button"
-                  onClick={() => setParams((p) => ({ ...p, probeStage: probe.id }))}
+                  onClick={() => selectProbeStage(probe.id)}
                   className={`px-2.5 py-1 rounded border font-semibold transition-colors cursor-pointer ${
                     params.probeStage === probe.id
                       ? probe.activeCls
@@ -1062,6 +1174,19 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              onClick={handleToggleAutoCompare}
+              className={`px-2.5 py-1 rounded border font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                isAutoComparing
+                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                  : 'bg-[#FBF4F0] border-[#C85A32]/35 text-[#C85A32] hover:bg-[#C85A32] hover:text-white'
+              }`}
+              title="Play & automatically switch Before Mod -> Modulated DSB-SC -> After Demod every 3.2s"
+            >
+              {isAutoComparing ? 'Stop 1→2→3 Tour' : 'Compare 1→2→3'}
+            </button>
           </div>
         </div>
 
@@ -1079,7 +1204,10 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => setParams(DEFAULT_AUDIO_PARAMS)}
+              onClick={() => {
+                setIsAutoComparing(false);
+                setParams(DEFAULT_AUDIO_PARAMS);
+              }}
               className="text-[11px] font-mono text-[#75736E] hover:text-[#C85A32] transition-colors flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
@@ -1092,16 +1220,8 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             <label className="block text-[10px] font-mono uppercase tracking-wider text-[#75736E] font-semibold mb-1.5">
               Input Audio Source m(t)
             </label>
-            <div className="grid grid-cols-5 gap-1">
-              {(
-                [
-                  { id: 'voice', label: 'Voice' },
-                  { id: 'mic', label: 'Mic' },
-                  { id: 'chord', label: 'Chord' },
-                  { id: 'tone', label: 'Tone' },
-                  { id: 'upload', label: 'File' },
-                ] as Array<{ id: AudioSourceType; label: string }>
-              ).map((src) => (
+            <div className="grid grid-cols-3 gap-1.5">
+              {SOURCE_OPTIONS.map((src) => (
                 <button
                   key={src.id}
                   type="button"
@@ -1125,6 +1245,9 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 </button>
               ))}
             </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-[#585651]">
+              {SOURCE_OPTIONS.find((s) => s.id === params.sourceType)?.hint}
+            </p>
 
             {/* Microphone Voice Capture Box */}
             <div className="mt-2 p-2.5 rounded-md border border-[#E6E4DD] bg-[#FAF9F6] space-y-2">
@@ -1288,7 +1411,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 max="180"
                 step="5"
                 value={params.thetaDeg}
-                onChange={(e) => setParams((p) => ({ ...p, thetaDeg: parseInt(e.target.value, 10) }))}
+                onChange={(e) => {
+                  setIsAutoComparing(false);
+                  const val = parseInt(e.target.value, 10);
+                  setParams((p) => ({
+                    ...p,
+                    probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                    thetaDeg: val,
+                  }));
+                }}
                 className="w-full accent-[#D97706] cursor-pointer"
               />
               <div className="mt-1 flex gap-1">
@@ -1296,7 +1427,14 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   <button
                     key={deg}
                     type="button"
-                    onClick={() => setParams((p) => ({ ...p, thetaDeg: deg }))}
+                    onClick={() => {
+                      setIsAutoComparing(false);
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        thetaDeg: deg,
+                      }));
+                    }}
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
                       params.thetaDeg === deg
                         ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
@@ -1325,7 +1463,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 max="250"
                 step="1"
                 value={params.freqOffsetHz}
-                onChange={(e) => setParams((p) => ({ ...p, freqOffsetHz: parseInt(e.target.value, 10) }))}
+                onChange={(e) => {
+                  setIsAutoComparing(false);
+                  const val = parseInt(e.target.value, 10);
+                  setParams((p) => ({
+                    ...p,
+                    probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                    freqOffsetHz: val,
+                  }));
+                }}
                 className="w-full accent-[#C85A32] cursor-pointer"
               />
               <div className="mt-1 flex gap-1">
@@ -1333,7 +1479,14 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   <button
                     key={df}
                     type="button"
-                    onClick={() => setParams((p) => ({ ...p, freqOffsetHz: df }))}
+                    onClick={() => {
+                      setIsAutoComparing(false);
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        freqOffsetHz: df,
+                      }));
+                    }}
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
                       params.freqOffsetHz === df
                         ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
@@ -1356,7 +1509,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
               <input
                 id="audio-fc"
                 type="range"
-                min="1500"
+                min="1600"
                 max="4500"
                 step="100"
                 value={params.fcAudio}
@@ -1374,7 +1527,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   <input
                     type="checkbox"
                     checked={params.lpfEnabled}
-                    onChange={(e) => setParams((p) => ({ ...p, lpfEnabled: e.target.checked }))}
+                    onChange={(e) => {
+                      setIsAutoComparing(false);
+                      const checked = e.target.checked;
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        lpfEnabled: checked,
+                      }));
+                    }}
                     className="accent-[#059669] rounded"
                   />
                   <span className="font-semibold text-[#059669]">
@@ -1390,7 +1551,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                   max="6000"
                   step="50"
                   value={params.lpfCutoffHz}
-                  onChange={(e) => setParams((p) => ({ ...p, lpfCutoffHz: parseInt(e.target.value, 10) }))}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const val = parseInt(e.target.value, 10);
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      lpfCutoffHz: val,
+                    }));
+                  }}
                   className="w-full accent-[#059669] cursor-pointer"
                 />
               )}
