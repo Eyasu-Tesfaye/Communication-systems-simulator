@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Layers,
   Dices,
   RotateCcw,
   Sparkles,
@@ -8,7 +7,6 @@ import {
   SlidersHorizontal,
   Play,
 } from 'lucide-react';
-import { MathView } from '../../components/MathView';
 import { binomialPmf, normalPdf } from './math';
 
 export const Module1_RandomVariables: React.FC = () => {
@@ -145,110 +143,7 @@ export const Module1_RandomVariables: React.FC = () => {
         </p>
       </div>
 
-      {/* 2. Side-by-side Comparative Conceptual Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Discrete Card */}
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3.5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E6E4DD]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#C85A32]" />
-              <h3 className="text-sm font-bold text-[#1A1917]">Discrete Random Variables</h3>
-            </div>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/20">
-              Countable Values
-            </span>
-          </div>
-
-          <p className="text-xs text-[#585651] leading-relaxed">
-            Takes on discrete, separate values (e.g. integers, packet counts, coin flips). Probability is concentrated
-            in exact point masses called the <strong>Probability Mass Function (PMF)</strong>.
-          </p>
-
-          <div className="space-y-2.5 pt-1">
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Summation to Unity Axiom:
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="\sum_{k} P(X = k) = 1, \quad P(X = k) \ge 0" displayMode={true} />
-              </div>
-            </div>
-
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Cumulative Distribution Function (CDF):
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="F(x) = P(X \le x) = \sum_{k \le x} P(X = k)" displayMode={true} />
-              </div>
-              <span className="text-[11px] text-[#75736E] mt-1 block">
-                Forms a right-continuous step/staircase function with discrete jumps.
-              </span>
-            </div>
-
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Expectation & Moments:
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="\mathbb{E}[X] = \sum_k k \cdot P(X = k)" displayMode={true} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Continuous Card */}
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3.5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E6E4DD]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#1A1917]" />
-              <h3 className="text-sm font-bold text-[#1A1917]">Continuous Random Variables</h3>
-            </div>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#FAF9F6] text-[#585651] border border-[#E6E4DD]">
-              Uncountable Continuum
-            </span>
-          </div>
-
-          <p className="text-xs text-[#585651] leading-relaxed">
-            Takes on values over an unbroken interval of real numbers (e.g. voltage, time, physical noise).
-            The probability of any exact single point is identically zero: <MathView math="P(X = c) = 0" />.
-          </p>
-
-          <div className="space-y-2.5 pt-1">
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Integral to Unity Axiom:
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="\int_{-\infty}^{\infty} f(x) \, dx = 1, \quad f(x) \ge 0" displayMode={true} />
-              </div>
-            </div>
-
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Area Under Density as Probability:
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="P(a \le X \le b) = \int_a^b f(x) \, dx = F(b) - F(a)" displayMode={true} />
-              </div>
-              <span className="text-[11px] text-[#75736E] mt-1 block">
-                Continuous S-curve CDF with density <MathView math="f(x) = F'(x)" />.
-              </span>
-            </div>
-
-            <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD]">
-              <span className="text-[10px] font-mono text-[#75736E] uppercase block mb-1">
-                Continuous Expectation:
-              </span>
-              <div className="text-xs font-semibold text-[#1A1917] overflow-x-auto">
-                <MathView math="\mathbb{E}[X] = \int_{-\infty}^{\infty} x f(x) \, dx" displayMode={true} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. "Continuous Limit" Morph Demonstration - Styled to match Image 1 */}
+      {/* 2. "Continuous Limit" Morph Demonstration - Styled to match Image 1 */}
       <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-4">
         {/* Title & Technical Note */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
