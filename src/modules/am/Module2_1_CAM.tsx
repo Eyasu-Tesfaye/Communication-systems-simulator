@@ -30,9 +30,9 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
 
   // Interactive Parameters
   const [modIndex, setModIndex] = useState<number>(0.75); // μ = Am / Ac (0.0 to 1.5)
-  const [carrierFreq, setCarrierFreq] = useState<number>(24); // fc (Hz, visual scale)
-  const [messageFreq, setMessageFreq] = useState<number>(2.0); // fm (Hz, visual scale)
-  const [carrierAmp, setCarrierAmp] = useState<number>(2.0); // Ac (Volts)
+  const [carrierFreq, setCarrierFreq] = useState<number>(1000); // fc (kHz, MW AM band)
+  const [messageFreq, setMessageFreq] = useState<number>(1.0); // fm (kHz, baseband audio)
+  const [carrierAmp, setCarrierAmp] = useState<number>(5.0); // Ac (Volts)
   const [showEnvelopes, setShowEnvelopes] = useState<boolean>(true);
   const [showCarrierOnly, setShowCarrierOnly] = useState<boolean>(false);
 
@@ -115,7 +115,17 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     const plotW = width - padL - padR;
     const plotH = height - padT - padB;
     const centerY = padT + plotH / 2;
-    const maxVoltage = 5.0; // max display voltage range
+    const peakEnv = carrierAmp * (1 + modIndex);
+    const maxVoltage =
+      peakEnv <= 4.2 ? 5 : peakEnv <= 10.5 ? 12 : peakEnv <= 21 ? 24 : 28;
+    const yTicks =
+      maxVoltage === 5
+        ? [-4, -2, 2, 4]
+        : maxVoltage === 12
+        ? [-10, -5, 5, 10]
+        : maxVoltage === 24
+        ? [-20, -10, 10, 20]
+        : [-24, -12, 12, 24];
     const yScale = (plotH / 2) / maxVoltage;
 
     // Background Grid
@@ -124,7 +134,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.setLineDash([3, 3]);
 
     // Horizontal grid lines
-    [-4, -2, 2, 4].forEach((v) => {
+    yTicks.forEach((v) => {
       const y = centerY - v * yScale;
       ctx.beginPath();
       ctx.moveTo(padL, y);
@@ -152,8 +162,12 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.textAlign = 'right';
     ctx.fillText('0V', padL - 6, centerY + 3);
 
-    // Time window: 1.0 second visible across plotW
-    const timeSpan = 1.0;
+    // Time window: 2.0 ms (0.002 s) visible across plotW so ~2 cycles of 1 kHz fm are clear
+    const timeSpan = 0.002;
+    const tOffset = time * 0.0003;
+    const fmHz = messageFreq * 1000;
+    // Scale carrier display rate proportionally to fc within sub-pixel Nyquist limits to avoid aliasing
+    const visualCarrierHz = (carrierFreq / 1000) * 32000;
 
     // Overmodulation shading (where 1 + μ cos(2π fm t) < 0)
     if (isOvermodulated) {
@@ -162,8 +176,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
       let startX = padL;
 
       for (let px = 0; px <= plotW; px += 2) {
-        const t = (px / plotW) * timeSpan + time * 0.15;
-        const envVal = 1 + modIndex * Math.cos(2 * Math.PI * messageFreq * t);
+        const t = (px / plotW) * timeSpan + tOffset;
+        const envVal = 1 + modIndex * Math.cos(2 * Math.PI * fmHz * t);
         const x = padL + px;
 
         if (envVal < 0 && !inInversion) {
@@ -188,8 +202,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
       ctx.setLineDash([4, 3]);
 
       for (let px = 0; px <= plotW; px += 2) {
-        const t = (px / plotW) * timeSpan + time * 0.15;
-        const env = carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * messageFreq * t));
+        const t = (px / plotW) * timeSpan + tOffset;
+        const env = carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * fmHz * t));
         const x = padL + px;
         const y = centerY - env * yScale;
         if (px === 0) ctx.moveTo(x, y);
@@ -204,8 +218,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
       ctx.setLineDash([4, 3]);
 
       for (let px = 0; px <= plotW; px += 2) {
-        const t = (px / plotW) * timeSpan + time * 0.15;
-        const env = carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * messageFreq * t));
+        const t = (px / plotW) * timeSpan + tOffset;
+        const env = carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * fmHz * t));
         const x = padL + px;
         const y = centerY + env * yScale;
         if (px === 0) ctx.moveTo(x, y);
@@ -218,14 +232,14 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     // Modulated Carrier Waveform: s(t) = Ac[1 + μ m(t)] cos(2π fc t)
     ctx.beginPath();
     ctx.strokeStyle = showCarrierOnly ? '#585651' : '#1A1917';
-    ctx.lineWidth = 1.75;
+    ctx.lineWidth = 1.5;
 
-    for (let px = 0; px <= plotW; px += 1) {
-      const t = (px / plotW) * timeSpan + time * 0.15;
+    for (let px = 0; px <= plotW; px += 0.25) {
+      const t = (px / plotW) * timeSpan + tOffset;
       const env = showCarrierOnly
         ? carrierAmp
-        : carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * messageFreq * t));
-      const s = env * Math.cos(2 * Math.PI * carrierFreq * t);
+        : carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * fmHz * t));
+      const s = env * Math.cos(2 * Math.PI * visualCarrierHz * t);
       const x = padL + px;
       const y = centerY - s * yScale;
 
@@ -238,7 +252,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.fillStyle = '#585651';
     ctx.font = '10px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText('Time t → (1.0 s)', width - padR, centerY + 18);
+    ctx.fillText('Time t → (0–2.0 ms)', width - padR, centerY + 18);
 
     // Live Legend Inside Canvas
     ctx.textAlign = 'left';
@@ -291,9 +305,18 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     const plotH = height - padT - padB;
     const baseY = padT + plotH;
 
-    // Frequency display window: 0 to 45 Hz
-    const maxFreq = 45;
-    const fScale = plotW / maxFreq;
+    // Frequency display window centered around fc (kHz)
+    const span =
+      messageFreq <= 0.6
+        ? 3
+        : messageFreq <= 1.5
+        ? 6
+        : messageFreq <= 3.0
+        ? 12
+        : 20;
+    const halfSpan = span / 2;
+    const minFreq = carrierFreq - halfSpan;
+    const fScale = plotW / span;
 
     // Baseline frequency axis
     ctx.strokeStyle = '#8A8882';
@@ -303,28 +326,43 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.lineTo(width - padR, baseY);
     ctx.stroke();
 
-    // Frequency tick marks
-    [0, 10, 20, 30, 40].forEach((f) => {
-      const x = padL + f * fScale;
+    // Frequency tick marks (kHz)
+    const tickStep = span === 3 ? 0.5 : span === 6 ? 1 : span === 12 ? 2 : 4;
+    const lsbFreq = carrierFreq - messageFreq;
+    const usbFreq = carrierFreq + messageFreq;
+    for (
+      let offset = -halfSpan + tickStep;
+      offset <= halfSpan - tickStep + 1e-6;
+      offset += tickStep
+    ) {
+      const f = carrierFreq + offset;
+      const x = padL + (f - minFreq) * fScale;
       ctx.beginPath();
       ctx.moveTo(x, baseY);
       ctx.lineTo(x, baseY + 4);
       ctx.stroke();
 
-      ctx.fillStyle = '#8A8882';
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${f}Hz`, x, baseY + 16);
-    });
+      const nearSpike =
+        Math.abs(f - carrierFreq) < span * 0.09 ||
+        Math.abs(f - lsbFreq) < span * 0.09 ||
+        Math.abs(f - usbFreq) < span * 0.09;
+      if (!nearSpike) {
+        ctx.fillStyle = '#8A8882';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        const label = Number.isInteger(f) ? `${f}` : f.toFixed(1);
+        ctx.fillText(`${label} kHz`, x, baseY + 16);
+      }
+    }
 
     // Spectral Line Heights
     const ampScale = (plotH * 0.75) / (carrierAmp * 0.65);
     const carrierHeight = (carrierAmp / 2) * ampScale;
     const sidebandHeight = ((modIndex * carrierAmp) / 4) * ampScale;
 
-    const fcX = padL + carrierFreq * fScale;
-    const lsbX = padL + (carrierFreq - messageFreq) * fScale;
-    const usbX = padL + (carrierFreq + messageFreq) * fScale;
+    const fcX = padL + (carrierFreq - minFreq) * fScale;
+    const lsbX = padL + (lsbFreq - minFreq) * fScale;
+    const usbX = padL + (usbFreq - minFreq) * fScale;
 
     // Draw LSB Spike
     ctx.beginPath();
@@ -343,7 +381,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.textAlign = 'center';
     ctx.fillStyle = '#585651';
     ctx.fillText('LSB', lsbX, baseY - sidebandHeight - 8);
-    ctx.fillText(`${(carrierFreq - messageFreq).toFixed(1)}Hz`, lsbX, baseY + 26);
+    ctx.fillText(`${lsbFreq.toFixed(1)} kHz`, lsbX, baseY + 26);
 
     // Draw Carrier Spike
     ctx.beginPath();
@@ -362,7 +400,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.textAlign = 'center';
     ctx.fillStyle = '#C85A32';
     ctx.fillText('Carrier (fc)', fcX, baseY - carrierHeight - 10);
-    ctx.fillText(`${carrierFreq.toFixed(1)}Hz`, fcX, baseY + 26);
+    ctx.fillText(`${carrierFreq.toFixed(1)} kHz`, fcX, baseY + 26);
 
     // Draw USB Spike
     ctx.beginPath();
@@ -381,7 +419,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.textAlign = 'center';
     ctx.fillStyle = '#585651';
     ctx.fillText('USB', usbX, baseY - sidebandHeight - 8);
-    ctx.fillText(`${(carrierFreq + messageFreq).toFixed(1)}Hz`, usbX, baseY + 26);
+    ctx.fillText(`${usbFreq.toFixed(1)} kHz`, usbX, baseY + 26);
 
     // Transmission Bandwidth Range Dimension Bar (BT = 2fm)
     const dimY = baseY - Math.max(carrierHeight, sidebandHeight) - 22;
@@ -401,7 +439,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     ctx.fillStyle = '#1A1917';
     ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`BT = 2fm = ${bandwidth.toFixed(1)} Hz`, (lsbX + usbX) / 2, dimY - 6);
+    ctx.fillText(`BT = 2fm = ${bandwidth.toFixed(1)} kHz`, (lsbX + usbX) / 2, dimY - 6);
 
     ctx.restore();
   }, [carrierFreq, messageFreq, modIndex, carrierAmp, bandwidth]);
@@ -417,9 +455,9 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
 
   const handleResetParameters = () => {
     setModIndex(0.75);
-    setCarrierFreq(24);
-    setMessageFreq(2.0);
-    setCarrierAmp(2.0);
+    setCarrierFreq(1000);
+    setMessageFreq(1.0);
+    setCarrierAmp(5.0);
     setShowEnvelopes(true);
     setShowCarrierOnly(false);
     setTime(0);
@@ -585,7 +623,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                     <span>Carrier Only (Unmodulated)</span>
                   </label>
                 </div>
-                <span className="font-mono text-[11px] text-[#8A8882]">fc = {carrierFreq} Hz · fm = {messageFreq} Hz</span>
+                <span className="font-mono text-[11px] text-[#8A8882]">fc = {carrierFreq} kHz · fm = {messageFreq.toFixed(1)} kHz</span>
               </div>
             </div>
 
@@ -599,7 +637,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                   </h2>
                 </div>
                 <span className="text-[11px] font-mono text-[#75736E]">
-                  Transmission Bandwidth: $B_T = 2f_m = {bandwidth.toFixed(1)}$ Hz
+                  Transmission Bandwidth: $B_T = 2f_m = {bandwidth.toFixed(1)}$ kHz
                 </span>
               </div>
 
@@ -612,17 +650,17 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
               <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-mono">
                 <div className="p-2 bg-[#FAF9F6] border border-[#E6E4DD] rounded">
                   <div className="text-[10px] text-[#75736E]">LOWER SIDEBAND (LSB)</div>
-                  <div className="font-bold text-[#1A1917] mt-0.5">{(carrierFreq - messageFreq).toFixed(1)} Hz</div>
+                  <div className="font-bold text-[#1A1917] mt-0.5">{(carrierFreq - messageFreq).toFixed(1)} kHz</div>
                   <div className="text-[10px] text-[#8A8882]">Amp: {((modIndex * carrierAmp) / 4).toFixed(2)} V</div>
                 </div>
                 <div className="p-2 bg-[#FBF4F0] border border-[#C85A32]/30 rounded">
                   <div className="text-[10px] text-[#C85A32] font-semibold">CARRIER COMPONENT</div>
-                  <div className="font-bold text-[#C85A32] mt-0.5">{carrierFreq.toFixed(1)} Hz</div>
+                  <div className="font-bold text-[#C85A32] mt-0.5">{carrierFreq.toFixed(1)} kHz</div>
                   <div className="text-[10px] text-[#C85A32]/80">Amp: {(carrierAmp / 2).toFixed(2)} V</div>
                 </div>
                 <div className="p-2 bg-[#FAF9F6] border border-[#E6E4DD] rounded">
                   <div className="text-[10px] text-[#75736E]">UPPER SIDEBAND (USB)</div>
-                  <div className="font-bold text-[#1A1917] mt-0.5">{(carrierFreq + messageFreq).toFixed(1)} Hz</div>
+                  <div className="font-bold text-[#1A1917] mt-0.5">{(carrierFreq + messageFreq).toFixed(1)} kHz</div>
                   <div className="text-[10px] text-[#8A8882]">Amp: {((modIndex * carrierAmp) / 4).toFixed(2)} V</div>
                 </div>
               </div>
@@ -680,15 +718,15 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                     Carrier Frequency (fc)
                   </label>
                   <span className="font-mono text-[#1A1917] text-xs font-bold">
-                    {carrierFreq} Hz
+                    {carrierFreq} kHz
                   </span>
                 </div>
                 <input
                   id="carrier-freq-slider"
                   type="range"
-                  min="12"
-                  max="36"
-                  step="1"
+                  min="530"
+                  max="1710"
+                  step="10"
                   value={carrierFreq}
                   onChange={(e) => setCarrierFreq(parseInt(e.target.value, 10))}
                   className="w-full accent-[#C85A32] cursor-pointer"
@@ -702,15 +740,15 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                     Message Frequency (fm)
                   </label>
                   <span className="font-mono text-[#1A1917] text-xs font-bold">
-                    {messageFreq.toFixed(1)} Hz
+                    {messageFreq.toFixed(1)} kHz
                   </span>
                 </div>
                 <input
                   id="msg-freq-slider"
                   type="range"
-                  min="1.0"
-                  max="4.0"
-                  step="0.2"
+                  min="0.3"
+                  max="5.0"
+                  step="0.1"
                   value={messageFreq}
                   onChange={(e) => setMessageFreq(parseFloat(e.target.value))}
                   className="w-full accent-[#C85A32] cursor-pointer"
@@ -731,8 +769,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                   id="carrier-amp-slider"
                   type="range"
                   min="1.0"
-                  max="3.5"
-                  step="0.25"
+                  max="10.0"
+                  step="0.5"
                   value={carrierAmp}
                   onChange={(e) => setCarrierAmp(parseFloat(e.target.value))}
                   className="w-full accent-[#C85A32] cursor-pointer"
