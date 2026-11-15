@@ -1,7 +1,8 @@
 /**
  * Random Process Properties - High-Fidelity Waveform Visualizer
- * Large responsive viewport, moving time cursor, non-overlapping numerical readouts,
- * realization selection, ensemble mean & confidence envelope.
+ * Large responsive viewport, synchronized moving vertical time cursor,
+ * dedicated non-overlapping top callout track, interpolated signal tracking,
+ * realization selection, ensemble mean & ±1σ confidence envelope.
  */
 
 import React, { useRef, useMemo, useCallback } from 'react';
@@ -11,7 +12,7 @@ import {
   getInstantaneousStats,
 } from './randomProcessEngine';
 
-const REALIZATION_COLORS = [
+export const REALIZATION_COLORS = [
   '#C85A32', // Terracotta primary
   '#2E6F7E', // Deep Teal
   '#5C5589', // Indigo Slate
@@ -49,7 +50,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
   showMeanCurve,
   showAllRealizations,
   isGridVisible,
-  heightClass = 'min-h-[380px]',
+  heightClass = 'min-h-[340px]',
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const isDraggingRef = useRef(false);
@@ -58,28 +59,33 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
   const M = trajectories.length;
   const T_MAX = params.tMax;
 
-  // Viewbox coordinates: 920 x 440
+  // Viewbox coordinates with dedicated top callout band so labels NEVER overlap waveforms
   const SVG_W = 920;
-  const SVG_H = 440;
+  const SVG_H = 420;
   const PAD_L = 72;
-  const PAD_R = 36;
-  const PAD_T = 48;
-  const PAD_B = 54;
+  const PAD_R = 28;
+  const PAD_T = 56;
+  const PAD_B = 48;
 
   const plotW = SVG_W - PAD_L - PAD_R;
   const plotH = SVG_H - PAD_T - PAD_B;
   const centerY = PAD_T + plotH / 2;
 
-  // Dynamic Y-axis limits
+  // Dynamic symmetric Y-axis limits with clean step rounding
   const yMax = useMemo(() => {
-    let maxAbs = 2.5;
+    let maxAbs = 2.0;
     for (let i = 0; i < M; i++) {
       for (let k = 0; k < trajectories[i].length; k++) {
         const absVal = Math.abs(trajectories[i][k].x);
         if (absVal > maxAbs) maxAbs = absVal;
       }
     }
-    return Math.ceil(Math.min(6.5, maxAbs * 1.15) * 2) / 2;
+    const padded = maxAbs * 1.15;
+    if (padded <= 2.5) return 2.5;
+    if (padded <= 3.0) return 3.0;
+    if (padded <= 4.0) return 4.0;
+    if (padded <= 5.0) return 5.0;
+    return Math.ceil(Math.min(8.0, padded));
   }, [trajectories, M]);
 
   const mapX = useCallback(
@@ -95,7 +101,6 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
     [yMax, centerY, plotH]
   );
 
-  // SVG path generator
   const toPathD = useCallback(
     (pts: Array<{ t: number; x: number }>) => {
       if (!pts || pts.length === 0) return '';
@@ -108,7 +113,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
     [mapX, mapY]
   );
 
-  // Instantaneous statistics at simTime
+  // Interpolated instantaneous statistics at simTime
   const stats: InstantaneousStats = useMemo(() => {
     return getInstantaneousStats(simulation, simTime, selectedRealizationIndex);
   }, [simulation, simTime, selectedRealizationIndex]);
@@ -156,11 +161,12 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
     }
   };
 
-  const cursorX = mapX(simTime);
-  const selectedY = mapY(stats.selectedAmplitude);
+  const cursorX = mapX(stats.simTime);
   const meanY = mapY(stats.ensembleMean);
+  const selectedColor =
+    REALIZATION_COLORS[stats.selectedRealizationIndex % REALIZATION_COLORS.length];
 
-  // Confidence Envelope Polygon Path
+  // Confidence Envelope Polygon Path (mu ± 1*sigma)
   const envelopePathD = useMemo(() => {
     if (!showEnvelope) return '';
     const topPts: string[] = [];
@@ -181,19 +187,19 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
     return `M ${topPts.join(' L ')} L ${botPts.join(' L ')} Z`;
   }, [showEnvelope, simulation.timeSteps, ensembleMean, ensembleStdDev, mapX, mapY]);
 
-  // Generate tick markers
+  // Clean Y-axis ticks
   const yTicks = useMemo(() => {
-    const ticks = [];
-    const step = yMax <= 3 ? 1 : 1.5;
-    for (let v = -yMax; v <= yMax + 1e-4; v += step) {
-      if (Math.abs(v) < 1e-4) ticks.push(0);
-      else ticks.push(parseFloat(v.toFixed(1)));
+    const step = yMax <= 3 ? 1 : yMax <= 5 ? 1.5 : 2;
+    const ticks: number[] = [0];
+    for (let v = step; v <= yMax + 1e-4; v += step) {
+      const val = parseFloat(v.toFixed(1));
+      ticks.push(val, -val);
     }
-    return ticks;
+    return ticks.sort((a, b) => a - b);
   }, [yMax]);
 
   const timeTicks = useMemo(() => {
-    const ticks = [];
+    const ticks: number[] = [];
     const step = T_MAX <= 5 ? 1 : 2;
     for (let t = 0; t <= T_MAX + 1e-4; t += step) {
       ticks.push(t);
@@ -201,38 +207,41 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
     return ticks;
   }, [T_MAX]);
 
-  // Clean offset for the selected amplitude readout badge to prevent overlaps
-  const isNearRightEdge = cursorX > SVG_W - PAD_R - 110;
-  const isNearTopEdge = selectedY < PAD_T + 30;
-  const badgeX = isNearRightEdge ? cursorX - 105 : cursorX + 12;
-  const badgeY = isNearTopEdge ? selectedY + 14 : selectedY - 14;
+  // Non-overlapping top callout banner clamped inside plot horizontal bounds
+  const PILL_W = 248;
+  const pillHalf = PILL_W / 2;
+  const pillCenterX = Math.max(
+    PAD_L + pillHalf,
+    Math.min(SVG_W - PAD_R - pillHalf, cursorX)
+  );
+  const pillText = `t=${stats.simTime.toFixed(2)}s · X(${stats.selectedRealizationIndex + 1})=${
+    stats.selectedAmplitude >= 0 ? '+' : ''
+  }${stats.selectedAmplitude.toFixed(2)}V · μ̂=${
+    stats.ensembleMean >= 0 ? '+' : ''
+  }${stats.ensembleMean.toFixed(2)}V`;
 
   return (
     <div className="w-full flex flex-col bg-white rounded-lg border border-[#E6E4DD] shadow-2xs overflow-hidden">
       {/* 1. Live Telemetry HUD Header */}
-      <div className="px-4 py-2.5 bg-[#FAF9F6] border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-        {/* Left Telemetry Items */}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+      <div className="px-3.5 py-2.5 bg-[#FAF9F6] border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#C85A32] animate-pulse" />
-            <span className="text-[#75736E]">Sim Time:</span>
-            <span className="font-bold text-[#1A1917] bg-white px-2 py-0.5 rounded border border-[#E6E4DD]">
-              t = {stats.simTime.toFixed(2)}s
+            <span className="w-2 h-2 rounded-full bg-[#C85A32]" />
+            <span className="text-[#75736E]">t:</span>
+            <span className="font-bold text-[#1A1917] bg-white px-2 py-0.5 rounded border border-[#E6E4DD] tabular-nums">
+              {stats.simTime.toFixed(2)} s
             </span>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{
-                backgroundColor:
-                  REALIZATION_COLORS[selectedRealizationIndex % REALIZATION_COLORS.length],
-              }}
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: selectedColor }}
             />
             <span className="text-[#75736E]">
-              X<sup>({selectedRealizationIndex + 1})</sup>(t):
+              X<sup>({stats.selectedRealizationIndex + 1})</sup>(t):
             </span>
-            <span className="font-bold text-[#1A1917]">
+            <span className="font-bold text-[#1A1917] tabular-nums">
               {stats.selectedAmplitude >= 0 ? '+' : ''}
               {stats.selectedAmplitude.toFixed(3)} V
             </span>
@@ -241,7 +250,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
           <div className="flex items-center gap-1.5">
             <span className="w-3.5 h-0.5 border-b-2 border-dashed border-[#1A1917]" />
             <span className="text-[#75736E]">μ̂(t):</span>
-            <span className="font-semibold text-[#1A1917]">
+            <span className="font-semibold text-[#1A1917] tabular-nums">
               {stats.ensembleMean >= 0 ? '+' : ''}
               {stats.ensembleMean.toFixed(3)} V
             </span>
@@ -249,37 +258,42 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
 
           <div className="flex items-center gap-1.5">
             <span className="text-[#75736E]">σ̂²(t):</span>
-            <span className="font-semibold text-[#1A1917]">{stats.ensembleVariance.toFixed(3)} V²</span>
+            <span className="font-semibold text-[#1A1917] tabular-nums">
+              {stats.ensembleVariance.toFixed(3)} V²
+            </span>
           </div>
         </div>
 
         {/* Realization Selector Chips */}
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] text-[#75736E] mr-1 hidden sm:inline">Inspect:</span>
-          <div className="flex items-center gap-1 overflow-x-auto max-w-[220px] sm:max-w-none">
-            {Array.from({ length: Math.min(8, M) }).map((_, i) => {
-              const isSelected = selectedRealizationIndex === i;
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-[#75736E] hidden sm:inline">Path:</span>
+          <div className="flex items-center gap-1 overflow-x-auto max-w-[230px] sm:max-w-[340px]">
+            {Array.from({ length: Math.min(10, M) }).map((_, i) => {
+              const isSelected = stats.selectedRealizationIndex === i;
               const color = REALIZATION_COLORS[i % REALIZATION_COLORS.length];
               return (
                 <button
                   key={i}
                   type="button"
                   onClick={() => onSelectRealization(i)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer shrink-0 ${
                     isSelected
-                      ? 'text-white shadow-2xs scale-105'
+                      ? 'text-white shadow-2xs'
                       : 'bg-white text-[#585651] border border-[#E6E4DD] hover:bg-[#F3F2EC]'
                   }`}
                   style={{
                     backgroundColor: isSelected ? color : undefined,
                     borderColor: isSelected ? color : undefined,
                   }}
-                  title={`Select Realization X^(${i + 1})`}
+                  title={`Inspect Realization X^(${i + 1})`}
                 >
                   X<sup>({i + 1})</sup>
                 </button>
               );
             })}
+            {M > 10 && (
+              <span className="text-[10px] text-[#75736E] pl-1 shrink-0">+{M - 10}</span>
+            )}
           </div>
         </div>
       </div>
@@ -292,18 +306,18 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           preserveAspectRatio="xMidYMid meet"
-          className="w-full h-full max-h-[68vh]"
+          className="w-full h-full max-h-[58vh]"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
           role="img"
-          aria-label="Interactive random process waveforms and moving temporal line"
+          aria-label="Interactive random process waveforms and synchronized moving vertical time indicator"
         >
           <defs>
-            {/* Subtle Grid Pattern */}
             <pattern id="rp-minor-grid" width="20" height="20" patternUnits="userSpaceOnUse">
               <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ECE9E1" strokeWidth="0.75" />
             </pattern>
@@ -311,14 +325,12 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
               <rect width="100" height="100" fill="url(#rp-minor-grid)" />
               <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#DDD9CE" strokeWidth="1.2" />
             </pattern>
-            {/* Soft Glow Filter for sweep cursor */}
-            <filter id="cursor-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
+            <clipPath id="rp-plot-clip">
+              <rect x={PAD_L} y={PAD_T} width={plotW} height={plotH} />
+            </clipPath>
           </defs>
 
-          {/* Background Grid */}
+          {/* Background Grid inside plot area */}
           {isGridVisible && (
             <rect
               x={PAD_L}
@@ -337,7 +349,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
             width={plotW}
             height={plotH}
             fill="none"
-            stroke="#E2DFD6"
+            stroke="#DCD8CE"
             strokeWidth="1.2"
           />
 
@@ -353,7 +365,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
                   x2={SVG_W - PAD_R}
                   y2={y}
                   stroke={isZero ? '#1A1917' : '#E2DFD6'}
-                  strokeWidth={isZero ? '1.8' : '1'}
+                  strokeWidth={isZero ? '1.5' : '1'}
                   strokeDasharray={isZero ? undefined : '3 3'}
                 />
                 <text
@@ -385,7 +397,7 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
                 />
                 <text
                   x={x}
-                  y={SVG_H - PAD_B + 16}
+                  y={SVG_H - PAD_B + 18}
                   textAnchor="middle"
                   className="text-[10px] font-mono fill-[#75736E] font-medium"
                 >
@@ -395,112 +407,143 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
             );
           })}
 
-          {/* Shaded Confidence Envelope Band (mu ± sigma) */}
-          {showEnvelope && (
-            <path
-              d={envelopePathD}
-              fill="#C85A32"
-              fillOpacity="0.08"
-              stroke="#C85A32"
-              strokeWidth="0.75"
-              strokeDasharray="4 3"
-              strokeOpacity="0.3"
-            />
-          )}
-
-          {/* Realization Waveform Traces */}
-          {trajectories.map((pts, i) => {
-            const isSelected = i === selectedRealizationIndex;
-            if (!showAllRealizations && !isSelected) return null;
-
-            const color = REALIZATION_COLORS[i % REALIZATION_COLORS.length];
-            return (
+          {/* Clipped Plot Geometries */}
+          <g clipPath="url(#rp-plot-clip)">
+            {/* Shaded Confidence Envelope Band (mu ± 1*sigma) */}
+            {showEnvelope && (
               <path
-                key={`traj-${i}`}
-                d={toPathD(pts)}
+                d={envelopePathD}
+                fill="#C85A32"
+                fillOpacity="0.09"
+                stroke="#C85A32"
+                strokeWidth="0.9"
+                strokeDasharray="4 3"
+                strokeOpacity="0.35"
+              />
+            )}
+
+            {/* Non-Selected Realizations (rendered first) */}
+            {showAllRealizations &&
+              trajectories.map((pts, i) => {
+                if (i === stats.selectedRealizationIndex) return null;
+                const color = REALIZATION_COLORS[i % REALIZATION_COLORS.length];
+                return (
+                  <path
+                    key={`traj-${i}`}
+                    d={toPathD(pts)}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.25"
+                    opacity="0.38"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="cursor-pointer hover:opacity-80"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectRealization(i);
+                    }}
+                  />
+                );
+              })}
+
+            {/* Selected Realization Waveform Trace (highlighted on top) */}
+            {trajectories[stats.selectedRealizationIndex] && (
+              <path
+                d={toPathD(trajectories[stats.selectedRealizationIndex])}
                 fill="none"
-                stroke={color}
-                strokeWidth={isSelected ? '2.8' : '1.3'}
-                opacity={isSelected ? 1.0 : 0.4}
+                stroke={selectedColor}
+                strokeWidth="2.6"
+                opacity="1"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="transition-opacity duration-150"
               />
-            );
-          })}
+            )}
 
-          {/* Prominent Ensemble Mean Curve E[X(t)] */}
-          {showMeanCurve && (
-            <path
-              d={toPathD(
-                simulation.timeSteps.map((t, idx) => ({
-                  t,
-                  x: ensembleMean[idx],
-                }))
-              )}
-              fill="none"
-              stroke="#1A1917"
-              strokeWidth="2.4"
-              strokeDasharray="6 4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.9"
-            />
-          )}
+            {/* Prominent Ensemble Mean Curve E[X(t)] */}
+            {showMeanCurve && (
+              <path
+                d={toPathD(
+                  simulation.timeSteps.map((t, idx) => ({
+                    t,
+                    x: ensembleMean[idx],
+                  }))
+                )}
+                fill="none"
+                stroke="#1A1917"
+                strokeWidth="2.3"
+                strokeDasharray="6 4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.92"
+              />
+            )}
+          </g>
 
-          {/* Moving Vertical Sweep Line at simTime */}
-          <g filter="url(#cursor-glow)">
-            {/* Wider translucent aura line for high visibility */}
+          {/* Moving Vertical Time Indicator Line */}
+          <g>
+            {/* Subtle highlight band */}
             <line
               x1={cursorX}
               y1={PAD_T}
               x2={cursorX}
               y2={SVG_H - PAD_B}
               stroke="#C85A32"
-              strokeWidth="5"
-              strokeOpacity="0.25"
+              strokeWidth="6"
+              strokeOpacity="0.16"
             />
-            {/* Crisp center sweep line */}
+            {/* Crisp vertical cursor line */}
             <line
               x1={cursorX}
-              y1={PAD_T}
+              y1={PAD_T - 10}
               x2={cursorX}
-              y2={SVG_H - PAD_B}
+              y2={SVG_H - PAD_B + 2}
               stroke="#C85A32"
               strokeWidth="2.2"
             />
           </g>
 
-          {/* Sweep Cursor Header Pill (t = simTime) */}
-          <g transform={`translate(${cursorX}, ${PAD_T - 18})`}>
-            <rect
-              x="-30"
-              y="-12"
-              width="60"
-              height="20"
-              rx="4"
+          {/* Top Dedicated Non-Overlapping Callout Pill (Lives completely ABOVE plot box) */}
+          <g>
+            {/* Connector tick from pill bottom to exact cursorX */}
+            <line
+              x1={cursorX}
+              y1={34}
+              x2={cursorX}
+              y2={PAD_T}
+              stroke="#C85A32"
+              strokeWidth="1.5"
+            />
+            <polygon
+              points={`${cursorX - 4},${PAD_T - 5} ${cursorX + 4},${PAD_T - 5} ${cursorX},${PAD_T}`}
               fill="#C85A32"
-              className="drop-shadow-xs"
+            />
+            <rect
+              x={pillCenterX - pillHalf}
+              y={10}
+              width={PILL_W}
+              height={24}
+              rx="4"
+              fill="#1A1917"
             />
             <text
-              x="0"
-              y="2"
+              x={pillCenterX}
+              y={25.5}
               textAnchor="middle"
               className="text-[10px] font-mono font-bold fill-white"
             >
-              {simTime.toFixed(2)}s
+              {pillText}
             </text>
           </g>
 
-          {/* Sweep Cursor Bottom Guide Tab */}
+          {/* Sweep Cursor Bottom Guide Triangle */}
           <polygon
-            points={`${cursorX - 5},${SVG_H - PAD_B + 1} ${cursorX + 5},${SVG_H - PAD_B + 1} ${cursorX},${SVG_H - PAD_B + 7}`}
+            points={`${cursorX - 5},${SVG_H - PAD_B + 1} ${cursorX + 5},${SVG_H - PAD_B + 1} ${cursorX},${SVG_H - PAD_B + 8}`}
             fill="#C85A32"
           />
 
-          {/* Intersection Points for All Realizations at simTime */}
+          {/* Intersection Dots for All Realizations at Exact simTime */}
           {stats.ensembleValues.map((val, i) => {
-            const isSelected = i === selectedRealizationIndex;
+            const isSelected = i === stats.selectedRealizationIndex;
             if (!showAllRealizations && !isSelected) return null;
             const y = mapY(val);
             const color = REALIZATION_COLORS[i % REALIZATION_COLORS.length];
@@ -509,11 +552,10 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
                 key={`dot-${i}`}
                 cx={cursorX}
                 cy={y}
-                r={isSelected ? '6.5' : '3.5'}
+                r={isSelected ? '6' : '3'}
                 fill={isSelected ? color : '#FFFFFF'}
                 stroke={color}
-                strokeWidth={isSelected ? '2.5' : '1.5'}
-                className="transition-all"
+                strokeWidth={isSelected ? '2.4' : '1.4'}
               />
             );
           })}
@@ -523,51 +565,28 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
             <circle
               cx={cursorX}
               cy={meanY}
-              r="5"
+              r="4.8"
               fill="#1A1917"
               stroke="#FFFFFF"
               strokeWidth="2"
             />
           )}
 
-          {/* Non-Overlapping Callout Badge for Selected Realization Amplitude */}
-          <g transform={`translate(${badgeX}, ${badgeY})`}>
-            <rect
-              x="0"
-              y="-12"
-              width="95"
-              height="24"
-              rx="4"
-              fill="#1A1917"
-              fillOpacity="0.92"
-              stroke="#FFFFFF"
-              strokeWidth="1"
-              className="drop-shadow-md"
-            />
-            <text
-              x="8"
-              y="4"
-              className="text-[9.5px] font-mono font-bold fill-white"
-            >
-              X<sup>({selectedRealizationIndex + 1})</sup>:{' '}
-              {stats.selectedAmplitude >= 0 ? '+' : ''}
-              {stats.selectedAmplitude.toFixed(2)}V
-            </text>
-          </g>
-
-          {/* Axis Titles */}
+          {/* Rotated Y-Axis Title (far left margin, zero overlap) */}
           <text
-            x={PAD_L - 8}
-            y={PAD_T - 22}
-            textAnchor="start"
+            x={18}
+            y={centerY}
+            textAnchor="middle"
+            transform={`rotate(-90, 18, ${centerY})`}
             className="text-[11px] font-mono font-bold fill-[#1A1917]"
           >
             Amplitude X(t) [V]
           </text>
 
+          {/* X-Axis Title */}
           <text
             x={SVG_W - PAD_R}
-            y={SVG_H - PAD_B + 36}
+            y={SVG_H - 10}
             textAnchor="end"
             className="text-[11px] font-mono font-bold fill-[#1A1917]"
           >
@@ -577,47 +596,43 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
       </div>
 
       {/* 3. Waveform Legend & Direct Scrubber Controls */}
-      <div className="px-4 py-3 bg-white border-t border-[#E6E4DD] flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="px-3.5 py-2.5 bg-white border-t border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex flex-wrap items-center gap-3.5">
           <div className="flex items-center gap-1.5">
             <span
               className="w-3.5 h-1 rounded-full"
-              style={{
-                backgroundColor:
-                  REALIZATION_COLORS[selectedRealizationIndex % REALIZATION_COLORS.length],
-              }}
+              style={{ backgroundColor: selectedColor }}
             />
             <span className="text-[#1A1917] font-semibold">
-              X<sup>({selectedRealizationIndex + 1})</sup>(t) Selected Realization
+              X<sup>({stats.selectedRealizationIndex + 1})</sup>(t) Selected
             </span>
           </div>
 
           {showAllRealizations && (
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-0.5 bg-[#75736E] rounded-full opacity-60" />
-              <span className="text-[#585651]">Other Realizations (1..M)</span>
+              <span className="text-[#585651]">Ensemble (1..{M})</span>
             </div>
           )}
 
           {showMeanCurve && (
             <div className="flex items-center gap-1.5">
               <span className="w-4 h-0.5 border-b-2 border-dashed border-[#1A1917]" />
-              <span className="text-[#1A1917] font-semibold">μ̂(t) Ensemble Mean</span>
+              <span className="text-[#1A1917] font-semibold">μ̂(t) Mean</span>
             </div>
           )}
 
           {showEnvelope && (
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-2 bg-[#C85A32]/20 border border-[#C85A32]/40 rounded-xs" />
-              <span className="text-[#75736E]">μ ± 1σ Envelope</span>
+              <span className="text-[#75736E]">μ̂ ± 1σ̂</span>
             </div>
           )}
         </div>
 
         {/* Scrub Slider */}
-        <div className="flex items-center gap-2.5 ml-auto">
-          <span className="text-[#75736E] text-[11px]">Scrub t:</span>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-[#75736E] text-[11px]">Time t:</span>
           <input
             type="range"
             min="0"
@@ -625,10 +640,10 @@ export const RandomProcessVisualizer: React.FC<RandomProcessVisualizerProps> = (
             step="0.05"
             value={simTime}
             onChange={(e) => onSeekTime(parseFloat(e.target.value))}
-            className="w-28 sm:w-44 accent-[#C85A32] cursor-pointer"
+            className="w-28 sm:w-40 accent-[#C85A32] cursor-pointer"
             aria-label="Simulation Time Scrubber"
           />
-          <span className="text-[#1A1917] font-bold w-12 text-right">
+          <span className="text-[#1A1917] font-bold w-12 text-right tabular-nums">
             {simTime.toFixed(2)}s
           </span>
         </div>

@@ -1,8 +1,8 @@
 /**
  * Module 03: Random Processes Engine
- * Rigorous stochastic simulation, ensemble and time-average calculations,
- * mean & variance over time, SSS and WSS stationarity tests, ergodicity,
- * and autocorrelation analysis.
+ * Rigorous stochastic simulation, ensemble & time-average calculations,
+ * running time-average convergence, mean & variance over time,
+ * honest finite-sample SSS/WSS diagnostics, ergodicity, and autocorrelation analysis.
  */
 
 export type ProcessType =
@@ -19,6 +19,9 @@ export interface ProcessMeta {
   isWss: boolean;
   isSss: boolean;
   isErgodic: boolean;
+  usesAmplitude: boolean;
+  usesFrequency: boolean;
+  usesDriftRate: boolean;
   theoreticalMean: string;
   theoreticalVar: string;
   theoreticalRxx: string;
@@ -35,16 +38,19 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     isWss: true,
     isSss: true,
     isErgodic: true,
-    theoreticalMean: '\\mathbb{E}[X(t)] = \\mu = 0',
+    usesAmplitude: false,
+    usesFrequency: false,
+    usesDriftRate: false,
+    theoreticalMean: '\\mathbb{E}[X(t)] = 0',
     theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma^2',
-    theoreticalRxx: 'R_{XX}(\\tau) = \\sigma^2 \\delta(\\tau)',
+    theoreticalRxx: 'R_{XX}(\\tau) = \\sigma^2 \\delta_{\\tau,0}',
     description:
-      'Uncorrelated zero-mean Gaussian random variables at every instant. Strictly stationary, wide-sense stationary, and completely ergodic with zero memory.',
+      'Independent, identically distributed (i.i.d.) zero-mean Gaussian samples at every time instant. Strictly stationary, wide-sense stationary, and ergodic with zero temporal memory.',
     assumptions: [
-      'Independent and identically distributed (i.i.d.) Gaussian samples at each time instant',
-      'Zero mean: E[X(t)] = 0',
-      'Flat spectral density over the simulation Nyquist bandwidth',
-      'Zero temporal memory: correlation exists only at zero lag τ = 0',
+      'Samples X(t_k) are mutually independent Gaussian random variables: X(t_k) ~ N(0, σ²)',
+      'Zero ensemble mean at every instant: E[X(t)] = 0',
+      'Constant finite variance across time: Var(X(t)) = σ²',
+      'Zero correlation for non-zero lag: E[X(t)X(t+τ)] = 0 for τ ≠ 0',
     ],
   },
   gaussian_bandlimited: {
@@ -55,16 +61,19 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     isWss: true,
     isSss: true,
     isErgodic: true,
+    usesAmplitude: true,
+    usesFrequency: true,
+    usesDriftRate: false,
     theoreticalMean: '\\mathbb{E}[X(t)] = 0',
-    theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma^2',
-    theoreticalRxx: 'R_{XX}(\\tau) = \\sigma^2 \\operatorname{sinc}(2B\\tau) \\cos(2\\pi f_c \\tau)',
+    theoreticalVar: '\\operatorname{Var}(X(t)) = \\frac{A^2}{2} + \\sigma^2',
+    theoreticalRxx: 'R_{XX}(\\tau) = \\frac{A^2}{2} \\operatorname{sinc}(2 f_0 \\tau) + \\sigma^2 \\delta_{\\tau,0}',
     description:
-      'Continuous-spectrum coloured Gaussian process synthesized by harmonic superposition (Rice model). Stationary and ergodic with finite correlation time.',
+      'Lowpass Gaussian process of bandwidth B = f₀ synthesized via Rice quadrature harmonics plus additive noise σ. Strictly stationary, WSS, and ergodic with sinc-shaped memory.',
     assumptions: [
-      'Gaussian distribution confirmed by Central Limit Theorem over harmonic sum',
-      'Zero DC bias: E[X(t)] = 0',
-      'Finite coherence duration inversely proportional to bandwidth B',
-      'Time-invariant statistical generator mechanism',
+      'Rice quadrature superposition over K = 32 uniform sub-bands in [0, f₀]',
+      'Quadrature coefficients a_h, b_h ~ N(0, A²/(2K)) guarantee exact Gaussian marginals',
+      'Additive measurement noise n(t) ~ N(0, σ²) independent of the bandlimited signal',
+      'Time-invariant statistical law: finite coherence time τ_c ≈ 1/(2f₀)',
     ],
   },
   random_phase_sinusoid: {
@@ -73,50 +82,57 @@ export const PROCESS_CATALOG: Record<ProcessType, ProcessMeta> = {
     shortName: 'Random-Phase Sinusoid',
     isStationary: true,
     isWss: true,
-    isSss: false,
+    isSss: true,
     isErgodic: true,
-    theoreticalMean: '\\mathbb{E}[X(t)] = \\int_{-\\pi}^{\\pi} \\frac{A}{2\\pi}\\cos(2\\pi f_0 t + \\theta) d\\theta = 0',
-    theoreticalVar: '\\operatorname{Var}(X(t)) = \\frac{A^2}{2}',
-    theoreticalRxx: 'R_{XX}(\\tau) = \\frac{A^2}{2} \\cos(2\\pi f_0 \\tau)',
+    usesAmplitude: true,
+    usesFrequency: true,
+    usesDriftRate: false,
+    theoreticalMean: '\\mathbb{E}[X(t)] = \\int_{-\\pi}^{\\pi} \\frac{A}{2\\pi}\\cos(2\\pi f_0 t + \\theta)\\,d\\theta = 0',
+    theoreticalVar: '\\operatorname{Var}(X(t)) = \\frac{A^2}{2} + \\sigma^2',
+    theoreticalRxx: 'R_{XX}(\\tau) = \\frac{A^2}{2} \\cos(2\\pi f_0 \\tau) + \\sigma^2 \\delta_{\\tau,0}',
     description:
-      'Harmonic signal with uniformly distributed random phase Θ ~ U(-π, π). Ensemble mean is zero and autocorrelation depends strictly on lag τ, satisfying WSS.',
+      'Harmonic wave A cos(2π f₀ t + Θ) with uniformly distributed random phase Θ ~ U(-π, π) and additive noise σ. Shift-invariant across realizations, satisfying SSS, WSS, and ergodicity.',
     assumptions: [
-      'Phase Θ is uniform on [-π, π] and independent across realizations',
-      'Carrier frequency f0 and peak amplitude A are deterministic and constant',
-      'Ensemble mean integrates to zero identically for all t',
-      'Autocorrelation depends solely on lag difference τ = t1 - t2',
+      'Initial phase Θ ~ Uniform(-π, π) drawn independently for each realization',
+      'Carrier amplitude A and frequency f₀ are deterministic constants across the ensemble',
+      'Additive thermal noise n(t) ~ N(0, σ²) is zero-mean and independent of Θ',
+      'Modulo-2π phase invariance makes all joint distributions shift-invariant (SSS & WSS)',
     ],
   },
   non_stationary: {
     id: 'non_stationary',
-    name: 'Non-Stationary Random Process (Drifting Mean & Expanding Variance)',
+    name: 'Non-Stationary Process (Mean Drift & Expanding Variance)',
     shortName: 'Non-Stationary Process',
     isStationary: false,
     isWss: false,
     isSss: false,
     isErgodic: false,
-    theoreticalMean: '\\mathbb{E}[X(t)] = \\mu(t) = A_d \\sin(2\\pi f_d t) + m_d(t - T/2)',
-    theoreticalVar: '\\operatorname{Var}(X(t)) = \\sigma_0^2 \\left(0.4 + 1.2 \\frac{t}{T}\\right)',
+    usesAmplitude: true,
+    usesFrequency: true,
+    usesDriftRate: true,
+    theoreticalMean: '\\mathbb{E}[X(t)] = d\\left[1.2\\sin(0.6\\pi f_0 t) + 0.18(t - T/2)\\right]',
+    theoreticalVar: '\\operatorname{Var}(X(t)) = \\left(0.35 + 1.25\\frac{t}{T}\\right)\\left(\\frac{A^2}{2} + \\sigma^2\\right)',
     theoreticalRxx: 'R_{XX}(t_1, t_2) \\neq R_{XX}(t_1 - t_2)',
     description:
-      'Process with time-varying mean drift and expanding variance envelope. Violates SSS, WSS, and ergodicity.',
+      'Stochastic process with a deterministic time-varying mean drift and a linearly expanding variance envelope. Explicitly violates SSS, WSS, and ergodicity.',
     assumptions: [
-      'Systemic cyclical and linear trend drift applied to ensemble mean',
-      'Heteroscedastic variance expanding linearly across the time horizon',
-      'Joint distribution shifts over time; time average cannot match ensemble mean',
+      'Time-varying mean drift μ(t) controlled by drift intensity d',
+      'Heteroscedastic envelope scaling variance from 0.35× at t=0 to 1.60× at t=T',
+      'Autocorrelation R_XX(t₁, t₂) depends on absolute times t₁ and t₂, not just lag τ',
+      'Time averages from a single path fail to track the time-varying ensemble statistics',
     ],
   },
 };
 
 export interface ProcessParams {
   type: ProcessType;
-  realizationCount: number; // M (3 to 24)
-  sampleCount: number; // N (80 to 320)
+  realizationCount: number; // M (3 to 20)
+  sampleCount: number; // N (80 to 300)
   tMax: number; // Duration T in seconds (default 10)
   amplitude: number; // Signal scale A (0.5 to 3.0)
-  noiseStd: number; // Noise std dev sigma (0.1 to 1.5)
-  frequency: number; // Characteristic frequency f0 in Hz (0.2 to 2.5)
-  driftRate: number; // Non-stationary drift intensity (0.2 to 2.0)
+  noiseStd: number; // Noise std dev sigma (0.1 to 1.2)
+  frequency: number; // Characteristic frequency f0 in Hz (0.2 to 2.0)
+  driftRate: number; // Non-stationary drift intensity d (0.2 to 2.0)
   seed: number;
 }
 
@@ -128,13 +144,13 @@ export const DEFAULT_PROCESS_PARAMS: ProcessParams = {
   amplitude: 1.6,
   noiseStd: 0.35,
   frequency: 0.6,
-  driftRate: 0.8,
+  driftRate: 0.9,
   seed: 42,
 };
 
-// Seeded pseudorandom number generator (LCG)
+// Seeded pseudorandom number generator (Park-Miller LCG)
 export function createRng(seed: number) {
-  let s = Math.abs(seed) % 2147483647;
+  let s = Math.abs(Math.floor(seed)) % 2147483647;
   if (s <= 0) s = 1;
   return () => {
     s = (s * 16807) % 2147483647;
@@ -158,17 +174,46 @@ export interface TrajectoryPoint {
 
 export interface EnsembleSimulationData {
   params: ProcessParams;
-  timeSteps: number[]; // Length N: [0, ..., TMax]
+  timeSteps: number[]; // Length N: [0, ..., tMax]
   dt: number;
   samplingFreq: number;
   trajectories: TrajectoryPoint[][]; // M trajectories, each length N
-  ensembleMean: number[]; // Length N: mu(t)
-  ensembleVariance: number[]; // Length N: sigma^2(t)
-  ensembleStdDev: number[]; // Length N: sigma(t)
-  timeAverages: number[]; // Length M: time-mean for each realization
-  timeVariances: number[]; // Length M: time-variance for each realization
+  ensembleMean: number[]; // Length N: mu_hat(t)
+  ensembleVariance: number[]; // Length N: sigma_hat^2(t)
+  ensembleStdDev: number[]; // Length N: sigma_hat(t)
+  theoreticalMeanCurve: number[]; // Length N: theoretical E[X(t)]
+  theoreticalVarianceCurve: number[]; // Length N: theoretical Var(X(t))
+  runningTimeAverages: number[][]; // M x N: cumulative time average up to t_k
+  timeAverages: number[]; // Length M: full-horizon time-mean for each realization
+  timeVariances: number[]; // Length M: full-horizon time-variance for each realization
   grandEnsembleMean: number;
   grandEnsembleVariance: number;
+}
+
+// Theoretical instantaneous mean E[X(t)]
+export function getTheoreticalMeanAt(params: ProcessParams, t: number): number {
+  if (params.type !== 'non_stationary') return 0;
+  return (
+    params.driftRate *
+    (1.2 * Math.sin(2 * Math.PI * (params.frequency * 0.3) * t) + 0.18 * (t - params.tMax / 2))
+  );
+}
+
+// Theoretical instantaneous variance Var(X(t))
+export function getTheoreticalVarianceAt(params: ProcessParams, t: number): number {
+  const A = params.amplitude;
+  const sig = params.noiseStd;
+  switch (params.type) {
+    case 'white_noise':
+      return sig * sig;
+    case 'gaussian_bandlimited':
+    case 'random_phase_sinusoid':
+      return (A * A) / 2 + sig * sig;
+    case 'non_stationary': {
+      const envSq = 0.35 + 1.25 * (t / params.tMax);
+      return envSq * ((A * A) / 2 + sig * sig);
+    }
+  }
 }
 
 // Generate the complete ensemble simulation
@@ -181,7 +226,6 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     amplitude: A,
     noiseStd,
     frequency: f0,
-    driftRate,
     seed,
   } = params;
 
@@ -193,22 +237,24 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     timeSteps[k] = (k / (N - 1)) * tMax;
   }
 
-  // Pre-generate realization-specific random variables
+  // Rice quadrature parameters for exact bandlimited Gaussian on [0, f0]
+  const K_BAND = 32;
+  const quadCoeffStd = A / Math.sqrt(2 * K_BAND);
+
   const phases: number[] = new Array(M);
-  const harmonicPacks: Array<Array<{ f: number; a: number; phi: number }>> = [];
+  const riceCoeffs: Array<Array<{ f: number; a: number; b: number }>> = [];
 
   for (let i = 0; i < M; i++) {
     phases[i] = (rng() * 2 - 1) * Math.PI;
 
-    const harmonics: Array<{ f: number; a: number; phi: number }> = [];
-    const numHarmonics = 8;
-    for (let h = 0; h < numHarmonics; h++) {
-      const freq = f0 * (0.6 + h * 0.45) + (rng() - 0.5) * 0.1;
-      const amp = (A / Math.sqrt(numHarmonics)) * (0.8 + rng() * 0.4);
-      const phi = (rng() * 2 - 1) * Math.PI;
-      harmonics.push({ f: freq, a: amp, phi });
+    const coeffs: Array<{ f: number; a: number; b: number }> = [];
+    for (let h = 0; h < K_BAND; h++) {
+      const freq = ((h + 0.5) / K_BAND) * f0;
+      const a = normalSample(rng, 0, quadCoeffStd);
+      const b = normalSample(rng, 0, quadCoeffStd);
+      coeffs.push({ f: freq, a, b });
     }
-    harmonicPacks.push(harmonics);
+    riceCoeffs.push(coeffs);
   }
 
   // Generate M trajectories
@@ -217,7 +263,7 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
   for (let i = 0; i < M; i++) {
     const points: TrajectoryPoint[] = new Array(N);
     const theta_i = phases[i];
-    const harmonics = harmonicPacks[i];
+    const coeffs = riceCoeffs[i];
 
     for (let k = 0; k < N; k++) {
       const t = timeSteps[k];
@@ -231,10 +277,11 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
 
         case 'gaussian_bandlimited': {
           let sumHarmonics = 0;
-          for (let h = 0; h < harmonics.length; h++) {
-            sumHarmonics += harmonics[h].a * Math.cos(2 * Math.PI * harmonics[h].f * t + harmonics[h].phi);
+          for (let h = 0; h < K_BAND; h++) {
+            const angle = 2 * Math.PI * coeffs[h].f * t;
+            sumHarmonics += coeffs[h].a * Math.cos(angle) + coeffs[h].b * Math.sin(angle);
           }
-          const whiteComp = normalSample(rng, 0, noiseStd * 0.5);
+          const whiteComp = normalSample(rng, 0, noiseStd);
           val = sumHarmonics + whiteComp;
           break;
         }
@@ -247,13 +294,12 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
         }
 
         case 'non_stationary': {
-          const meanDrift =
-            driftRate * (1.2 * Math.sin(2 * Math.PI * (f0 * 0.3) * t) + 0.18 * (t - tMax / 2));
+          const meanDrift = getTheoreticalMeanAt(params, t);
           const varEnvelope = Math.sqrt(0.35 + 1.25 * (t / tMax));
-
           let base = 0;
-          for (let h = 0; h < 4; h++) {
-            base += harmonics[h].a * Math.cos(2 * Math.PI * harmonics[h].f * t + harmonics[h].phi);
+          for (let h = 0; h < K_BAND; h++) {
+            const angle = 2 * Math.PI * coeffs[h].f * t;
+            base += coeffs[h].a * Math.cos(angle) + coeffs[h].b * Math.sin(angle);
           }
           base += normalSample(rng, 0, noiseStd);
           val = meanDrift + base * varEnvelope;
@@ -266,12 +312,18 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     trajectories.push(points);
   }
 
-  // Calculate ensemble mean and variance across time
+  // Calculate ensemble mean, variance, and theoretical curves across time
   const ensembleMean: number[] = new Array(N);
   const ensembleVariance: number[] = new Array(N);
   const ensembleStdDev: number[] = new Array(N);
+  const theoreticalMeanCurve: number[] = new Array(N);
+  const theoreticalVarianceCurve: number[] = new Array(N);
 
   for (let k = 0; k < N; k++) {
+    const t = timeSteps[k];
+    theoreticalMeanCurve[k] = getTheoreticalMeanAt(params, t);
+    theoreticalVarianceCurve[k] = getTheoreticalVarianceAt(params, t);
+
     let sum = 0;
     for (let i = 0; i < M; i++) {
       sum += trajectories[i][k].x;
@@ -289,15 +341,19 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     ensembleStdDev[k] = Math.sqrt(variance);
   }
 
-  // Calculate time averages and time variances for each realization
+  // Calculate running time averages, full-horizon time averages, and time variances
+  const runningTimeAverages: number[][] = new Array(M);
   const timeAverages: number[] = new Array(M);
   const timeVariances: number[] = new Array(M);
 
   for (let i = 0; i < M; i++) {
+    const runAvg: number[] = new Array(N);
     let sum = 0;
     for (let k = 0; k < N; k++) {
       sum += trajectories[i][k].x;
+      runAvg[k] = sum / (k + 1);
     }
+    runningTimeAverages[i] = runAvg;
     const tMean = sum / N;
     timeAverages[i] = tMean;
 
@@ -321,6 +377,9 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
     ensembleMean,
     ensembleVariance,
     ensembleStdDev,
+    theoreticalMeanCurve,
+    theoreticalVarianceCurve,
+    runningTimeAverages,
     timeAverages,
     timeVariances,
     grandEnsembleMean,
@@ -328,7 +387,15 @@ export function generateEnsembleSimulation(params: ProcessParams): EnsembleSimul
   };
 }
 
-// Calculate instantaneous stats at an arbitrary time t
+// Linearly interpolate array at fractional time index
+function interpArray(arr: number[], exactIdx: number): number {
+  const lo = Math.floor(exactIdx);
+  const hi = Math.min(arr.length - 1, lo + 1);
+  const frac = exactIdx - lo;
+  return arr[lo] * (1 - frac) + arr[hi] * frac;
+}
+
+// Instantaneous interpolated statistics at exact time t
 export interface InstantaneousStats {
   simTime: number;
   timeIndex: number;
@@ -338,12 +405,14 @@ export interface InstantaneousStats {
   ensembleMean: number;
   ensembleVariance: number;
   ensembleStdDev: number;
+  theoreticalMean: number;
+  theoreticalVariance: number;
   confidenceLower: number; // mu - 1.96 * sigma
   confidenceUpper: number; // mu + 1.96 * sigma
+  runningTimeAvgSelected: number;
   timeAvgSelected: number;
   timeVarSelected: number;
-  ergodicityDelta: number; // |timeAvg - ensembleMean|
-  isStationaryConsistent: boolean;
+  ergodicityDelta: number; // |timeAvg - grandEnsembleMean|
 }
 
 export function getInstantaneousStats(
@@ -351,34 +420,47 @@ export function getInstantaneousStats(
   simTime: number,
   selectedRealizationIndex: number
 ): InstantaneousStats {
-  const { timeSteps, trajectories, ensembleMean, ensembleVariance, ensembleStdDev, timeAverages, timeVariances } = sim;
+  const {
+    timeSteps,
+    trajectories,
+    ensembleMean,
+    ensembleVariance,
+    ensembleStdDev,
+    theoreticalMeanCurve,
+    theoreticalVarianceCurve,
+    runningTimeAverages,
+    timeAverages,
+    timeVariances,
+    grandEnsembleMean,
+  } = sim;
   const N = timeSteps.length;
   const M = trajectories.length;
 
   const clampedT = Math.max(0, Math.min(sim.params.tMax, simTime));
-  const timeIndex = Math.min(
-    N - 1,
-    Math.max(0, Math.round((clampedT / sim.params.tMax) * (N - 1)))
-  );
+  const exactIdx = Math.max(0, Math.min(N - 1, (clampedT / sim.params.tMax) * (N - 1)));
+  const lo = Math.floor(exactIdx);
+  const hi = Math.min(N - 1, lo + 1);
+  const frac = exactIdx - lo;
+  const timeIndex = Math.round(exactIdx);
 
   const safeRealizationIdx = Math.max(0, Math.min(M - 1, selectedRealizationIndex));
-  const selectedAmplitude = trajectories[safeRealizationIdx][timeIndex].x;
 
   const ensembleValues: number[] = new Array(M);
   for (let i = 0; i < M; i++) {
-    ensembleValues[i] = trajectories[i][timeIndex].x;
+    ensembleValues[i] = trajectories[i][lo].x * (1 - frac) + trajectories[i][hi].x * frac;
   }
 
-  const mu = ensembleMean[timeIndex];
-  const variance = ensembleVariance[timeIndex];
-  const sigma = ensembleStdDev[timeIndex];
+  const selectedAmplitude = ensembleValues[safeRealizationIdx];
+  const mu = interpArray(ensembleMean, exactIdx);
+  const variance = Math.max(0, interpArray(ensembleVariance, exactIdx));
+  const sigma = Math.sqrt(variance);
+  const theoreticalMean = interpArray(theoreticalMeanCurve, exactIdx);
+  const theoreticalVariance = interpArray(theoreticalVarianceCurve, exactIdx);
+  const runningTimeAvgSelected = interpArray(runningTimeAverages[safeRealizationIdx], exactIdx);
 
   const timeAvgSelected = timeAverages[safeRealizationIdx] ?? 0;
   const timeVarSelected = timeVariances[safeRealizationIdx] ?? 0;
-  const ergodicityDelta = Math.abs(timeAvgSelected - mu);
-
-  const isStationaryConsistent =
-    sim.params.type !== 'non_stationary' && ergodicityDelta < 0.65;
+  const ergodicityDelta = Math.abs(timeAvgSelected - grandEnsembleMean);
 
   return {
     simTime: clampedT,
@@ -389,43 +471,75 @@ export function getInstantaneousStats(
     ensembleMean: mu,
     ensembleVariance: variance,
     ensembleStdDev: sigma,
+    theoreticalMean,
+    theoreticalVariance,
     confidenceLower: mu - 1.96 * sigma,
     confidenceUpper: mu + 1.96 * sigma,
+    runningTimeAvgSelected,
     timeAvgSelected,
     timeVarSelected,
     ergodicityDelta,
-    isStationaryConsistent,
   };
 }
 
 // Compute Autocorrelation R_XX(tau) for lags tau in [-tauMax, +tauMax]
+// Plus early-half vs late-half autocorrelations for honest shift-invariance testing
 export interface AutocorrelationResult {
   lags: number[]; // Lag times in seconds
   lagIndices: number[]; // Integer lag indices -maxLag .. +maxLag
-  ensembleRxx: number[]; // Average of realization autocorrelations
+  ensembleRxx: number[]; // Ensemble-averaged time autocorrelation R_XX(tau)
   selectedTrajectoryRxx: number[]; // Single-realization autocorrelation
-  theoreticalRxx: number[]; // Exact mathematical curve
+  theoreticalRxx: number[] | null; // Analytical R_XX(tau) for WSS processes, null for non-stationary
+  earlyWindowRxx: number[]; // Estimated on [0, T/2]
+  lateWindowRxx: number[]; // Estimated on [T/2, T]
   peakValue: number; // R_XX(0)
   totalPower: number;
-  correlationTime: number; // Approximate tau_c where R(tau) drops to 1/e
+  correlationTime: number; // Approximate tau_c where |R(tau)| drops to peak / e
+}
+
+function estimateWindowAutocorr(
+  trajectories: TrajectoryPoint[][],
+  startIdx: number,
+  endIdx: number,
+  maxLag: number
+): number[] {
+  const M = trajectories.length;
+  const len = endIdx - startIdx;
+  const lagCount = 2 * maxLag + 1;
+  const rxx = new Array(lagCount).fill(0);
+
+  for (let i = 0; i < M; i++) {
+    const pts = trajectories[i];
+    for (let idx = 0; idx < lagCount; idx++) {
+      const m = idx - maxLag;
+      const absM = Math.abs(m);
+      if (absM >= len) continue;
+      let sum = 0;
+      const count = len - absM;
+      for (let k = startIdx; k < endIdx - absM; k++) {
+        sum += pts[k].x * pts[k + absM].x;
+      }
+      rxx[idx] += (count > 0 ? sum / count : 0) / M;
+    }
+  }
+  return rxx;
 }
 
 export function computeAutocorrelation(
   sim: EnsembleSimulationData,
   selectedRealizationIndex: number,
-  maxLagFraction: number = 0.4
+  maxLagFraction: number = 0.35
 ): AutocorrelationResult {
   const { trajectories, timeSteps, dt, params } = sim;
   const M = trajectories.length;
   const N = timeSteps.length;
-  const maxLag = Math.floor(N * maxLagFraction);
+  const maxLag = Math.max(4, Math.floor(N * maxLagFraction));
 
   const lagCount = 2 * maxLag + 1;
   const lags: number[] = new Array(lagCount);
   const lagIndices: number[] = new Array(lagCount);
   const ensembleRxx: number[] = new Array(lagCount).fill(0);
   const selectedTrajectoryRxx: number[] = new Array(lagCount).fill(0);
-  const theoreticalRxx: number[] = new Array(lagCount).fill(0);
 
   for (let idx = 0; idx < lagCount; idx++) {
     const m = idx - maxLag;
@@ -435,25 +549,17 @@ export function computeAutocorrelation(
 
   const safeIdx = Math.max(0, Math.min(M - 1, selectedRealizationIndex));
 
-  // Calculate sample autocorrelation using unbiased lag estimator
+  // Unbiased sample autocorrelation over full observation window
   for (let i = 0; i < M; i++) {
-    const x = trajectories[i].map((p) => p.x);
+    const pts = trajectories[i];
     for (let idx = 0; idx < lagCount; idx++) {
       const m = lagIndices[idx];
+      const absM = Math.abs(m);
       let sum = 0;
-      let count = 0;
+      const count = N - absM;
 
-      if (m >= 0) {
-        for (let k = 0; k < N - m; k++) {
-          sum += x[k] * x[k + m];
-          count++;
-        }
-      } else {
-        const absM = Math.abs(m);
-        for (let k = 0; k < N - absM; k++) {
-          sum += x[k + absM] * x[k];
-          count++;
-        }
+      for (let k = 0; k < count; k++) {
+        sum += pts[k].x * pts[k + absM].x;
       }
 
       const rVal = count > 0 ? sum / count : 0;
@@ -464,33 +570,40 @@ export function computeAutocorrelation(
     }
   }
 
-  // Theoretical autocorrelation
+  // Split-window autocorrelation on [0, N/2] and [N/2, N] with lags up to min(maxLag, N/4)
+  const halfN = Math.floor(N / 2);
+  const earlyWindowRxx = estimateWindowAutocorr(trajectories, 0, halfN, maxLag);
+  const lateWindowRxx = estimateWindowAutocorr(trajectories, halfN, N, maxLag);
+
+  // Theoretical autocorrelation (only well-defined as a 1D function of tau for WSS processes)
   const A = params.amplitude;
   const f0 = params.frequency;
   const sig = params.noiseStd;
 
-  for (let idx = 0; idx < lagCount; idx++) {
-    const tau = lags[idx];
-    switch (params.type) {
-      case 'white_noise': {
-        theoreticalRxx[idx] = Math.abs(tau) < dt * 0.8 ? sig * sig : 0;
-        break;
-      }
-      case 'random_phase_sinusoid': {
-        const carrier = ((A * A) / 2) * Math.cos(2 * Math.PI * f0 * tau);
-        const noise = Math.abs(tau) < dt * 0.8 ? sig * sig : 0;
-        theoreticalRxx[idx] = carrier + noise;
-        break;
-      }
-      case 'gaussian_bandlimited': {
-        const sinc =
-          Math.abs(tau) < 1e-6 ? 1 : Math.sin(2 * Math.PI * f0 * tau) / (2 * Math.PI * f0 * tau);
-        theoreticalRxx[idx] = (A * A * 0.5 + sig * sig) * sinc;
-        break;
-      }
-      case 'non_stationary': {
-        theoreticalRxx[idx] = ensembleRxx[idx];
-        break;
+  let theoreticalRxx: number[] | null = null;
+  if (params.type !== 'non_stationary') {
+    theoreticalRxx = new Array(lagCount).fill(0);
+    for (let idx = 0; idx < lagCount; idx++) {
+      const tau = lags[idx];
+      const isZeroLag = lagIndices[idx] === 0;
+      switch (params.type) {
+        case 'white_noise': {
+          theoreticalRxx[idx] = isZeroLag ? sig * sig : 0;
+          break;
+        }
+        case 'random_phase_sinusoid': {
+          const carrier = ((A * A) / 2) * Math.cos(2 * Math.PI * f0 * tau);
+          theoreticalRxx[idx] = carrier + (isZeroLag ? sig * sig : 0);
+          break;
+        }
+        case 'gaussian_bandlimited': {
+          const sinc =
+            Math.abs(tau) < 1e-9
+              ? 1
+              : Math.sin(2 * Math.PI * f0 * tau) / (2 * Math.PI * f0 * tau);
+          theoreticalRxx[idx] = ((A * A) / 2) * sinc + (isZeroLag ? sig * sig : 0);
+          break;
+        }
       }
     }
   }
@@ -499,11 +612,11 @@ export function computeAutocorrelation(
   const peakValue = ensembleRxx[zeroIdx];
   const totalPower = peakValue;
 
-  // Correlation time estimation (where envelope drops to 1/e of peak)
+  // Correlation time estimation (where |R(tau)| first drops below peak / e)
   let correlationTime = dt;
-  const threshold = peakValue / Math.E;
+  const threshold = Math.abs(peakValue) / Math.E;
   for (let idx = zeroIdx + 1; idx < lagCount; idx++) {
-    if (ensembleRxx[idx] <= threshold) {
+    if (Math.abs(ensembleRxx[idx]) <= threshold) {
       correlationTime = lags[idx];
       break;
     }
@@ -515,25 +628,33 @@ export function computeAutocorrelation(
     ensembleRxx,
     selectedTrajectoryRxx,
     theoreticalRxx,
+    earlyWindowRxx,
+    lateWindowRxx,
     peakValue,
     totalPower,
     correlationTime,
   };
 }
 
-// Stationarity Diagnostic Results
+// Honest Finite-Sample Stationarity Diagnostic Results
 export interface StationarityDiagnostics {
   meanMin: number;
   meanMax: number;
   meanRange: number;
+  meanDriftRatio: number; // Normalized |mu_late - mu_early| + std_t(mu) relative to SE
   passesMeanTest: boolean;
   varMin: number;
   varMax: number;
   varRange: number;
+  earlyMean: number;
+  lateMean: number;
+  earlyVar: number;
+  lateVar: number;
+  varRatio: number; // max(earlyVar, lateVar) / min(earlyVar, lateVar)
   passesVarTest: boolean;
-  lagSymmetryError: number;
-  passesLagSymmetry: boolean;
-  empiricalWssStatus: 'Pass' | 'Fail';
+  lagShiftError: number; // Normalized RMS difference between earlyWindowRxx and lateWindowRxx
+  passesLagInvariance: boolean;
+  empiricalWssStatus: 'Consistent' | 'Violated';
   theoreticalWssStatus: boolean;
   theoreticalSssStatus: boolean;
   finiteDataNotice: string;
@@ -543,7 +664,9 @@ export function evaluateStationarity(
   sim: EnsembleSimulationData,
   autocorr: AutocorrelationResult
 ): StationarityDiagnostics {
-  const { ensembleMean, ensembleVariance, params } = sim;
+  const { ensembleMean, ensembleVariance, trajectories, params } = sim;
+  const M = trajectories.length;
+  const N = ensembleMean.length;
   const meta = PROCESS_CATALOG[params.type];
 
   const meanMin = Math.min(...ensembleMean);
@@ -554,39 +677,74 @@ export function evaluateStationarity(
   const varMax = Math.max(...ensembleVariance);
   const varRange = varMax - varMin;
 
-  const passesMeanTest = meanRange < 0.65;
-  const passesVarTest = varRange < 0.85;
+  const halfN = Math.floor(N / 2);
+  const earlyMean = ensembleMean.slice(0, halfN).reduce((a, b) => a + b, 0) / halfN;
+  const lateMean = ensembleMean.slice(halfN).reduce((a, b) => a + b, 0) / (N - halfN);
 
-  // Check even symmetry R(tau) == R(-tau)
-  const half = Math.floor(autocorr.lags.length / 2);
-  let symDiffSum = 0;
-  for (let i = 1; i <= half; i++) {
-    const left = autocorr.ensembleRxx[half - i];
-    const right = autocorr.ensembleRxx[half + i];
-    symDiffSum += Math.abs(left - right);
+  const earlyVar = ensembleVariance.slice(0, halfN).reduce((a, b) => a + b, 0) / halfN;
+  const lateVar = ensembleVariance.slice(halfN).reduce((a, b) => a + b, 0) / (N - halfN);
+
+  const avgVar = Math.max(1e-6, sim.grandEnsembleVariance);
+  const avgStd = Math.sqrt(avgVar);
+
+  // Condition 1: Compare temporal std of ensemble mean + half-window shift against expected sampling SE = avgStd / sqrt(M)
+  const grandMu = sim.grandEnsembleMean;
+  const meanTemporalStd = Math.sqrt(
+    ensembleMean.reduce((acc, m) => acc + (m - grandMu) * (m - grandMu), 0) / N
+  );
+  const expectedMeanSE = avgStd / Math.sqrt(M);
+  const halfShift = Math.abs(lateMean - earlyMean);
+  const meanDriftRatio = Math.max(meanTemporalStd / Math.max(1e-6, expectedMeanSE), halfShift / Math.max(1e-6, 1.8 * expectedMeanSE));
+  // For truly zero-mean stationary processes, half-window mean drift ratio stays well below ~1.6;
+  // systematic trend (drift) pushes meanDriftRatio above 1.75.
+  const passesMeanTest = meanDriftRatio < 1.75;
+
+  // Condition 2: Compare early vs late half-window variance ratio
+  const varRatio = Math.max(earlyVar, lateVar) / Math.max(1e-6, Math.min(earlyVar, lateVar));
+  const varThreshold = 1.6 + 1.2 / Math.max(3, M);
+  const passesVarTest = varRatio <= varThreshold;
+
+  // Condition 3: Shift-invariance of autocorrelation R_early(tau) vs R_late(tau)
+  const center = Math.floor(autocorr.lags.length / 2);
+  const compareRadius = Math.min(center, Math.floor(N / 6));
+  let diffSqSum = 0;
+  let refSqSum = 0;
+  for (let offset = -compareRadius; offset <= compareRadius; offset++) {
+    const idx = center + offset;
+    const eVal = autocorr.earlyWindowRxx[idx];
+    const lVal = autocorr.lateWindowRxx[idx];
+    diffSqSum += (eVal - lVal) * (eVal - lVal);
+    refSqSum += 0.5 * (eVal * eVal + lVal * lVal);
   }
-  const lagSymmetryError = half > 0 ? symDiffSum / half : 0;
-  const passesLagSymmetry = lagSymmetryError < 0.25;
+  const lagShiftError = Math.sqrt(diffSqSum / Math.max(1e-9, refSqSum));
+  const lagThreshold = Math.min(0.65, 0.28 + 1.2 / Math.sqrt(M));
+  const passesLagInvariance = lagShiftError < lagThreshold;
 
   const empiricalWssStatus =
-    passesMeanTest && passesVarTest && passesLagSymmetry && meta.isWss ? 'Pass' : 'Fail';
+    passesMeanTest && passesVarTest && passesLagInvariance ? 'Consistent' : 'Violated';
 
   return {
     meanMin,
     meanMax,
     meanRange,
+    meanDriftRatio,
     passesMeanTest,
     varMin,
     varMax,
     varRange,
+    earlyMean,
+    lateMean,
+    earlyVar,
+    lateVar,
+    varRatio,
     passesVarTest,
-    lagSymmetryError,
-    passesLagSymmetry,
+    lagShiftError,
+    passesLagInvariance,
     empiricalWssStatus,
     theoreticalWssStatus: meta.isWss,
     theoreticalSssStatus: meta.isSss,
     finiteDataNotice:
-      'Numerical evaluation on finite sample paths is indicative of WSS consistency but does not constitute a formal mathematical proof of SSS or WSS.',
+      'Numerical evaluation on finite sample paths checks empirical consistency with WSS conditions, but cannot mathematically prove SSS or WSS.',
   };
 }
 
@@ -601,19 +759,24 @@ export interface DocumentedReport {
     processType: string;
     description: string;
     statisticalAssumptions: string[];
+    estimationMethods: string[];
     approximations: string[];
   };
   results: {
     simTime: number;
     instantaneousEnsembleMean: number;
+    grandEnsembleMean: number;
     instantaneousEnsembleVariance: number;
+    grandEnsembleVariance: number;
     timeMeanSelected: number;
     timeVarSelected: number;
     ergodicityMeanGap: number;
     ergodicityVarGap: number;
     autocorrZeroLagPower: number;
     estimatedCorrelationTime: number;
-    stationarityResult: 'Pass' | 'Fail';
+    stationarityResult: 'Consistent' | 'Violated';
+    theoreticalWss: boolean;
+    theoreticalSss: boolean;
     engineeringInterpretation: string;
   };
 }
@@ -628,26 +791,26 @@ export function generateDocumentedReport(
   const meta = PROCESS_CATALOG[sim.params.type];
   const stats = getInstantaneousStats(sim, simTime, selectedRealizationIndex);
 
-  const meanGap = Math.abs(stats.timeAvgSelected - stats.ensembleMean);
-  const varGap = Math.abs(stats.timeVarSelected - stats.ensembleVariance);
+  const meanGap = Math.abs(stats.timeAvgSelected - sim.grandEnsembleMean);
+  const varGap = Math.abs(stats.timeVarSelected - sim.grandEnsembleVariance);
 
   let interpretation = '';
   switch (sim.params.type) {
     case 'white_noise':
       interpretation =
-        'AWGN exhibits zero temporal correlation beyond lag tau=0. Ensemble mean and time average both fluctuate closely around 0V, demonstrating full stationarity and ergodicity.';
+        'AWGN exhibits zero temporal correlation beyond lag τ = 0. Both the ensemble mean and single-path time average hover near 0 V, while ensemble variance and time variance converge toward σ², consistent with WSS, SSS, and ergodicity.';
       break;
     case 'gaussian_bandlimited':
       interpretation =
-        'Coloured Gaussian process exhibits memory decay over finite correlation time tau_c. Statistical averages are stationary over time, and individual realization averages converge toward ensemble averages.';
+        'The bandlimited Gaussian process shows smooth temporal correlation decaying as sinc(2f₀τ) over correlation time τ_c. Statistical moments remain time-invariant, and longer trajectories drive time averages toward ensemble averages.';
       break;
     case 'random_phase_sinusoid':
       interpretation =
-        'Harmonic carrier with uniform random phase Θ ~ U(-π, π). Averages to zero across realizations despite individual oscillatory paths, satisfying WSS and ergodicity in mean and autocorrelation.';
+        'Although each individual realization is a deterministic sinusoid plus noise, uniform phase Θ ~ U(-π, π) cancels across the ensemble so E[X(t)] = 0. Autocorrelation oscillates as (A²/2)cos(2πf₀τ) + σ²δ_τ,0, satisfying WSS, SSS, and ergodicity.';
       break;
     case 'non_stationary':
       interpretation =
-        'Non-stationary drift causes ensemble mean and variance to mutate across time. A single time average cannot predict the time-dependent ensemble mean, illustrating complete breakdown of stationarity and ergodicity.';
+        'Systemic mean drift and expanding variance break time-shift invariance. Both the mean/variance profiles and early-vs-late autocorrelation windows diverge, demonstrating violation of SSS, WSS, and ergodicity.';
       break;
   }
 
@@ -661,17 +824,25 @@ export function generateDocumentedReport(
       processType: meta.name,
       description: meta.description,
       statisticalAssumptions: meta.assumptions,
+      estimationMethods: [
+        'Ensemble mean μ̂(t_k) = (1/M) Σ x_i(t_k) across M independent trajectories',
+        'Unbiased ensemble variance σ̂²(t_k) = (1/(M-1)) Σ (x_i(t_k) - μ̂(t_k))²',
+        'Time average ⟨x_i⟩_T = (1/N) Σ x_i(t_k) and sample time variance along path i',
+        'Unbiased sample autocorrelation R̂_XX(mΔt) averaged across M trajectories',
+      ],
       approximations: [
-        'Finite ensemble size M (estimator variance scales as 1/M)',
-        'Finite observation window T = 10s (temporal discretization dt)',
-        'Unbiased sample autocorrelation estimator with tapering support',
-        'Box-Muller normal approximation for stochastic noise components',
+        `Finite ensemble size M = ${sim.params.realizationCount} (estimator standard error scales as σ/√M)`,
+        `Finite observation window T = ${sim.params.tMax.toFixed(1)} s with uniform sampling Δt = ${sim.dt.toFixed(4)} s`,
+        'Bandlimited Gaussian uses K = 32 Rice quadrature harmonics across [0, f₀]',
+        'Gaussian variates generated via Park-Miller LCG and Box-Muller transform',
       ],
     },
     results: {
-      simTime,
+      simTime: stats.simTime,
       instantaneousEnsembleMean: stats.ensembleMean,
+      grandEnsembleMean: sim.grandEnsembleMean,
       instantaneousEnsembleVariance: stats.ensembleVariance,
+      grandEnsembleVariance: sim.grandEnsembleVariance,
       timeMeanSelected: stats.timeAvgSelected,
       timeVarSelected: stats.timeVarSelected,
       ergodicityMeanGap: meanGap,
@@ -679,6 +850,8 @@ export function generateDocumentedReport(
       autocorrZeroLagPower: autocorr.peakValue,
       estimatedCorrelationTime: autocorr.correlationTime,
       stationarityResult: stationarity.empiricalWssStatus,
+      theoreticalWss: meta.isWss,
+      theoreticalSss: meta.isSss,
       engineeringInterpretation: interpretation,
     },
   };
