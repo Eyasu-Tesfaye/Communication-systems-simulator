@@ -5,14 +5,20 @@
  * Module 1: Convolution & System Response
  * Filename: ContinuousConvolution.jsx
  * 
- * Convolution Module Requirements:
- * - Continuous time and discrete time with a CT / DT toggle. DT mode draws stems and computes y[n] = sum x[k]h[n-k].
- * - Four stacked plots at the top: x(τ), the flipped and shifted h(t-τ), the product with the area shaded, and y(t) drawn progressively. y(t) at the current t equals the shaded area.
- * - Below the plots, one controls panel: input dropdown (rectangle, triangle, Gaussian), system dropdown (rectangle, RC exponential, impulse), amplitude and width sliders, and a row with Start, Pause, Step, Reset.
- * - Below that, one results panel showing t (or n), y, and the peak y with the time it occurs.
- * - Presets for the 3-point moving average and the difference filter.
- * - Match the layout and style of the other modules. No top intro box.
- * - Responsive on phone-width screens.
+ * Convolution Module Features:
+ * - Continuous time (CT) and discrete time (DT) with a CT / DT toggle.
+ *   DT mode draws stems and computes y[n] = sum x[k]h[n-k].
+ * - Four stacked plots at the top: x(τ), flipped & shifted h(t-τ),
+ *   product with shaded area, and y(t) drawn progressively.
+ *   y(t) at the current t equals the shaded area.
+ * - Overlap status label computed dynamically from actual signal overlap.
+ * - One controls panel below the plots: input & system dropdowns,
+ *   separate width sliders for x and h (in whole samples in DT),
+ *   amplitude sliders for x and h, input delay slider,
+ *   and Start, Pause, Step, Reset buttons.
+ * - One results panel below controls showing t (or n), y, peak y with time,
+ *   and current widths of x, h, and y.
+ * - Presets for 3-point moving average and difference filter h[n] = δ[n] - δ[n-1].
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -29,7 +35,8 @@ import {
   Clock,
   TrendingUp,
   Activity,
-  Code2
+  Code2,
+  MoveHorizontal
 } from 'lucide-react';
 import { MathView } from '../components/MathView';
 
@@ -49,28 +56,30 @@ export default function ContinuousConvolution({
 
   const [ctAmpX, setCtAmpX] = useState(1.0);
   const [ctWidthX, setCtWidthX] = useState(2.0);
+  const [ctDelayX, setCtDelayX] = useState(0.0);
 
   const [ctAmpH, setCtAmpH] = useState(1.0);
   const [ctWidthH, setCtWidthH] = useState(1.5);
 
-  const ctTMin = -5.0;
-  const ctTMax = 5.0;
+  const ctTMin = -8.0;
+  const ctTMax = 8.0;
   const [ctTVal, setCtTVal] = useState(-3.0);
 
   // ==========================================
   // DISCRETE-TIME (DT) STATE & PARAMETERS
   // ==========================================
-  const [dtInputType, setDtInputType] = useState('step'); // 'rectangle' | 'triangle' | 'step' | 'impulse'
+  const [dtInputType, setDtInputType] = useState('step'); // 'step' | 'rectangle' | 'triangle' | 'impulse'
   const [dtSystemType, setDtSystemType] = useState('moving_average_3'); // 'moving_average_3' | 'difference' | 'rectangle' | 'exponential' | 'impulse'
 
   const [dtAmpX, setDtAmpX] = useState(1.0);
-  const [dtLenX, setDtLenX] = useState(3);
+  const [dtWidthX, setDtWidthX] = useState(4); // whole number of samples
+  const [dtDelayX, setDtDelayX] = useState(0); // whole number sample delay
 
   const [dtAmpH, setDtAmpH] = useState(1.0);
-  const [dtLenH, setDtLenH] = useState(2);
+  const [dtWidthH, setDtWidthH] = useState(3); // whole number of samples
 
-  const dtNMin = -6;
-  const dtNMax = 6;
+  const dtNMin = -10;
+  const dtNMax = 10;
   const [dtNVal, setDtNVal] = useState(-3);
 
   // Playback state
@@ -83,9 +92,9 @@ export default function ContinuousConvolution({
   // ==========================================
   // CT MATHEMATICAL ENGINE
   // ==========================================
-  const tauMin = -6.5;
-  const tauMax = 6.5;
-  const tauSteps = 600;
+  const tauMin = -9.0;
+  const tauMax = 9.0;
+  const tauSteps = 900; // dTau = 0.02 exact
   const dTau = (tauMax - tauMin) / tauSteps;
 
   const tauPoints = useMemo(() => {
@@ -98,31 +107,32 @@ export default function ContinuousConvolution({
 
   const evalCtX = useCallback(
     (tau) => {
+      const shiftedTau = tau - ctDelayX;
       if (ctInputType === 'rectangle') {
         const half = ctWidthX / 2;
-        return Math.abs(tau) <= half ? ctAmpX : 0;
+        return Math.abs(shiftedTau) <= half + 1e-9 ? ctAmpX : 0;
       } else if (ctInputType === 'triangle') {
         const half = ctWidthX / 2;
-        if (Math.abs(tau) <= half) {
-          return ctAmpX * (1 - Math.abs(tau) / half);
+        if (Math.abs(shiftedTau) <= half + 1e-9) {
+          return Math.max(0, ctAmpX * (1 - Math.abs(shiftedTau) / half));
         }
         return 0;
       } else if (ctInputType === 'gaussian') {
         const sigma = ctWidthX / 3.2;
-        return ctAmpX * Math.exp(-(tau * tau) / (2 * sigma * sigma));
+        return ctAmpX * Math.exp(-(shiftedTau * shiftedTau) / (2 * sigma * sigma));
       }
       return 0;
     },
-    [ctInputType, ctAmpX, ctWidthX]
+    [ctInputType, ctAmpX, ctWidthX, ctDelayX]
   );
 
   const evalCtH = useCallback(
     (tau) => {
       if (ctSystemType === 'rectangle') {
-        return tau >= 0 && tau <= ctWidthH ? ctAmpH : 0;
+        return tau >= -1e-9 && tau <= ctWidthH + 1e-9 ? ctAmpH : 0;
       } else if (ctSystemType === 'exponential') {
-        if (tau >= 0) {
-          return ctAmpH * Math.exp(-tau / ctWidthH);
+        if (tau >= -1e-9) {
+          return ctAmpH * Math.exp(-Math.max(0, tau) / ctWidthH);
         }
         return 0;
       } else if (ctSystemType === 'impulse') {
@@ -145,45 +155,53 @@ export default function ContinuousConvolution({
     [evalCtX, evalCtHShifted]
   );
 
-  const computeCtIntegralAtT = useCallback(
+  const computeCtIntegralsAtT = useCallback(
     (t) => {
       let sum = 0;
+      let absSum = 0;
       const n = tauPoints.length;
       let prevVal = evalCtProduct(t, tauPoints[0]);
+      let prevAbs = Math.abs(prevVal);
       for (let i = 1; i < n; i++) {
         const currVal = evalCtProduct(t, tauPoints[i]);
+        const currAbs = Math.abs(currVal);
         sum += (prevVal + currVal) * 0.5 * dTau;
+        absSum += (prevAbs + currAbs) * 0.5 * dTau;
         prevVal = currVal;
+        prevAbs = currAbs;
       }
-      return sum;
+      return { integral: sum, absIntegral: absSum };
     },
     [tauPoints, dTau, evalCtProduct]
   );
 
-  const ctSteps = 220;
+  const ctSteps = 320; // dtGrid = 16 / 320 = 0.05s exact
   const dtGrid = (ctTMax - ctTMin) / ctSteps;
 
   const ctYCurveData = useMemo(() => {
     const tValues = new Float64Array(ctSteps + 1);
     const yValues = new Float64Array(ctSteps + 1);
+    const absValues = new Float64Array(ctSteps + 1);
     let maxY = 0.001;
+    let maxAbsOverlap = 0.001;
 
     for (let i = 0; i <= ctSteps; i++) {
       const t = ctTMin + i * dtGrid;
       tValues[i] = t;
-      const y = computeCtIntegralAtT(t);
-      yValues[i] = y;
-      if (Math.abs(y) > maxY) {
-        maxY = Math.abs(y);
-      }
+      const { integral, absIntegral } = computeCtIntegralsAtT(t);
+      yValues[i] = integral;
+      absValues[i] = absIntegral;
+      if (Math.abs(integral) > maxY) maxY = Math.abs(integral);
+      if (absIntegral > maxAbsOverlap) maxAbsOverlap = absIntegral;
     }
 
-    return { tValues, yValues, maxY };
-  }, [ctTMin, ctTMax, ctSteps, dtGrid, computeCtIntegralAtT]);
+    return { tValues, yValues, absValues, maxY, maxAbsOverlap };
+  }, [ctTMin, ctTMax, ctSteps, dtGrid, computeCtIntegralsAtT]);
 
-  const ctCurrentArea = useMemo(() => {
-    return computeCtIntegralAtT(ctTVal);
-  }, [ctTVal, computeCtIntegralAtT]);
+  const { ctCurrentArea, ctCurrentAbsOverlap } = useMemo(() => {
+    const { integral, absIntegral } = computeCtIntegralsAtT(ctTVal);
+    return { ctCurrentArea: integral, ctCurrentAbsOverlap: absIntegral };
+  }, [ctTVal, computeCtIntegralsAtT]);
 
   // Peak output for CT
   const ctPeakInfo = useMemo(() => {
@@ -191,7 +209,7 @@ export default function ContinuousConvolution({
     let peakT = 0;
     for (let i = 0; i <= ctSteps; i++) {
       const val = ctYCurveData.yValues[i];
-      if (val > maxVal) {
+      if (val > maxVal + 1e-6) {
         maxVal = val;
         peakT = ctYCurveData.tValues[i];
       }
@@ -202,11 +220,45 @@ export default function ContinuousConvolution({
     };
   }, [ctYCurveData, ctSteps]);
 
+  // CT Widths (W_x, W_h, W_y)
+  const ctWidthsInfo = useMemo(() => {
+    const wX = ctWidthX;
+    const wH = ctSystemType === 'impulse' ? 0 : ctWidthH;
+    let wY = 0;
+
+    if (
+      (ctInputType === 'rectangle' || ctInputType === 'triangle') &&
+      (ctSystemType === 'rectangle' || ctSystemType === 'impulse')
+    ) {
+      wY = wX + wH;
+    } else {
+      // Numerical effective support (>1% of peak)
+      const threshold = Math.max(1e-4, 0.01 * ctYCurveData.maxY);
+      let firstIdx = -1;
+      let lastIdx = -1;
+      for (let i = 0; i <= ctSteps; i++) {
+        if (Math.abs(ctYCurveData.yValues[i]) >= threshold) {
+          if (firstIdx === -1) firstIdx = i;
+          lastIdx = i;
+        }
+      }
+      if (firstIdx !== -1 && lastIdx !== -1) {
+        wY = ctYCurveData.tValues[lastIdx] - ctYCurveData.tValues[firstIdx];
+      }
+    }
+
+    return {
+      wX: +wX.toFixed(2),
+      wH: +wH.toFixed(2),
+      wY: +wY.toFixed(2),
+    };
+  }, [ctInputType, ctSystemType, ctWidthX, ctWidthH, ctYCurveData, ctSteps]);
+
   // ==========================================
   // DT MATHEMATICAL ENGINE
   // ==========================================
-  const dtKMin = -7;
-  const dtKMax = 7;
+  const dtKMin = -10;
+  const dtKMax = 10;
   const dtKIndices = useMemo(() => {
     const arr = [];
     for (let k = dtKMin; k <= dtKMax; k++) arr.push(k);
@@ -215,25 +267,35 @@ export default function ContinuousConvolution({
 
   const evalDtX = useCallback(
     (k) => {
-      if (dtInputType === 'rectangle') {
-        return Math.abs(k) <= dtLenX ? dtAmpX : 0;
+      const W = Math.max(1, Math.round(dtWidthX));
+      const d = Math.round(dtDelayX);
+      if (dtInputType === 'step') {
+        // Causal pulse of exact width W samples starting at delay d: [d, d + W - 1]
+        return k >= d && k < d + W ? dtAmpX : 0;
+      } else if (dtInputType === 'rectangle') {
+        // Centered pulse of exact width W samples around delay d
+        const left = d - Math.floor((W - 1) / 2);
+        const right = d + Math.ceil((W - 1) / 2);
+        return k >= left && k <= right ? dtAmpX : 0;
       } else if (dtInputType === 'triangle') {
-        if (Math.abs(k) <= dtLenX) {
-          return dtAmpX * (1 - Math.abs(k) / (dtLenX + 1));
-        }
-        return 0;
-      } else if (dtInputType === 'step') {
-        return k >= 0 && k <= dtLenX ? dtAmpX : 0;
+        // Triangle pulse strictly supported on W samples around delay d
+        const left = d - Math.floor((W - 1) / 2);
+        const right = d + Math.ceil((W - 1) / 2);
+        if (k < left || k > right) return 0;
+        const center = (left + right) / 2;
+        const radius = (W + 1) / 2;
+        return +(dtAmpX * (1 - Math.abs(k - center) / radius)).toFixed(4);
       } else if (dtInputType === 'impulse') {
-        return k === 0 ? dtAmpX : 0;
+        return k === d ? dtAmpX : 0;
       }
       return 0;
     },
-    [dtInputType, dtAmpX, dtLenX]
+    [dtInputType, dtAmpX, dtWidthX, dtDelayX]
   );
 
   const evalDtH = useCallback(
     (k) => {
+      const W = Math.max(1, Math.round(dtWidthH));
       if (dtSystemType === 'moving_average_3') {
         return k >= 0 && k <= 2 ? +(dtAmpH / 3).toFixed(4) : 0;
       } else if (dtSystemType === 'difference') {
@@ -241,10 +303,10 @@ export default function ContinuousConvolution({
         if (k === 1) return -dtAmpH * 1.0;
         return 0;
       } else if (dtSystemType === 'rectangle') {
-        return k >= 0 && k <= dtLenH ? dtAmpH : 0;
+        return k >= 0 && k < W ? dtAmpH : 0;
       } else if (dtSystemType === 'exponential') {
-        if (k >= 0 && k <= 6) {
-          return dtAmpH * Math.pow(0.65, k);
+        if (k >= 0 && k < W) {
+          return +(dtAmpH * Math.pow(0.65, k)).toFixed(4);
         }
         return 0;
       } else if (dtSystemType === 'impulse') {
@@ -252,7 +314,7 @@ export default function ContinuousConvolution({
       }
       return 0;
     },
-    [dtSystemType, dtAmpH, dtLenH]
+    [dtSystemType, dtAmpH, dtWidthH]
   );
 
   const evalDtHShifted = useCallback(
@@ -268,10 +330,13 @@ export default function ContinuousConvolution({
   const computeDtConvolutionAtN = useCallback(
     (n) => {
       let sum = 0;
+      let absSum = 0;
       for (let k = dtKMin; k <= dtKMax; k++) {
-        sum += evalDtProduct(n, k);
+        const prod = evalDtProduct(n, k);
+        sum += prod;
+        absSum += Math.abs(prod);
       }
-      return +sum.toFixed(4);
+      return { y: +sum.toFixed(4), absOverlap: +absSum.toFixed(4) };
     },
     [dtKMin, dtKMax, evalDtProduct]
   );
@@ -280,25 +345,28 @@ export default function ContinuousConvolution({
     const arr = [];
     let maxY = 0.001;
     let minY = 0;
+    let maxAbsOverlap = 0.001;
 
     for (let n = dtNMin; n <= dtNMax; n++) {
-      const y = computeDtConvolutionAtN(n);
-      arr.push({ n, y });
+      const { y, absOverlap } = computeDtConvolutionAtN(n);
+      arr.push({ n, y, absOverlap });
       if (y > maxY) maxY = y;
       if (y < minY) minY = y;
+      if (absOverlap > maxAbsOverlap) maxAbsOverlap = absOverlap;
     }
-    return { arr, maxY, minY };
+    return { arr, maxY, minY, maxAbsOverlap };
   }, [dtNMin, dtNMax, computeDtConvolutionAtN]);
 
-  const dtCurrentY = useMemo(() => {
-    return computeDtConvolutionAtN(dtNVal);
+  const { dtCurrentY, dtCurrentAbsOverlap } = useMemo(() => {
+    const { y, absOverlap } = computeDtConvolutionAtN(dtNVal);
+    return { dtCurrentY: y, dtCurrentAbsOverlap: absOverlap };
   }, [dtNVal, computeDtConvolutionAtN]);
 
   const dtPeakInfo = useMemo(() => {
     let maxVal = -Infinity;
     let peakN = 0;
     for (const item of dtYArray.arr) {
-      if (item.y > maxVal) {
+      if (item.y > maxVal + 1e-6) {
         maxVal = item.y;
         peakN = item.n;
       }
@@ -308,6 +376,106 @@ export default function ContinuousConvolution({
       peakIndex: peakN,
     };
   }, [dtYArray]);
+
+  // DT Widths in whole samples (L_x, L_h, L_y)
+  const dtWidthsInfo = useMemo(() => {
+    const wX = dtInputType === 'impulse' ? 1 : Math.max(1, Math.round(dtWidthX));
+    let wH = 1;
+    if (dtSystemType === 'moving_average_3') wH = 3;
+    else if (dtSystemType === 'difference') wH = 2;
+    else if (dtSystemType === 'impulse') wH = 1;
+    else wH = Math.max(1, Math.round(dtWidthH));
+
+    const wY = wX + wH - 1;
+    return { wX, wH, wY };
+  }, [dtInputType, dtSystemType, dtWidthX, dtWidthH]);
+
+  // ==========================================
+  // DYNAMIC OVERLAP STATUS COMPUTATION
+  // ==========================================
+  const overlapStatus = useMemo(() => {
+    if (domainMode === 'CT') {
+      const maxOverlap = ctYCurveData.maxAbsOverlap;
+      const peakY = Math.max(ctPeakInfo.peakVal, ctCurrentArea);
+      const isNoOverlap =
+        ctCurrentAbsOverlap <= 0.005 * maxOverlap &&
+        Math.abs(ctCurrentArea) <= 0.005 * Math.max(1e-6, ctYCurveData.maxY);
+
+      if (isNoOverlap) {
+        return {
+          code: 'none',
+          label: 'No overlap: y = 0',
+          dotColor: 'bg-[#8A8882]',
+          badgeStyle: 'bg-[#F3F2EC] text-[#585651] border-[#E6E4DD]',
+        };
+      }
+
+      const isAtPeak =
+        peakY > 1e-5 &&
+        ctCurrentArea >= 0.985 * peakY &&
+        ctCurrentAbsOverlap >= 0.985 * maxOverlap;
+
+      if (isAtPeak) {
+        return {
+          code: 'full',
+          label: 'Full overlap: y at its peak',
+          dotColor: 'bg-[#059669]',
+          badgeStyle: 'bg-[#ECFDF5] text-[#059669] border-[#10B981]/30',
+        };
+      }
+
+      return {
+        code: 'partial',
+        label: 'Partial overlap: y is changing',
+        dotColor: 'bg-[#D97706]',
+        badgeStyle: 'bg-[#FFFBEB] text-[#B45309] border-[#F59E0B]/30',
+      };
+    } else {
+      const maxOverlap = dtYArray.maxAbsOverlap;
+      const peakY = dtPeakInfo.peakVal;
+
+      if (dtCurrentAbsOverlap <= 1e-6) {
+        return {
+          code: 'none',
+          label: 'No overlap: y = 0',
+          dotColor: 'bg-[#8A8882]',
+          badgeStyle: 'bg-[#F3F2EC] text-[#585651] border-[#E6E4DD]',
+        };
+      }
+
+      const isAtPeak =
+        peakY > 1e-5 &&
+        dtCurrentY >= peakY - 1e-4 &&
+        (dtCurrentAbsOverlap >= 0.99 * maxOverlap || dtSystemType === 'difference');
+
+      if (isAtPeak) {
+        return {
+          code: 'full',
+          label: 'Full overlap: y at its peak',
+          dotColor: 'bg-[#059669]',
+          badgeStyle: 'bg-[#ECFDF5] text-[#059669] border-[#10B981]/30',
+        };
+      }
+
+      return {
+        code: 'partial',
+        label: 'Partial overlap: y is changing',
+        dotColor: 'bg-[#D97706]',
+        badgeStyle: 'bg-[#FFFBEB] text-[#B45309] border-[#F59E0B]/30',
+      };
+    }
+  }, [
+    domainMode,
+    ctYCurveData,
+    ctPeakInfo,
+    ctCurrentArea,
+    ctCurrentAbsOverlap,
+    dtYArray,
+    dtPeakInfo,
+    dtCurrentY,
+    dtCurrentAbsOverlap,
+    dtSystemType,
+  ]);
 
   // ==========================================
   // PLAYBACK LOOP CONTROLLER
@@ -328,7 +496,7 @@ export default function ContinuousConvolution({
         const deltaSec = (timestamp - lastTimeRef.current) / 1000;
         lastTimeRef.current = timestamp;
 
-        const increment = deltaSec * 0.9 * playSpeed;
+        const increment = deltaSec * 1.1 * playSpeed;
         setCtTVal((prev) => {
           const next = prev + increment;
           if (next >= ctTMax) {
@@ -343,7 +511,7 @@ export default function ContinuousConvolution({
       animFrameRef.current = requestAnimationFrame(animateCT);
     } else {
       let accumulatedTime = 0;
-      const stepDuration = 0.6 / playSpeed;
+      const stepDuration = 0.55 / playSpeed;
 
       const animateDT = (timestamp) => {
         if (lastTimeRef.current == null) lastTimeRef.current = timestamp;
@@ -386,8 +554,8 @@ export default function ContinuousConvolution({
 
   const handleReset = () => {
     setIsPlaying(false);
-    if (domainMode === 'CT') setCtTVal(ctTMin);
-    else setDtNVal(dtNMin);
+    if (domainMode === 'CT') setCtTVal(-4.5);
+    else setDtNVal(-4);
   };
 
   const handleStepForward = () => {
@@ -415,16 +583,20 @@ export default function ContinuousConvolution({
       setDtInputType('step');
       setDtSystemType('moving_average_3');
       setDtAmpX(1.0);
-      setDtLenX(3);
+      setDtWidthX(4);
+      setDtDelayX(0);
       setDtAmpH(1.0);
+      setDtWidthH(3);
       setDtNVal(-2);
     } else if (presetKey === 'dt_diff') {
       setDomainMode('DT');
       setDtInputType('step');
       setDtSystemType('difference');
       setDtAmpX(1.0);
-      setDtLenX(3);
+      setDtWidthX(4);
+      setDtDelayX(0);
       setDtAmpH(1.0);
+      setDtWidthH(2);
       setDtNVal(-2);
     } else if (presetKey === 'rect_rect') {
       setDomainMode('CT');
@@ -432,6 +604,7 @@ export default function ContinuousConvolution({
       setCtSystemType('rectangle');
       setCtAmpX(1.0);
       setCtWidthX(2.0);
+      setCtDelayX(0.0);
       setCtAmpH(1.0);
       setCtWidthH(2.0);
       setCtTVal(-3.5);
@@ -441,6 +614,7 @@ export default function ContinuousConvolution({
       setCtSystemType('exponential');
       setCtAmpX(1.0);
       setCtWidthX(3.0);
+      setCtDelayX(0.0);
       setCtAmpH(1.0);
       setCtWidthH(1.2);
       setCtTVal(-3.5);
@@ -456,8 +630,8 @@ export default function ContinuousConvolution({
   const plotWidth = svgWidth - margin.left - margin.right;
   const plotHeight = svgHeight - margin.top - margin.bottom;
 
-  const ctTimeTicks = [-6, -4, -2, 0, 2, 4, 6];
-  const dtTimeTicks = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6];
+  const ctTimeTicks = [-8, -6, -4, -2, 0, 2, 4, 6, 8];
+  const dtTimeTicks = [-10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10];
 
   const tauToX = (tau) => margin.left + ((tau - tauMin) / (tauMax - tauMin)) * plotWidth;
   const kToX = (k) => margin.left + ((k - dtKMin) / (dtKMax - dtKMin)) * plotWidth;
@@ -715,6 +889,11 @@ export default function ContinuousConvolution({
     });
   };
 
+  const isDtWidthHLocked =
+    dtSystemType === 'moving_average_3' ||
+    dtSystemType === 'difference' ||
+    dtSystemType === 'impulse';
+
   return (
     <div className="w-full">
       {/* ========================================================= */}
@@ -722,11 +901,12 @@ export default function ContinuousConvolution({
       {/* ========================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ======================================================= */}
-        {/* LEFT 8 COLS: PLOTS AT TOP, CONTROLS BELOW, RESULTS BELOW*/}
+        {/* LEFT 8 COLS: PLOTS AT TOP, OVERLAP STATUS, CONTROLS,    */}
+        {/* AND RESULTS PANEL BELOW                                 */}
         {/* ======================================================= */}
-        <div className="lg:col-span-8 bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-6 shadow-xs flex flex-col space-y-5">
+        <div className="lg:col-span-8 min-w-0 bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-6 shadow-xs flex flex-col space-y-4">
           {/* Top Title & Status Row (No intro box - directly into workspace) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-[#E6E4DD] gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#E6E4DD] gap-2">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#C85A32] shrink-0" />
               <h2 className="text-xs sm:text-sm font-bold tracking-tight text-[#1A1917] uppercase font-mono">
@@ -747,16 +927,16 @@ export default function ContinuousConvolution({
           {/* ======================================================= */}
           {/* 1. FOUR STACKED PLOTS AT THE TOP                        */}
           {/* ======================================================= */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {domainMode === 'CT' ? (
               /* CT 4 PLOTS */
               <>
                 {/* 1. Input Signal x(τ) */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       `1. Input Signal x(τ) [${ctInputType.toUpperCase()}]`,
-                      `A=${ctAmpX.toFixed(1)}, W=${ctWidthX.toFixed(1)}s`,
+                      `A=${ctAmpX.toFixed(1)}, Wₓ=${ctWidthX.toFixed(1)}s, t₀=${ctDelayX >= 0 ? `+${ctDelayX.toFixed(1)}` : ctDelayX.toFixed(1)}s`,
                       'fill-[#2563EB]',
                       ctScaleX.minY,
                       ctScaleX.maxY
@@ -770,10 +950,10 @@ export default function ContinuousConvolution({
 
                 {/* 2. Flipped & Shifted h(t - τ) */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       `2. Flipped & Shifted Impulse Response h(t - τ) [${ctSystemType.toUpperCase()}]`,
-                      `h(t - τ) at t = ${ctTVal.toFixed(2)}s`,
+                      `Aₕ=${ctAmpH.toFixed(1)}, Wₕ=${ctSystemType === 'impulse' ? 'δ' : `${ctWidthH.toFixed(1)}s`} at t=${ctTVal.toFixed(2)}s`,
                       'fill-[#D97706]',
                       ctScaleH.minY,
                       ctScaleH.maxY
@@ -788,7 +968,7 @@ export default function ContinuousConvolution({
 
                 {/* 3. Product x(τ)·h(t-τ) with SHADED AREA */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     <defs>
                       <linearGradient id="ctGradHarmFinal" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#C85A32" stopOpacity="0.45" />
@@ -816,7 +996,7 @@ export default function ContinuousConvolution({
 
                 {/* 4. Output y(t) drawn progressively */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       '4. Output Signal y(t) = (x * h)(t) [Drawn Progressively]',
                       `y(${ctTVal >= 0 ? `+${ctTVal.toFixed(2)}` : ctTVal.toFixed(2)}) = ${ctCurrentArea.toFixed(4)}`,
@@ -840,10 +1020,10 @@ export default function ContinuousConvolution({
               <>
                 {/* 1. Discrete Input x[k] */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       `1. Discrete Input Sequence x[k] [${dtInputType.toUpperCase()}]`,
-                      `A=${dtAmpX.toFixed(1)}, Len=${dtLenX}`,
+                      `A=${dtAmpX.toFixed(1)}, Wₓ=${dtWidthsInfo.wX} samp, n₀=${dtDelayX >= 0 ? `+${dtDelayX}` : dtDelayX}`,
                       'fill-[#2563EB]',
                       dtScaleX.minY,
                       dtScaleX.maxY
@@ -857,10 +1037,10 @@ export default function ContinuousConvolution({
 
                 {/* 2. Discrete Flipped & Shifted h[n - k] */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       `2. Flipped & Shifted Impulse Response h[n - k] [${dtSystemType.toUpperCase()}]`,
-                      `h[n - k] at n = ${dtNVal}`,
+                      `Aₕ=${dtAmpH.toFixed(1)}, Wₕ=${dtWidthsInfo.wH} samp at n=${dtNVal}`,
                       'fill-[#D97706]',
                       dtScaleH.minY,
                       dtScaleH.maxY
@@ -874,7 +1054,7 @@ export default function ContinuousConvolution({
 
                 {/* 3. Discrete Product x[k] · h[n - k] */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       '3. Overlap Product x[k] · h[n - k] [Sum of Stems]',
                       `Sum = ∑ = ${dtCurrentY.toFixed(4)}`,
@@ -910,7 +1090,7 @@ export default function ContinuousConvolution({
 
                 {/* 4. Discrete Output y[n] drawn progressively */}
                 <div className="w-full overflow-x-auto rounded border border-[#E6E4DD]/70">
-                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[540px] select-none block">
+                  <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[520px] select-none block">
                     {renderBackgroundGrid(
                       '4. Output Sequence y[n] = (x * h)[n] [Drawn Progressively]',
                       `y[${dtNVal}] = ${dtCurrentY.toFixed(4)}`,
@@ -957,6 +1137,24 @@ export default function ContinuousConvolution({
           </div>
 
           {/* ======================================================= */}
+          {/* OVERLAP STATUS LABEL (BELOW PLOTS)                      */}
+          {/* ======================================================= */}
+          <div
+            className={`px-3.5 py-2 rounded-md border text-xs font-mono flex flex-wrap items-center justify-between gap-2 transition-colors ${overlapStatus.badgeStyle}`}
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2 font-semibold">
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${overlapStatus.dotColor}`} />
+              <span>{overlapStatus.label}</span>
+            </div>
+            <span className="text-[11px] opacity-80">
+              {domainMode === 'CT'
+                ? `t = ${ctTVal >= 0 ? `+${ctTVal.toFixed(2)}` : ctTVal.toFixed(2)} s · y(t) = ${ctCurrentArea.toFixed(4)}`
+                : `n = ${dtNVal >= 0 ? `+${dtNVal}` : dtNVal} · y[n] = ${dtCurrentY.toFixed(4)}`}
+            </span>
+          </div>
+
+          {/* ======================================================= */}
           {/* 2. ONE CONTROLS PANEL (BELOW THE PLOTS)                 */}
           {/* ======================================================= */}
           <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
@@ -998,7 +1196,7 @@ export default function ContinuousConvolution({
               </div>
             </div>
 
-            {/* Playback Buttons Row: Start, Pause, Step, Reset, Speed & Slider */}
+            {/* Playback Buttons Row: Start, Pause, Step, Reset, Speed & Time Shift Slider */}
             <div className="p-3 bg-white rounded-md border border-[#E6E4DD] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
               {/* Playback Buttons: Start, Pause, Step, Reset */}
               <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
@@ -1043,7 +1241,7 @@ export default function ContinuousConvolution({
                 <button
                   onClick={handleReset}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-[#E6E4DD] text-[#585651] hover:text-[#1A1917] hover:bg-[#F3F2EC] transition font-mono text-xs font-medium cursor-pointer"
-                  title="Reset to beginning"
+                  title="Reset time cursor"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Reset</span>
@@ -1102,7 +1300,7 @@ export default function ContinuousConvolution({
                     />
                   )}
                 </div>
-                <span className="font-mono text-xs font-bold text-[#C85A32] bg-[#FAF9F6] border border-[#E6E4DD] px-2 py-0.5 rounded min-w-[58px] text-center shadow-2xs">
+                <span className="font-mono text-xs font-bold text-[#C85A32] bg-[#FAF9F6] border border-[#E6E4DD] px-2 py-0.5 rounded min-w-[62px] text-center shadow-2xs">
                   {domainMode === 'CT'
                     ? `${ctTVal >= 0 ? `+${ctTVal.toFixed(2)}` : ctTVal.toFixed(2)}s`
                     : `n=${dtNVal >= 0 ? `+${dtNVal}` : dtNVal}`}
@@ -1110,154 +1308,309 @@ export default function ContinuousConvolution({
               </div>
             </div>
 
-            {/* Input & System Dropdowns + Sliders Grid */}
+            {/* Input & System Sub-Panels (2-column grid, stacks cleanly on mobile) */}
             {domainMode === 'CT' ? (
-              /* CT Controls */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* 1. Input Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-[#1A1917] mb-1">Input Signal x(τ)</label>
-                  <select
-                    value={ctInputType}
-                    onChange={(e) => setCtInputType(e.target.value)}
-                    className="w-full text-xs bg-white border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#C85A32]"
-                  >
-                    <option value="rectangle">Rectangle</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="gaussian">Gaussian</option>
-                  </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Left Card: CT Input Signal x(τ) */}
+                <div className="p-3.5 bg-white rounded-md border border-[#E6E4DD] space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#F3F2EC]">
+                    <span className="text-xs font-mono font-bold text-[#2563EB] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
+                      Input Signal x(τ)
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8A8882]">Continuous</span>
+                  </div>
+
+                  {/* Input Dropdown */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#1A1917] mb-1">Waveform</label>
+                    <select
+                      value={ctInputType}
+                      onChange={(e) => setCtInputType(e.target.value)}
+                      className="w-full text-xs bg-[#FAF9F6] border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                    >
+                      <option value="rectangle">Rectangle</option>
+                      <option value="triangle">Triangle</option>
+                      <option value="gaussian">Gaussian</option>
+                    </select>
+                  </div>
+
+                  {/* Amplitude Slider for x */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">Input Amplitude (Aₓ)</span>
+                      <span className="font-mono text-[#2563EB] font-semibold">{ctAmpX.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.5"
+                      step="0.1"
+                      value={ctAmpX}
+                      onChange={(e) => setCtAmpX(parseFloat(e.target.value))}
+                      className="w-full accent-[#2563EB] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Separate Width Slider for x */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">Input Width (Wₓ)</span>
+                      <span className="font-mono text-[#2563EB] font-semibold">{ctWidthX.toFixed(1)} s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3.5"
+                      step="0.1"
+                      value={ctWidthX}
+                      onChange={(e) => setCtWidthX(parseFloat(e.target.value))}
+                      className="w-full accent-[#2563EB] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Input Delay Slider for x */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917] flex items-center gap-1">
+                        <MoveHorizontal className="w-3 h-3 text-[#2563EB]" />
+                        Input Delay (t₀)
+                      </span>
+                      <span className="font-mono text-[#2563EB] font-semibold">
+                        {ctDelayX >= 0 ? `+${ctDelayX.toFixed(1)}` : ctDelayX.toFixed(1)} s
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-3.0"
+                      max="3.0"
+                      step="0.1"
+                      value={ctDelayX}
+                      onChange={(e) => setCtDelayX(parseFloat(e.target.value))}
+                      className="w-full accent-[#2563EB] cursor-pointer"
+                    />
+                  </div>
                 </div>
 
-                {/* 2. System Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-[#1A1917] mb-1">System Response h(τ)</label>
-                  <select
-                    value={ctSystemType}
-                    onChange={(e) => setCtSystemType(e.target.value)}
-                    className="w-full text-xs bg-white border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#C85A32]"
-                  >
-                    <option value="rectangle">Rectangle</option>
-                    <option value="exponential">RC Exponential</option>
-                    <option value="impulse">Impulse</option>
-                  </select>
-                </div>
+                {/* Right Card: CT System Response h(τ) */}
+                <div className="p-3.5 bg-white rounded-md border border-[#E6E4DD] space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#F3F2EC]">
+                    <span className="text-xs font-mono font-bold text-[#D97706] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#D97706]" />
+                      System Response h(τ)
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8A8882]">LTI Kernel</span>
+                  </div>
 
-                {/* 3. Amplitude Sliders */}
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-[#1A1917]">Amplitude (Aₓ)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{ctAmpX.toFixed(1)}</span>
+                  {/* System Dropdown */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#1A1917] mb-1">Impulse Response</label>
+                    <select
+                      value={ctSystemType}
+                      onChange={(e) => setCtSystemType(e.target.value)}
+                      className="w-full text-xs bg-[#FAF9F6] border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#D97706]"
+                    >
+                      <option value="rectangle">Rectangle</option>
+                      <option value="exponential">RC Exponential</option>
+                      <option value="impulse">Impulse</option>
+                    </select>
                   </div>
-                  <input
-                    type="range"
-                    min="0.2"
-                    max="2.5"
-                    step="0.1"
-                    value={ctAmpX}
-                    onChange={(e) => setCtAmpX(parseFloat(e.target.value))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-                    <span>Kernel Amp (Aₕ):</span>
-                    <span className="font-semibold text-[#1A1917]">{ctAmpH.toFixed(1)}</span>
-                  </div>
-                </div>
 
-                {/* 4. Width Sliders */}
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-[#1A1917]">Width (Wₓ)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{ctWidthX.toFixed(1)}s</span>
+                  {/* Amplitude Slider for h */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">System Amplitude (Aₕ)</span>
+                      <span className="font-mono text-[#D97706] font-semibold">{ctAmpH.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.5"
+                      step="0.1"
+                      value={ctAmpH}
+                      onChange={(e) => setCtAmpH(parseFloat(e.target.value))}
+                      className="w-full accent-[#D97706] cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3.5"
-                    step="0.1"
-                    value={ctWidthX}
-                    onChange={(e) => setCtWidthX(parseFloat(e.target.value))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-                    <span>Kernel Width (Wₕ):</span>
-                    <span className="font-semibold text-[#1A1917]">{ctWidthH.toFixed(1)}s</span>
+
+                  {/* Separate Width Slider for h */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">
+                        {ctSystemType === 'exponential' ? 'Time Constant (Wₕ / τ)' : 'System Width (Wₕ)'}
+                      </span>
+                      <span className="font-mono text-[#D97706] font-semibold">
+                        {ctSystemType === 'impulse' ? '0.0 s (δ)' : `${ctWidthH.toFixed(1)} s`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3.5"
+                      step="0.1"
+                      value={ctWidthH}
+                      disabled={ctSystemType === 'impulse'}
+                      onChange={(e) => setCtWidthH(parseFloat(e.target.value))}
+                      className={`w-full accent-[#D97706] ${
+                        ctSystemType === 'impulse' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    />
                   </div>
                 </div>
               </div>
             ) : (
               /* DT Controls */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* 1. DT Input Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-[#1A1917] mb-1">Discrete Input x[k]</label>
-                  <select
-                    value={dtInputType}
-                    onChange={(e) => setDtInputType(e.target.value)}
-                    className="w-full text-xs bg-white border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#C85A32]"
-                  >
-                    <option value="step">Step Pulse [0..N]</option>
-                    <option value="rectangle">Symmetric Rectangle</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="impulse">Unit Impulse</option>
-                  </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Left Card: DT Input x[k] */}
+                <div className="p-3.5 bg-white rounded-md border border-[#E6E4DD] space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#F3F2EC]">
+                    <span className="text-xs font-mono font-bold text-[#2563EB] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
+                      Discrete Input x[k]
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8A8882]">Samples</span>
+                  </div>
+
+                  {/* DT Input Dropdown */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#1A1917] mb-1">Sequence Shape</label>
+                    <select
+                      value={dtInputType}
+                      onChange={(e) => setDtInputType(e.target.value)}
+                      className="w-full text-xs bg-[#FAF9F6] border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                    >
+                      <option value="step">Step Pulse [0..W-1]</option>
+                      <option value="rectangle">Symmetric Rectangle</option>
+                      <option value="triangle">Triangle</option>
+                      <option value="impulse">Unit Impulse δ[k]</option>
+                    </select>
+                  </div>
+
+                  {/* Amplitude Slider for x[k] */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">Input Amplitude (Aₓ)</span>
+                      <span className="font-mono text-[#2563EB] font-semibold">{dtAmpX.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.5"
+                      step="0.1"
+                      value={dtAmpX}
+                      onChange={(e) => setDtAmpX(parseFloat(e.target.value))}
+                      className="w-full accent-[#2563EB] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Separate Width Slider for x[k] in whole samples */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">Input Width (Wₓ)</span>
+                      <span className="font-mono text-[#2563EB] font-semibold">
+                        {dtWidthsInfo.wX} {dtWidthsInfo.wX === 1 ? 'sample' : 'samples'}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={dtWidthX}
+                      disabled={dtInputType === 'impulse'}
+                      onChange={(e) => setDtWidthX(parseInt(e.target.value, 10))}
+                      className={`w-full accent-[#2563EB] ${
+                        dtInputType === 'impulse' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Input Delay Slider for x[k] in whole samples */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917] flex items-center gap-1">
+                        <MoveHorizontal className="w-3 h-3 text-[#2563EB]" />
+                        Input Delay (n₀)
+                      </span>
+                      <span className="font-mono text-[#2563EB] font-semibold">
+                        {dtDelayX >= 0 ? `+${dtDelayX}` : dtDelayX} {Math.abs(dtDelayX) === 1 ? 'sample' : 'samples'}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-3"
+                      max="3"
+                      step="1"
+                      value={dtDelayX}
+                      onChange={(e) => setDtDelayX(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#2563EB] cursor-pointer"
+                    />
+                  </div>
                 </div>
 
-                {/* 2. DT System Dropdown */}
-                <div>
-                  <label className="block text-xs font-medium text-[#1A1917] mb-1">System Filter h[k]</label>
-                  <select
-                    value={dtSystemType}
-                    onChange={(e) => setDtSystemType(e.target.value)}
-                    className="w-full text-xs bg-white border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#C85A32]"
-                  >
-                    <option value="moving_average_3">3-Point Moving Average</option>
-                    <option value="difference">Difference Filter δ[n]-δ[n-1]</option>
-                    <option value="rectangle">Rectangle Boxcar</option>
-                    <option value="exponential">Exponential Decay</option>
-                    <option value="impulse">Unit Impulse</option>
-                  </select>
-                </div>
+                {/* Right Card: DT System h[k] */}
+                <div className="p-3.5 bg-white rounded-md border border-[#E6E4DD] space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#F3F2EC]">
+                    <span className="text-xs font-mono font-bold text-[#D97706] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#D97706]" />
+                      System Filter h[k]
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8A8882]">Filter Kernel</span>
+                  </div>
 
-                {/* 3. DT Amplitude Sliders */}
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-[#1A1917]">Sequence Amp (Aₓ)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{dtAmpX.toFixed(1)}</span>
+                  {/* DT System Dropdown */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#1A1917] mb-1">Filter Kernel</label>
+                    <select
+                      value={dtSystemType}
+                      onChange={(e) => setDtSystemType(e.target.value)}
+                      className="w-full text-xs bg-[#FAF9F6] border border-[#E6E4DD] rounded px-2.5 py-1.5 text-[#1A1917] focus:outline-none focus:ring-1 focus:ring-[#D97706]"
+                    >
+                      <option value="moving_average_3">3-Point Moving Average</option>
+                      <option value="difference">Difference Filter δ[n]-δ[n-1]</option>
+                      <option value="rectangle">Rectangle Boxcar</option>
+                      <option value="exponential">Exponential Decay</option>
+                      <option value="impulse">Unit Impulse δ[n]</option>
+                    </select>
                   </div>
-                  <input
-                    type="range"
-                    min="0.2"
-                    max="2.5"
-                    step="0.1"
-                    value={dtAmpX}
-                    onChange={(e) => setDtAmpX(parseFloat(e.target.value))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-                    <span>Filter Gain (Aₕ):</span>
-                    <span className="font-semibold text-[#1A1917]">{dtAmpH.toFixed(1)}</span>
-                  </div>
-                </div>
 
-                {/* 4. DT Length Sliders */}
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-[#1A1917]">Half-Length (Nₓ)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{dtLenX} pts</span>
+                  {/* Amplitude Slider for h[k] */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">System Gain (Aₕ)</span>
+                      <span className="font-mono text-[#D97706] font-semibold">{dtAmpH.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.5"
+                      step="0.1"
+                      value={dtAmpH}
+                      onChange={(e) => setDtAmpH(parseFloat(e.target.value))}
+                      className="w-full accent-[#D97706] cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="4"
-                    step="1"
-                    value={dtLenX}
-                    disabled={dtInputType === 'impulse'}
-                    onChange={(e) => setDtLenX(parseInt(e.target.value, 10))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-                    <span>Filter Length (Nₕ):</span>
-                    <span className="font-semibold text-[#1A1917]">{dtLenH} pts</span>
+
+                  {/* Separate Width Slider for h[k] in whole samples */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-[#1A1917]">System Width (Wₕ)</span>
+                      <span className="font-mono text-[#D97706] font-semibold">
+                        {dtWidthsInfo.wH} {dtWidthsInfo.wH === 1 ? 'sample' : 'samples'}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={isDtWidthHLocked ? dtWidthsInfo.wH : dtWidthH}
+                      disabled={isDtWidthHLocked}
+                      onChange={(e) => setDtWidthH(parseInt(e.target.value, 10))}
+                      className={`w-full accent-[#D97706] ${
+                        isDtWidthHLocked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    />
                   </div>
                 </div>
               </div>
@@ -1328,8 +1681,8 @@ export default function ContinuousConvolution({
               </span>
             </div>
 
-            {/* Results Data Grid: t (or n), current y, peak y with its time */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+            {/* Results Data Grid: t (or n), current y, peak y with its time, and widths of x, h, y */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 font-mono text-xs">
               {/* Box 1: Current Time / Sample index t or n */}
               <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between">
                 <span className="text-[#585651] text-[11px] flex items-center gap-1.5 mb-1">
@@ -1355,7 +1708,7 @@ export default function ContinuousConvolution({
               </div>
 
               {/* Box 3: Peak output y_peak with its time */}
-              <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between">
+              <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between col-span-2 sm:col-span-1">
                 <span className="text-[#585651] text-[11px] flex items-center gap-1.5 mb-1">
                   <TrendingUp className="w-3.5 h-3.5 text-[#059669]" />
                   Peak Output (y_peak)
@@ -1368,6 +1721,46 @@ export default function ContinuousConvolution({
                     at {domainMode === 'CT' ? `t = ${ctPeakInfo.peakTime.toFixed(2)}s` : `n = ${dtPeakInfo.peakIndex}`}
                   </span>
                 </div>
+              </div>
+
+              {/* Box 4: Width of x */}
+              <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between">
+                <span className="text-[#585651] text-[11px] mb-1">
+                  Width of x ({domainMode === 'CT' ? 'Wₓ' : 'Lₓ'})
+                </span>
+                <span className="font-bold text-[#2563EB] text-sm">
+                  {domainMode === 'CT'
+                    ? `${ctWidthsInfo.wX.toFixed(2)} s`
+                    : `${dtWidthsInfo.wX} ${dtWidthsInfo.wX === 1 ? 'sample' : 'samples'}`}
+                </span>
+              </div>
+
+              {/* Box 5: Width of h */}
+              <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between">
+                <span className="text-[#585651] text-[11px] mb-1">
+                  Width of h ({domainMode === 'CT' ? 'Wₕ' : 'Lₕ'})
+                </span>
+                <span className="font-bold text-[#D97706] text-sm">
+                  {domainMode === 'CT'
+                    ? ctSystemType === 'impulse'
+                      ? '0.00 s (δ)'
+                      : ctSystemType === 'exponential'
+                      ? `${ctWidthsInfo.wH.toFixed(2)} s (τ)`
+                      : `${ctWidthsInfo.wH.toFixed(2)} s`
+                    : `${dtWidthsInfo.wH} ${dtWidthsInfo.wH === 1 ? 'sample' : 'samples'}`}
+                </span>
+              </div>
+
+              {/* Box 6: Width of y */}
+              <div className="p-3 rounded bg-white border border-[#E6E4DD] flex flex-col justify-between col-span-2 sm:col-span-1">
+                <span className="text-[#585651] text-[11px] mb-1">
+                  Width of y ({domainMode === 'CT' ? 'Wᵧ' : 'Lᵧ'})
+                </span>
+                <span className="font-bold text-[#1A1917] text-sm">
+                  {domainMode === 'CT'
+                    ? `${ctWidthsInfo.wY.toFixed(2)} s`
+                    : `${dtWidthsInfo.wY} ${dtWidthsInfo.wY === 1 ? 'sample' : 'samples'}`}
+                </span>
               </div>
             </div>
 
@@ -1385,9 +1778,8 @@ export default function ContinuousConvolution({
                 <p>
                   In discrete time, the output is computed via the convolution sum <code className="text-[#C85A32] font-mono">∑ x[k]h[n-k]</code> ={' '}
                   <strong className="text-[#1A1917] font-mono">{dtCurrentY.toFixed(4)}</strong>, matching{' '}
-                  <code className="text-[#C85A32] font-mono">y[{dtNVal}]</code>. The global sequence peak of{' '}
-                  <strong className="text-[#059669] font-mono">{dtPeakInfo.peakVal.toFixed(4)}</strong> occurs at sample{' '}
-                  <strong className="text-[#1A1917] font-mono">n = {dtPeakInfo.peakIndex}</strong>.
+                  <code className="text-[#C85A32] font-mono">y[{dtNVal}]</code>. Output support length is{' '}
+                  <strong className="text-[#1A1917] font-mono">{dtWidthsInfo.wX} + {dtWidthsInfo.wH} - 1 = {dtWidthsInfo.wY} samples</strong>.
                 </p>
               )}
             </div>
@@ -1397,7 +1789,7 @@ export default function ContinuousConvolution({
         {/* ======================================================= */}
         {/* RIGHT 4 COLS: FORMULATION & THEORY (MATCHING OTHER MODS)*/}
         {/* ======================================================= */}
-        <div className="lg:col-span-4 space-y-5">
+        <div className="lg:col-span-4 min-w-0 space-y-5">
           {/* Analytical Formulation Card */}
           <div className="bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] p-5 shadow-xs">
             <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-2 flex items-center gap-1.5">
@@ -1424,10 +1816,10 @@ export default function ContinuousConvolution({
             <div className="text-xs text-[#585651] mt-3 mb-1.5 font-medium">
               Active Filter Characterization
             </div>
-            <div className="p-2.5 bg-white rounded border border-[#E6E4DD] text-xs font-mono text-[#1A1917]">
+            <div className="p-2.5 bg-white rounded border border-[#E6E4DD] text-xs font-mono text-[#1A1917] overflow-x-auto">
               {domainMode === 'CT' ? (
                 ctSystemType === 'rectangle' ? (
-                  <MathView math="h(t) = A_h \, \text{rect}(t/W_h)" displayMode={false} />
+                  <MathView math="h(t) = A_h \, \big(u(t) - u(t - W_h)\big)" displayMode={false} />
                 ) : ctSystemType === 'exponential' ? (
                   <MathView math="h(t) = A_h \, e^{-t/\tau} \, u(t)" displayMode={false} />
                 ) : (
@@ -1437,8 +1829,10 @@ export default function ContinuousConvolution({
                 <MathView math="h[n] = \frac{1}{3}\Big(\delta[n] + \delta[n-1] + \delta[n-2]\Big)" displayMode={false} />
               ) : dtSystemType === 'difference' ? (
                 <MathView math="h[n] = \delta[n] - \delta[n-1] \implies y[n] = x[n] - x[n-1]" displayMode={false} />
+              ) : dtSystemType === 'rectangle' ? (
+                <MathView math={`h[n] = A_h \\big(u[n] - u[n - ${dtWidthsInfo.wH}]\\big)`} displayMode={false} />
               ) : dtSystemType === 'exponential' ? (
-                <MathView math="h[n] = A_h (0.65)^n u[n]" displayMode={false} />
+                <MathView math={`h[n] = A_h (0.65)^n \\big(u[n] - u[n - ${dtWidthsInfo.wH}]\\big)`} displayMode={false} />
               ) : (
                 <MathView math="h[n] = A_h \, \delta[n]" displayMode={false} />
               )}
