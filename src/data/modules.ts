@@ -403,6 +403,33 @@ export const AM_MODULES: AMSubTopic[] = [
       'Message Waveform & Slope (m(t), fm)',
       '4-Stage Discriminator Recovery'
     ]
+  },
+  {
+    id: 'demodulation',
+    code: '07',
+    moduleNumber: '2.7',
+    index: '07',
+    filename: 'Module2_7_Demodulation.tsx',
+    name: 'Demodulation and Detection',
+    shortName: 'Demodulation',
+    path: '/am/demodulation',
+    legacyPaths: ['/demodulation', '/am-demod', '/envelope-detector', '/coherent-detector', '/detection', '/fm-demod'],
+    description: 'Comprehensive baseband message recovery techniques for both AM and FM/PM signals. Compare non-coherent envelope detection, coherent synchronous detection with Costas loop, and FM slope / discriminator detection.',
+    tag: 'Signal Recovery & Demodulation',
+    topics: [
+      'AM Envelope Detector: Diode Rectification & RC Constant Optimization (1/fc ≪ RC ≪ 1/W)',
+      'Coherent Product Demodulator: Multiplier + LPF with Phase Tracking cos(Δϕ)',
+      'FM Discriminator & Slope Detection: Differentiator + Envelope Extraction & PLL Frequency Tracking'
+    ],
+    formula: 'y(t) = \\text{LPF}\\left\\{ s(t) \\cdot 2\\cos(2\\pi f_c t + \\Delta\\phi) \\right\\} = m(t)\\cos(\\Delta\\phi)',
+    formulaLabel: 'Coherent Demodulation & Detection Formulation',
+    keywords: ['demodulation', 'detection', 'envelope detector', 'diode', 'rc constant', 'coherent', 'discriminator', 'pll', 'costas loop'],
+    parameterHighlights: [
+      'Detection Mode (Envelope vs Coherent vs FM Discriminator)',
+      'Filter Time Constant (RC)',
+      'Local Oscillator Phase Offset (Δϕ)',
+      'Post-Detection LPF Cutoff (fc)'
+    ]
   }
 ];
 

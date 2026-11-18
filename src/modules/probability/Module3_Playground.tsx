@@ -24,7 +24,7 @@ import {
   sampleDistributionSingle,
 } from './math';
 
-type ControllerPos = 'below' | 'right' | 'left';
+type ControllerPos = 'below' | 'top' | 'right' | 'left';
 type GraphDisplayMode = 'dual' | 'pdf' | 'cdf';
 
 export const Module3_Playground: React.FC = () => {
@@ -453,7 +453,11 @@ export const Module3_Playground: React.FC = () => {
       )}
 
       {activeDist === 'binomial' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-3.5 ${
+            controllerPos === 'left' || controllerPos === 'right' ? 'lg:grid-cols-1' : ''
+          }`}
+        >
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="font-medium text-[#1A1917]">Number of Trials (n)</span>
@@ -578,7 +582,11 @@ export const Module3_Playground: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 gap-3.5 ${
+              controllerPos === 'left' || controllerPos === 'right' ? 'lg:grid-cols-1' : ''
+            }`}
+          >
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="font-medium text-[#1A1917]">Lower Bound (a)</span>
@@ -625,7 +633,11 @@ export const Module3_Playground: React.FC = () => {
       )}
 
       {activeDist === 'normal' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-3.5 ${
+            controllerPos === 'left' || controllerPos === 'right' ? 'lg:grid-cols-1' : ''
+          }`}
+        >
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="font-medium text-[#1A1917]">Mean (μ)</span>
@@ -861,12 +873,22 @@ export const Module3_Playground: React.FC = () => {
     </div>
   );
 
+  const isSideBySide = controllerPos === 'left' || controllerPos === 'right';
+
   const renderCharts = () => (
-    <div className={`grid gap-5 ${displayMode === 'dual' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+    <div
+      className={`grid gap-5 ${displayMode === 'dual' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} ${
+        isSideBySide ? 'lg:h-full' : ''
+      }`}
+    >
       {/* Graph 1: Density / PMF */}
       {(displayMode === 'dual' || displayMode === 'pdf') && (
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
+        <div
+          className={`bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3 ${
+            isSideBySide ? 'lg:h-full lg:flex lg:flex-col lg:overflow-hidden' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD] shrink-0">
             <h3 className="text-sm font-bold text-[#1A1917]">
               {isDiscrete ? 'Probability Mass Function (PMF)' : 'Probability Density Function (PDF)'}
             </h3>
@@ -875,7 +897,11 @@ export const Module3_Playground: React.FC = () => {
             </span>
           </div>
 
-          <div className="relative w-full h-56 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden select-none">
+          <div
+            className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden select-none ${
+              isSideBySide ? 'h-56 lg:flex-1 lg:min-h-0' : 'h-56'
+            }`}
+          >
             <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-full">
               {/* Baseline */}
               <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#8A8882" strokeWidth="1.5" />
@@ -983,13 +1009,21 @@ export const Module3_Playground: React.FC = () => {
 
       {/* Graph 2: Cumulative Distribution Function (CDF) */}
       {(displayMode === 'dual' || displayMode === 'cdf') && (
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
+        <div
+          className={`bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3 ${
+            isSideBySide ? 'lg:h-full lg:flex lg:flex-col lg:overflow-hidden' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD] shrink-0">
             <h3 className="text-sm font-bold text-[#1A1917]">Cumulative Distribution Function (CDF)</h3>
             <span className="text-xs font-mono text-[#75736E]">F(x) = P(X ≤ x)</span>
           </div>
 
-          <div className="relative w-full h-56 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden select-none">
+          <div
+            className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden select-none ${
+              isSideBySide ? 'h-56 lg:flex-1 lg:min-h-0' : 'h-56'
+            }`}
+          >
             <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-full">
               {/* Horizontal Baseline & Top Asymptote 1.00 */}
               <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#8A8882" strokeWidth="1.5" />
@@ -1085,16 +1119,22 @@ export const Module3_Playground: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {/* Controller Position Toggle */}
           <div className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold">
-            {(['below', 'left', 'right'] as const).map((pos) => (
+            {(['below', 'top', 'left', 'right'] as const).map((pos) => (
               <button
                 key={pos}
                 type="button"
                 onClick={() => setControllerPos(pos)}
-                className={`px-2.5 py-1 rounded transition-colors cursor-pointer capitalize text-[11px] font-mono ${
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-[11px] font-mono ${
                   controllerPos === pos ? 'bg-white shadow-2xs text-[#1A1917]' : 'text-[#75736E] hover:text-[#1A1917]'
                 }`}
               >
-                {pos === 'below' ? 'Bars: Below' : pos === 'left' ? 'Bars: Left' : 'Bars: Right'}
+                {pos === 'below'
+                  ? 'Bars: Below'
+                  : pos === 'top'
+                    ? 'Bars: Top'
+                    : pos === 'left'
+                      ? 'Bars: Left'
+                      : 'Bars: Right'}
               </button>
             ))}
           </div>
@@ -1224,21 +1264,26 @@ export const Module3_Playground: React.FC = () => {
           {renderCharts()}
           {renderParameterBars()}
         </div>
+      ) : controllerPos === 'top' ? (
+        <div className="space-y-5">
+          {renderParameterBars()}
+          {renderCharts()}
+        </div>
       ) : controllerPos === 'left' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <div className="lg:col-span-4 space-y-4">
+        <div className="flex flex-col gap-5 lg:h-[calc(100vh-280px)] lg:min-h-[540px] lg:grid lg:grid-cols-[minmax(0,35fr)_minmax(0,65fr)] lg:overflow-hidden">
+          <div className="order-2 lg:order-1 min-w-0 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5">
             {renderParameterBars()}
           </div>
-          <div className="lg:col-span-8 space-y-5">
+          <div className="order-1 lg:order-2 min-w-0 lg:h-full lg:overflow-hidden">
             {renderCharts()}
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <div className="lg:col-span-8 space-y-5">
+        <div className="flex flex-col gap-5 lg:h-[calc(100vh-280px)] lg:min-h-[540px] lg:grid lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:overflow-hidden">
+          <div className="order-1 min-w-0 lg:h-full lg:overflow-hidden">
             {renderCharts()}
           </div>
-          <div className="lg:col-span-4 space-y-4">
+          <div className="order-2 min-w-0 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5">
             {renderParameterBars()}
           </div>
         </div>

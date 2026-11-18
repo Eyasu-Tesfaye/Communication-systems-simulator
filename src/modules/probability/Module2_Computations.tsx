@@ -5,8 +5,10 @@ import {
   SlidersHorizontal,
   Sparkles,
   RotateCcw,
-  Columns,
-  Rows,
+  PanelBottom,
+  PanelTop,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import { MathView } from '../../components/MathView';
 import {
@@ -26,11 +28,11 @@ import {
 
 type ComputationDist = 'normal' | 'binomial' | 'poisson' | 'exponential' | 'uniform';
 type QueryOp = 'eq' | 'le' | 'lt' | 'ge' | 'gt' | 'between' | 'exterior';
-type LayoutMode = 'cockpit' | 'split';
+type ControlsPosition = 'bottom' | 'top' | 'left' | 'right';
 
 export const Module2_Computations: React.FC = () => {
   const [dist, setDist] = useState<ComputationDist>('normal');
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('split');
+  const [controlsPosition, setControlsPosition] = useState<ControlsPosition>('right');
   const [uniformMode, setUniformMode] = useState<'continuous' | 'discrete'>('continuous');
 
   // Parameters
@@ -147,7 +149,7 @@ export const Module2_Computations: React.FC = () => {
     switch (queryOp) {
       case 'eq':
         prob = isDiscrete ? evalPdfPmf(boundX) : 0;
-        latexLabel = isDiscrete ? `P(X = ${Math.round(boundX)})` : `P(X = ${boundX.toFixed(2)}) = 0`;
+        latexLabel = isDiscrete ? `P(X = ${Math.round(boundX)})` : `P(X = ${boundX.toFixed(2)}) = 0.0000`;
         break;
       case 'le':
         prob = evalCdf(boundX);
@@ -188,13 +190,19 @@ export const Module2_Computations: React.FC = () => {
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const padLeft = 50;
-    const padRight = 30;
-    const plotW = rect.width - padLeft - padRight;
-    if (clickX >= padLeft && clickX <= rect.width - padRight) {
-      const ratio = (clickX - padLeft) / plotW;
+    const ctm = svg.getScreenCTM();
+    let svgX: number;
+    if (ctm) {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      svgX = pt.matrixTransform(ctm.inverse()).x;
+    } else {
+      const rect = svg.getBoundingClientRect();
+      svgX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+    }
+    if (svgX >= pad.left && svgX <= pad.left + plotW) {
+      const ratio = (svgX - pad.left) / plotW;
       const xVal = domain.min + ratio * (domain.max - domain.min);
       const rounded = isDiscrete ? Math.round(xVal) : parseFloat(xVal.toFixed(2));
       setBoundX(rounded);
@@ -306,32 +314,41 @@ export const Module2_Computations: React.FC = () => {
           </p>
         </div>
 
-        {/* Layout Mode Switcher */}
+        {/* Layout Position Switcher */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-[#75736E] font-mono">Layout:</span>
-          <div className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6]">
-            <button
-              type="button"
-              onClick={() => setLayoutMode('split')}
-              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
-                layoutMode === 'split' ? 'bg-white shadow-2xs text-[#1A1917]' : 'text-[#75736E] hover:text-[#1A1917]'
-              }`}
-              title="Split view (Side-by-side)"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Split</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setLayoutMode('cockpit')}
-              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
-                layoutMode === 'cockpit' ? 'bg-white shadow-2xs text-[#1A1917]' : 'text-[#75736E] hover:text-[#1A1917]'
-              }`}
-              title="Cockpit view (Controllers below graph)"
-            >
-              <Rows className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cockpit</span>
-            </button>
+          <div
+            role="group"
+            aria-label="Controls layout position"
+            className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6]"
+          >
+            {(
+              [
+                { id: 'bottom', label: 'Bottom', Icon: PanelBottom },
+                { id: 'top', label: 'Top', Icon: PanelTop },
+                { id: 'left', label: 'Left', Icon: PanelLeft },
+                { id: 'right', label: 'Right', Icon: PanelRight },
+              ] as const
+            ).map(({ id, label, Icon }) => {
+              const isActive = controlsPosition === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setControlsPosition(id)}
+                  aria-pressed={isActive}
+                  title={`Place controls on ${label.toLowerCase()}`}
+                  className={`px-2 py-1 rounded text-[11px] font-mono flex items-center gap-1 font-semibold transition-colors cursor-pointer ${
+                    isActive
+                      ? 'bg-white shadow-2xs text-[#C85A32] border border-[#E6E4DD]'
+                      : 'text-[#75736E] hover:text-[#1A1917] border border-transparent'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -347,7 +364,7 @@ export const Module2_Computations: React.FC = () => {
             { id: 'binomial', label: 'Binomial (n, p)' },
             { id: 'poisson', label: 'Poisson (λ)' },
             { id: 'exponential', label: 'Exponential (λ)' },
-            { id: 'uniform', label: 'Uniform' },
+            { id: 'uniform', label: 'Uniform (a, b)' },
           ] as const
         ).map((item) => (
           <button
@@ -403,12 +420,36 @@ export const Module2_Computations: React.FC = () => {
         )}
       </div>
 
-      {/* 3. Main Stage (Split or Cockpit Layout) */}
-      <div className={layoutMode === 'split' ? 'grid grid-cols-1 lg:grid-cols-12 gap-5' : 'space-y-5'}>
+      {/* 3. Main Stage (4-Position Flexible Layout) */}
+      <div
+        className={
+          controlsPosition === 'right'
+            ? 'flex flex-col gap-5 lg:h-[calc(100vh-260px)] lg:min-h-[560px] lg:grid lg:grid-cols-[minmax(0,62fr)_minmax(0,38fr)] lg:overflow-hidden'
+            : controlsPosition === 'left'
+              ? 'flex flex-col gap-5 lg:h-[calc(100vh-260px)] lg:min-h-[560px] lg:grid lg:grid-cols-[minmax(0,38fr)_minmax(0,62fr)] lg:overflow-hidden'
+              : 'flex flex-col gap-5'
+        }
+      >
         {/* Graph Display Area */}
-        <div className={layoutMode === 'split' ? 'lg:col-span-7 space-y-4' : 'space-y-4'}>
-          <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
+        <div
+          className={`min-w-0 ${
+            controlsPosition === 'top'
+              ? 'order-2'
+              : controlsPosition === 'left'
+                ? 'order-1 lg:order-2 lg:h-full lg:overflow-hidden'
+                : controlsPosition === 'right'
+                  ? 'order-1 lg:h-full lg:overflow-hidden'
+                  : 'order-1'
+          }`}
+        >
+          <div
+            className={`bg-white rounded-lg border border-[#E6E4DD] shadow-xs ${
+              controlsPosition === 'left' || controlsPosition === 'right'
+                ? 'p-5 space-y-3 lg:h-full lg:flex lg:flex-col lg:overflow-hidden'
+                : 'p-4 space-y-2.5'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD] shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-[#1A1917]">
                   Definite Integral & Probability Shading
@@ -417,13 +458,19 @@ export const Module2_Computations: React.FC = () => {
                   Click anywhere on the plot to snap threshold bound x
                 </span>
               </div>
-              <span className="text-xs font-mono font-bold text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/20">
+              <span className="text-xs font-mono font-bold text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/20 shrink-0">
                 P = {queryResult.prob.toFixed(4)}
               </span>
             </div>
 
             {/* SVG Plot */}
-            <div className="relative w-full h-64 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none overflow-hidden">
+            <div
+              className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none overflow-hidden ${
+                controlsPosition === 'left' || controlsPosition === 'right'
+                  ? 'h-64 lg:flex-1 lg:min-h-0'
+                  : 'h-52'
+              }`}
+            >
               <svg
                 ref={svgRef}
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -490,7 +537,17 @@ export const Module2_Computations: React.FC = () => {
         </div>
 
         {/* Controllers & Query Engine Area */}
-        <div className={layoutMode === 'split' ? 'lg:col-span-5 space-y-4' : 'space-y-4'}>
+        <div
+          className={`min-w-0 ${
+            controlsPosition === 'top'
+              ? 'order-1 grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch'
+              : controlsPosition === 'bottom'
+                ? 'order-2 grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch'
+                : controlsPosition === 'left'
+                  ? 'order-2 lg:order-1 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5'
+                  : 'order-2 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5'
+          }`}
+        >
           {/* EXACT IMAGE 1 PARAMETER CONTROLLING BAR */}
           <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
             {/* Header with Title and Mode Indicator */}
@@ -907,9 +964,6 @@ export const Module2_Computations: React.FC = () => {
                 <Calculator className="w-3.5 h-3.5 text-[#C85A32]" />
                 <span>Analytical Query Engine & Bounds</span>
               </div>
-              <div className="bg-white px-2.5 py-0.5 rounded border border-[#E6E4DD] text-xs font-mono font-bold text-[#C85A32]">
-                P = {queryResult.prob.toFixed(4)}
-              </div>
             </div>
 
             {/* Operator Buttons */}
@@ -917,21 +971,23 @@ export const Module2_Computations: React.FC = () => {
               <div className="text-[11px] font-mono text-[#75736E] uppercase mb-1.5">
                 Evaluation Operator:
               </div>
-              <div className="grid grid-cols-4 gap-1.5 text-xs font-mono">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] sm:text-xs font-mono">
                 {[
                   { op: 'eq', label: 'P(X = x)' },
                   { op: 'le', label: 'P(X ≤ x)' },
                   { op: 'lt', label: 'P(X < x)' },
                   { op: 'ge', label: 'P(X ≥ x)' },
                   { op: 'gt', label: 'P(X > x)' },
-                  { op: 'between', label: 'P(a ≤ X ≤ b)' },
+                  { op: 'between', label: 'P(a ≤ X ≤ b)', span: 'sm:col-span-2' },
                   { op: 'exterior', label: 'Exterior' },
                 ].map((item) => (
                   <button
                     key={item.op}
                     type="button"
                     onClick={() => setQueryOp(item.op as QueryOp)}
-                    className={`py-1.5 px-2 rounded-md text-center font-semibold border transition-colors cursor-pointer ${
+                    className={`py-1.5 px-1.5 sm:px-2 rounded-md text-center font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                      item.span ?? ''
+                    } ${
                       queryOp === item.op
                         ? 'bg-[#C85A32] text-white border-[#C85A32] shadow-2xs'
                         : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
@@ -1020,6 +1076,11 @@ export const Module2_Computations: React.FC = () => {
                 <span className="text-sm font-mono font-bold text-[#1A1917]">
                   <MathView math={queryResult.latexLabel} />
                 </span>
+                {!isDiscrete && queryOp === 'eq' && (
+                  <span className="text-[11px] text-[#75736E] block mt-0.5">
+                    Point probability is 0 for continuous PDFs
+                  </span>
+                )}
               </div>
               <div className="text-right">
                 <span className="text-2xl font-mono font-extrabold text-[#C85A32]">

@@ -6,13 +6,20 @@ import {
   TrendingUp,
   SlidersHorizontal,
   Play,
+  PanelBottom,
+  PanelTop,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import { binomialPmf, normalPdf } from './math';
+
+type ControlsPosition = 'bottom' | 'top' | 'left' | 'right';
 
 export const Module1_RandomVariables: React.FC = () => {
   // Continuous Limit Morph parameters
   const [morphN, setMorphN] = useState<number>(30);
   const [morphP, setMorphP] = useState<number>(0.5);
+  const [controlsPosition, setControlsPosition] = useState<ControlsPosition>('bottom');
 
   // Interactive Dice Lab state
   const [diceRolls, setDiceRolls] = useState<number[]>([]);
@@ -146,7 +153,7 @@ export const Module1_RandomVariables: React.FC = () => {
       {/* 2. "Continuous Limit" Morph Demonstration - Styled to match Image 1 */}
       <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-4">
         {/* Title & Technical Note */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
+        <div className="flex flex-col sm:flex-row sm:items-start lg:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-4 h-4 text-[#C85A32]" />
@@ -158,72 +165,127 @@ export const Module1_RandomVariables: React.FC = () => {
               Adjust parameter sliders below to observe how discrete Binomial point masses converge into the continuous Gaussian bell curve (de Moivre–Laplace Theorem).
             </p>
           </div>
-        </div>
 
-        {/* High-Resolution SVG Morph Visualization */}
-        <div className="relative w-full h-64 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] p-4 overflow-hidden">
-          <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="w-full h-full select-none">
-            {/* Grid baseline */}
-            <line x1="20" y1="170" x2="580" y2="170" stroke="#8A8882" strokeWidth="1.5" />
-
-            {/* Binomial discrete bars */}
-            {morphData.bars.map((bar) => {
-              const xPos = 30 + (bar.k / morphN) * 540;
-              const barH = (bar.pmf / morphData.maxP) * 140;
-              const barW = Math.max(2, 520 / (morphN * 1.5));
+          {/* Subtle Layout Switcher Toggle */}
+          <div
+            role="group"
+            aria-label="Controls position"
+            className="inline-flex items-center bg-[#FAF9F6] p-0.5 rounded-md border border-[#E6E4DD] shrink-0 self-start sm:self-auto"
+          >
+            {(
+              [
+                { id: 'bottom', label: 'Bottom', Icon: PanelBottom },
+                { id: 'top', label: 'Top', Icon: PanelTop },
+                { id: 'left', label: 'Left', Icon: PanelLeft },
+                { id: 'right', label: 'Right', Icon: PanelRight },
+              ] as const
+            ).map(({ id, label, Icon }) => {
+              const isActive = controlsPosition === id;
               return (
-                <rect
-                  key={bar.k}
-                  x={xPos - barW / 2}
-                  y={170 - barH}
-                  width={barW}
-                  height={barH}
-                  fill="rgba(200, 90, 50, 0.35)"
-                  stroke="#C85A32"
-                  strokeWidth="0.75"
-                />
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setControlsPosition(id)}
+                  aria-pressed={isActive}
+                  title={`Place controls on ${label.toLowerCase()}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono transition cursor-pointer ${
+                    isActive
+                      ? 'bg-white text-[#C85A32] border border-[#E6E4DD] shadow-2xs font-semibold'
+                      : 'text-[#75736E] hover:text-[#1A1917] border border-transparent'
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  <span>{label}</span>
+                </button>
               );
             })}
-
-            {/* Continuous Normal fit curve */}
-            <path
-              d={morphData.normPts
-                .map((pt, idx) => {
-                  const xPos = 30 + (pt.x / morphN) * 540;
-                  const yPos = 170 - (pt.pdf / morphData.maxP) * 140;
-                  return `${idx === 0 ? 'M' : 'L'} ${xPos.toFixed(1)} ${yPos.toFixed(1)}`;
-                })
-                .join(' ')}
-              fill="none"
-              stroke="#1A1917"
-              strokeWidth="2.5"
-            />
-          </svg>
+          </div>
         </div>
 
-        {/* EXACT IMAGE 1 PARAMETER CONTROLLING BAR */}
-        <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
-          {/* Header with Title and Mode Indicator */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
-            <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
-              <span>Convergence Controls & Signal Parameters</span>
-            </div>
+        {/* Flexible Graph + Controls Container */}
+        {(() => {
+          const isHorizontal = controlsPosition === 'left' || controlsPosition === 'right';
+          const controlsFirst = controlsPosition === 'top' || controlsPosition === 'left';
 
-            {/* Parameter Badge Capsule */}
-            <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
-              <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
-                n = {morphN}
-              </span>
-              <span className="text-[#8A8882] text-xs">·</span>
-              <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
-                p = {morphP.toFixed(2)}
-              </span>
-            </div>
-          </div>
+          const graphElement = (
+            <div
+              className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] p-4 overflow-hidden transition-all ${
+                isHorizontal ? 'flex-1 min-w-0 h-64 lg:h-auto lg:min-h-[340px]' : 'h-64'
+              }`}
+            >
+              <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="w-full h-full select-none">
+                {/* Grid baseline */}
+                <line x1="20" y1="170" x2="580" y2="170" stroke="#8A8882" strokeWidth="1.5" />
 
-          {/* Parameter Sliders Grid - matching Image 1 layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {/* Binomial discrete bars */}
+                {morphData.bars.map((bar) => {
+                  const xPos = 30 + (bar.k / morphN) * 540;
+                  const barH = (bar.pmf / morphData.maxP) * 140;
+                  const barW = Math.max(2, 520 / (morphN * 1.5));
+                  return (
+                    <rect
+                      key={bar.k}
+                      x={xPos - barW / 2}
+                      y={170 - barH}
+                      width={barW}
+                      height={barH}
+                      fill="rgba(200, 90, 50, 0.35)"
+                      stroke="#C85A32"
+                      strokeWidth="0.75"
+                    />
+                  );
+                })}
+
+                {/* Continuous Normal fit curve */}
+                <path
+                  d={morphData.normPts
+                    .map((pt, idx) => {
+                      const xPos = 30 + (pt.x / morphN) * 540;
+                      const yPos = 170 - (pt.pdf / morphData.maxP) * 140;
+                      return `${idx === 0 ? 'M' : 'L'} ${xPos.toFixed(1)} ${yPos.toFixed(1)}`;
+                    })
+                    .join(' ')}
+                  fill="none"
+                  stroke="#1A1917"
+                  strokeWidth="2.5"
+                />
+              </svg>
+            </div>
+          );
+
+          const controlsElement = (
+            <div
+              className={`p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4 ${
+                isHorizontal ? 'w-full lg:w-[350px] xl:w-[380px] shrink-0' : ''
+              }`}
+            >
+              {/* Header with Title and Mode Indicator */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+                <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
+                  <span>Convergence Controls & Signal Parameters</span>
+                </div>
+
+                {/* Parameter Badge Capsule */}
+                <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
+                  <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                    n = {morphN}
+                  </span>
+                  <span className="text-[#8A8882] text-xs">·</span>
+                  <span className="px-2.5 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                    p = {morphP.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Parameter Sliders Grid */}
+              <div
+                className={`grid gap-3.5 ${
+                  isHorizontal
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-1'
+                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                }`}
+              >
             {/* 1. Sample Granularity (n) */}
             <div>
               <div className="flex justify-between text-xs mb-1">
@@ -261,8 +323,8 @@ export const Module1_RandomVariables: React.FC = () => {
                 className="w-full accent-[#C85A32] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-                <span>Skewed Left (0.05)</span>
-                <span className="font-semibold text-[#1A1917]">Right (0.95)</span>
+                <span>Right Skewed (0.05)</span>
+                <span className="font-semibold text-[#1A1917]">Left Skewed (0.95)</span>
               </div>
             </div>
 
@@ -308,7 +370,11 @@ export const Module1_RandomVariables: React.FC = () => {
           </div>
 
           {/* Presets Row - matching Image 1 */}
-          <div className="pt-2 border-t border-[#E6E4DD]/80 flex flex-wrap items-center justify-between gap-2">
+          <div
+            className={`pt-2 border-t border-[#E6E4DD]/80 flex flex-wrap items-center justify-between gap-2 ${
+              isHorizontal ? 'lg:flex-col lg:items-start' : ''
+            }`}
+          >
             <span className="text-[11px] font-mono text-[#75736E] flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
               <span>Presets:</span>
@@ -372,7 +438,31 @@ export const Module1_RandomVariables: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+            </div>
+          );
+
+          return (
+            <div
+              className={
+                isHorizontal
+                  ? 'flex flex-col lg:flex-row gap-4 items-stretch'
+                  : 'flex flex-col gap-4'
+              }
+            >
+              {controlsFirst ? (
+                <>
+                  {controlsElement}
+                  {graphElement}
+                </>
+              ) : (
+                <>
+                  {graphElement}
+                  {controlsElement}
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 4. Interactive Dice Lab - matching Image 1 layout */}

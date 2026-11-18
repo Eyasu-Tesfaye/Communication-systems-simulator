@@ -22,6 +22,8 @@ interface Module2_1_CAMProps {
   onNavigateModule: (path: string) => void;
 }
 
+type ControllerPos = 'below' | 'top' | 'left' | 'right';
+
 export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
   onNavigateHome,
   onNavigateModule,
@@ -35,6 +37,9 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
   const [carrierAmp, setCarrierAmp] = useState<number>(5.0); // Ac (Volts)
   const [showEnvelopes, setShowEnvelopes] = useState<boolean>(true);
   const [showCarrierOnly, setShowCarrierOnly] = useState<boolean>(false);
+  const [showBaseband, setShowBaseband] = useState<boolean>(false);
+  const [showEnvelopeDetector, setShowEnvelopeDetector] = useState<boolean>(false);
+  const [controllerPos, setControllerPos] = useState<ControllerPos>('right');
 
   // Animation Playback
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -86,6 +91,11 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
   const isUndermodulated = modIndex < 1.0;
   const isCritical = Math.abs(modIndex - 1.0) < 0.02;
   const isOvermodulated = modIndex > 1.0;
+
+  // Oscilloscope peak envelope readouts
+  const aMax = showCarrierOnly ? carrierAmp : carrierAmp * (1 + modIndex);
+  const aMin = showCarrierOnly ? carrierAmp : carrierAmp * Math.abs(1 - modIndex);
+  const measuredMu = aMax + aMin > 0 ? (aMax - aMin) / (aMax + aMin) : 0;
 
   // Draw Time-Domain Waveform Canvas
   const drawTimeDomain = useCallback(() => {
@@ -229,6 +239,25 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
       ctx.setLineDash([]);
     }
 
+    // Baseband reference m(t) overlay
+    if (showBaseband) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563EB';
+      ctx.lineWidth = 1.75;
+      ctx.setLineDash([6, 4]);
+
+      for (let px = 0; px <= plotW; px += 2) {
+        const t = (px / plotW) * timeSpan + tOffset;
+        const mVal = carrierAmp * Math.cos(2 * Math.PI * fmHz * t);
+        const x = padL + px;
+        const y = centerY - mVal * yScale;
+        if (px === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     // Modulated Carrier Waveform: s(t) = Ac[1 + μ m(t)] cos(2π fc t)
     ctx.beginPath();
     ctx.strokeStyle = showCarrierOnly ? '#585651' : '#1A1917';
@@ -248,6 +277,41 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     }
     ctx.stroke();
 
+    // Simulated Diode + RC Envelope Detector Output
+    if (showEnvelopeDetector) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#059669';
+      ctx.lineWidth = 2.25;
+
+      // Simulate half-wave diode rectification + RC discharge over dense time steps
+      const totalSteps = Math.max(400, Math.ceil(plotW * 2));
+      const dtStep = timeSpan / totalSteps;
+      // RC time constant chosen between 1/ωc and 1/ωm
+      const rcTau = 1 / (2 * Math.PI * Math.max(fmHz * 6, 4000));
+      const decayFactor = Math.exp(-dtStep / rcTau);
+      let vCap = Math.abs(
+        showCarrierOnly
+          ? carrierAmp
+          : carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * fmHz * tOffset))
+      );
+
+      for (let i = 0; i <= totalSteps; i++) {
+        const px = (i / totalSteps) * plotW;
+        const t = (px / plotW) * timeSpan + tOffset;
+        const env = showCarrierOnly
+          ? carrierAmp
+          : carrierAmp * (1 + modIndex * Math.cos(2 * Math.PI * fmHz * t));
+        const sRect = Math.max(0, env * Math.cos(2 * Math.PI * visualCarrierHz * t));
+        vCap = Math.max(sRect, vCap * decayFactor);
+
+        const x = padL + px;
+        const y = centerY - vCap * yScale;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
     // Time Axis Label
     ctx.fillStyle = '#585651';
     ctx.font = '10px monospace';
@@ -257,12 +321,26 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     // Live Legend Inside Canvas
     ctx.textAlign = 'left';
     ctx.font = '10px monospace';
+    let legendX = padL + 8;
     ctx.fillStyle = '#1A1917';
-    ctx.fillText('s(t): Modulated AM Wave', padL + 8, padT + 14);
+    ctx.fillText('s(t): AM Wave', legendX, padT + 14);
+    legendX += 108;
 
     if (showEnvelopes) {
       ctx.fillStyle = '#C85A32';
-      ctx.fillText('±E(t): Envelope Bound', padL + 180, padT + 14);
+      ctx.fillText('±E(t): Envelope', legendX, padT + 14);
+      legendX += 112;
+    }
+
+    if (showBaseband) {
+      ctx.fillStyle = '#2563EB';
+      ctx.fillText('m(t): Baseband', legendX, padT + 14);
+      legendX += 108;
+    }
+
+    if (showEnvelopeDetector) {
+      ctx.fillStyle = '#059669';
+      ctx.fillText('v_det(t): Diode+RC', legendX, padT + 14);
     }
 
     ctx.restore();
@@ -273,6 +351,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     carrierAmp,
     showEnvelopes,
     showCarrierOnly,
+    showBaseband,
+    showEnvelopeDetector,
     time,
     isOvermodulated,
   ]);
@@ -453,6 +533,23 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     drawFreqDomain();
   }, [drawFreqDomain]);
 
+  // Redraw canvases cleanly on container resize / layout switch (even when paused)
+  useEffect(() => {
+    const timeCanvas = timeCanvasRef.current;
+    const freqCanvas = freqCanvasRef.current;
+    if (!timeCanvas && !freqCanvas) return;
+
+    const observer = new ResizeObserver(() => {
+      drawTimeDomain();
+      drawFreqDomain();
+    });
+
+    if (timeCanvas) observer.observe(timeCanvas);
+    if (freqCanvas) observer.observe(freqCanvas);
+
+    return () => observer.disconnect();
+  }, [drawTimeDomain, drawFreqDomain, controllerPos]);
+
   const handleResetParameters = () => {
     setModIndex(0.75);
     setCarrierFreq(1000);
@@ -460,6 +557,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     setCarrierAmp(5.0);
     setShowEnvelopes(true);
     setShowCarrierOnly(false);
+    setShowBaseband(false);
+    setShowEnvelopeDetector(false);
     setTime(0);
   };
 
@@ -501,24 +600,54 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
             </p>
           </div>
 
-          {/* Quick switcher to next/prev */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => onNavigateModule('/am/pm')}
-              className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-medium text-[#585651] hover:text-[#1A1917] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Previous: Phase Modulation (2.6)"
+          {/* Layout Switcher & Quick Nav */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div
+              role="group"
+              aria-label="Controls layout position"
+              className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold"
             >
-              <ArrowLeft className="w-3 h-3" />
-              <span>PM (2.6)</span>
-            </button>
-            <button
-              onClick={() => onNavigateModule('/am/dsb-sc')}
-              className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-semibold text-[#1A1917] hover:border-[#C85A32]/40 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Next: DSB-SC"
-            >
-              <span>Next: DSB-SC (2.2)</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
+              {(['below', 'top', 'left', 'right'] as const).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => setControllerPos(pos)}
+                  aria-pressed={controllerPos === pos}
+                  className={`px-2 py-1 rounded transition-colors cursor-pointer text-[11px] font-mono ${
+                    controllerPos === pos
+                      ? 'bg-white shadow-2xs text-[#1A1917]'
+                      : 'text-[#75736E] hover:text-[#1A1917]'
+                  }`}
+                >
+                  {pos === 'below'
+                    ? 'Bars: Below'
+                    : pos === 'top'
+                      ? 'Bars: Top'
+                      : pos === 'left'
+                        ? 'Bars: Left'
+                        : 'Bars: Right'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onNavigateModule('/am/demodulation')}
+                className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-medium text-[#585651] hover:text-[#1A1917] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Previous: Demodulation and Detection"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Demod (07)</span>
+              </button>
+              <button
+                onClick={() => onNavigateModule('/am/dsb-sc')}
+                className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-semibold text-[#1A1917] hover:border-[#C85A32]/40 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Next: DSB-SC"
+              >
+                <span>Next: DSB-SC (2.2)</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -527,17 +656,23 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
           <Info className="w-4 h-4 text-[#C85A32] shrink-0 mt-0.5" />
           <div className="text-xs sm:text-sm text-[#585651] leading-relaxed">
             <span className="font-semibold text-[#1A1917]">Conventional AM Foundation: </span>
-            A high-amplitude carrier $A_c \cos(2\pi f_c t)$ is transmitted alongside the message sidebands. This allows low-cost envelope demodulation (diode + RC filter) as long as the modulation index satisfies <strong className="text-[#1A1917]">$\mu \le 1.0$</strong>. When $\mu &gt; 1$, envelope inversion causes severe diode clipping distortion.
+            A high-amplitude carrier A<sub>c</sub> cos(2πf<sub>c</sub>t) is transmitted alongside the message sidebands. This allows low-cost envelope demodulation (diode + RC filter) as long as the modulation index satisfies <strong className="text-[#1A1917]">μ ≤ 1.0</strong>. When μ &gt; 1, envelope inversion causes severe diode clipping distortion.
           </div>
         </div>
 
         {/* 3. Main Interactive Workspace Stage */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Visualizers (8 Columns) */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* Visualizer Card 1: Time Domain Oscilloscope */}
-            <div className="bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs flex flex-col">
-              <div className="flex flex-wrap items-center justify-between pb-3 mb-3 border-b border-[#E6E4DD] gap-2">
+        {(() => {
+          const isSideBySide = controllerPos === 'left' || controllerPos === 'right';
+
+          const graphsColumn = (
+            <div className={isSideBySide ? 'flex flex-col gap-4 lg:h-full lg:overflow-hidden' : 'flex flex-col gap-5'}>
+              {/* Visualizer Card 1: Time Domain Oscilloscope */}
+              <div
+                className={`bg-white rounded-lg border border-[#E6E4DD] shadow-xs flex flex-col ${
+                  isSideBySide ? 'p-4 lg:flex-[56_1_0%] lg:min-h-0 lg:overflow-hidden' : 'p-4 sm:p-5'
+                }`}
+              >
+                <div className={`flex flex-wrap items-center justify-between border-b border-[#E6E4DD] gap-2 shrink-0 ${isSideBySide ? 'pb-2 mb-2' : 'pb-3 mb-3'}`}>
                 <div className="flex items-center gap-2">
                   <ModuleGlyph id="cam" className="w-4 h-4" accent={true} />
                   <h2 className="text-xs font-bold tracking-tight text-[#1A1917] uppercase font-mono">
@@ -587,49 +722,93 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
               </div>
 
               {/* Time Canvas */}
-              <div className="relative w-full h-64 sm:h-72 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden">
+              <div
+                className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden ${
+                  isSideBySide ? 'h-56 lg:flex-1 lg:min-h-[120px]' : 'h-64 sm:h-72'
+                }`}
+              >
                 <canvas ref={timeCanvasRef} className="w-full h-full block" />
               </div>
 
               {/* Overmodulation Warning Callout */}
               {isOvermodulated && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2.5 text-xs text-red-800">
+                <div className={`${isSideBySide ? 'mt-2 p-2.5' : 'mt-3 p-3'} bg-red-50 border border-red-200 rounded-md flex items-center gap-2.5 text-xs text-red-800 shrink-0`}>
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   <span>
-                    <strong>Overmodulation Alert (μ = {modIndex.toFixed(2)} &gt; 1.0):</strong> The envelope $A_c[1 + \mu m(t)]$ crosses below zero (shaded red). Simple diode envelope detectors cannot track the negative excursion and will output severe non-linear harmonic distortion.
+                    <strong>Overmodulation Alert (μ = {modIndex.toFixed(2)} &gt; 1.0):</strong> The envelope A<sub>c</sub>[1 + μ m(t)] crosses below zero (shaded red). Simple diode envelope detectors cannot track the negative excursion and will output severe non-linear harmonic distortion.
                   </span>
                 </div>
               )}
 
-              {/* View options */}
-              <div className="mt-4 pt-3 border-t border-[#E6E4DD] flex items-center justify-between text-xs text-[#585651]">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={showEnvelopes}
-                      onChange={(e) => setShowEnvelopes(e.target.checked)}
-                      className="accent-[#C85A32] rounded"
-                    />
-                    <span>Show Envelope Bounds $\pm E(t)$</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={showCarrierOnly}
-                      onChange={(e) => setShowCarrierOnly(e.target.checked)}
-                      className="accent-[#C85A32] rounded"
-                    />
-                    <span>Carrier Only (Unmodulated)</span>
-                  </label>
+              {/* Live Oscilloscope Peak Readouts */}
+              <div className={`${isSideBySide ? 'mt-2' : 'mt-3'} px-3 py-2 bg-[#FAF9F6] border border-[#E6E4DD] rounded-md flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#585651] shrink-0`}>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span>
+                    A<sub>max</sub> = A<sub>c</sub>(1 + μ) = <strong className="text-[#1A1917]">{aMax.toFixed(2)} V</strong>
+                  </span>
+                  <span>
+                    A<sub>min</sub> = A<sub>c</sub>|1 − μ| = <strong className="text-[#1A1917]">{aMin.toFixed(2)} V</strong>
+                  </span>
                 </div>
-                <span className="font-mono text-[11px] text-[#8A8882]">fc = {carrierFreq} kHz · fm = {messageFreq.toFixed(1)} kHz</span>
+                {modIndex <= 1.0 ? (
+                  <span className="text-[#C85A32] font-semibold">
+                    μ = (A<sub>max</sub> − A<sub>min</sub>) / (A<sub>max</sub> + A<sub>min</sub>) = {measuredMu.toFixed(2)}
+                  </span>
+                ) : (
+                  <span className="text-red-700 font-semibold">
+                    Phase Reversal: |1 − μ| &gt; 0 (μ &gt; 1)
+                  </span>
+                )}
+              </div>
+
+              {/* View options */}
+              <div className={`${isSideBySide ? 'mt-2 pt-2' : 'mt-3 pt-3'} border-t border-[#E6E4DD] flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#585651] shrink-0`}>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showEnvelopes}
+                    onChange={(e) => setShowEnvelopes(e.target.checked)}
+                    className="accent-[#C85A32] rounded"
+                  />
+                  <span>Show Envelope Bounds ±E(t)</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showCarrierOnly}
+                    onChange={(e) => setShowCarrierOnly(e.target.checked)}
+                    className="accent-[#C85A32] rounded"
+                  />
+                  <span>Carrier Only (Unmodulated)</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showBaseband}
+                    onChange={(e) => setShowBaseband(e.target.checked)}
+                    className="accent-[#2563EB] rounded"
+                  />
+                  <span>Show Baseband m(t)</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showEnvelopeDetector}
+                    onChange={(e) => setShowEnvelopeDetector(e.target.checked)}
+                    className="accent-[#059669] rounded"
+                  />
+                  <span>Diode Envelope Detector</span>
+                </label>
               </div>
             </div>
 
             {/* Visualizer Card 2: Frequency Spectrum Canvas */}
-            <div className="bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs flex flex-col">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#E6E4DD]">
+            <div
+              className={`bg-white rounded-lg border border-[#E6E4DD] shadow-xs flex flex-col ${
+                isSideBySide ? 'p-4 lg:flex-[44_1_0%] lg:min-h-0 lg:overflow-hidden' : 'p-4 sm:p-5'
+              }`}
+            >
+              <div className={`flex items-center justify-between border-b border-[#E6E4DD] shrink-0 ${isSideBySide ? 'pb-2 mb-2' : 'pb-3 mb-3'}`}>
                 <div className="flex items-center gap-2">
                   <ModuleGlyph id="fourier" className="w-4 h-4" accent={true} />
                   <h2 className="text-xs font-bold tracking-tight text-[#1A1917] uppercase font-mono">
@@ -637,17 +816,21 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                   </h2>
                 </div>
                 <span className="text-[11px] font-mono text-[#75736E]">
-                  Transmission Bandwidth: $B_T = 2f_m = {bandwidth.toFixed(1)}$ kHz
+                  Transmission Bandwidth: B<sub>T</sub> = 2f<sub>m</sub> = {bandwidth.toFixed(1)} kHz
                 </span>
               </div>
 
               {/* Frequency Canvas */}
-              <div className="relative w-full h-44 sm:h-52 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden">
+              <div
+                className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden ${
+                  isSideBySide ? 'h-44 lg:flex-1 lg:min-h-[120px]' : 'h-44 sm:h-52'
+                }`}
+              >
                 <canvas ref={freqCanvasRef} className="w-full h-full block" />
               </div>
 
               {/* Spectral Decomposition Summary */}
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-mono">
+              <div className={`${isSideBySide ? 'mt-2.5' : 'mt-4'} grid grid-cols-3 gap-2 text-center text-xs font-mono shrink-0`}>
                 <div className="p-2 bg-[#FAF9F6] border border-[#E6E4DD] rounded">
                   <div className="text-[10px] text-[#75736E]">LOWER SIDEBAND (LSB)</div>
                   <div className="font-bold text-[#1A1917] mt-0.5">{(carrierFreq - messageFreq).toFixed(1)} kHz</div>
@@ -666,10 +849,10 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
               </div>
             </div>
           </div>
+          );
 
-          {/* Right Column: Interactive Parameter Deck & Theory (4 Columns) */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Interactive Control Deck */}
+          // Interactive Control Deck
+          const modulationParamsCard = (
             <div className="bg-white rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs">
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#E6E4DD]">
                 <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] flex items-center gap-1.5 font-bold">
@@ -688,12 +871,15 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
               <div className="space-y-1.5 mb-4">
                 <div className="flex items-center justify-between text-xs">
                   <label htmlFor="mod-index-slider" className="font-semibold text-[#1A1917]">
-                    Modulation Index (μ = Am/Ac)
+                    Modulation Index (μ = A<sub>m</sub>/A<sub>c</sub>)
                   </label>
                   <span className="font-mono font-bold text-[#C85A32] text-sm">
                     {modIndex.toFixed(2)}
                   </span>
                 </div>
+                <p className="text-[10px] font-mono text-[#75736E]">
+                  μ = k<sub>a</sub> · A<sub>m</sub> (sensitivity k<sub>a</sub> = 1/A<sub>c</sub>)
+                </p>
                 <input
                   id="mod-index-slider"
                   type="range"
@@ -776,9 +962,77 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                   className="w-full accent-[#C85A32] cursor-pointer"
                 />
               </div>
-            </div>
 
-            {/* Power & Efficiency Analytics Card */}
+              {/* Quick Presets */}
+              <div className="mt-4 pt-3 border-t border-[#E6E4DD]">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] font-semibold mb-2">
+                  Quick Presets
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModIndex(0.5);
+                      setShowCarrierOnly(false);
+                    }}
+                    className={`px-2 py-1 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                      Math.abs(modIndex - 0.5) < 0.01 && !showCarrierOnly
+                        ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                        : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    Under-Modulated (μ=0.5)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModIndex(1.0);
+                      setShowCarrierOnly(false);
+                    }}
+                    className={`px-2 py-1 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                      Math.abs(modIndex - 1.0) < 0.01 && !showCarrierOnly
+                        ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                        : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    100% Critical (μ=1.0)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModIndex(1.3);
+                      setShowCarrierOnly(false);
+                    }}
+                    className={`px-2 py-1 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                      Math.abs(modIndex - 1.3) < 0.01 && !showCarrierOnly
+                        ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                        : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    Over-Modulated (μ=1.3)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCarrierFreq(1000);
+                      setMessageFreq(5.0);
+                      setShowCarrierOnly(false);
+                    }}
+                    className={`px-2 py-1 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                      carrierFreq === 1000 && Math.abs(messageFreq - 5.0) < 0.05 && !showCarrierOnly
+                        ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                        : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    AM Broadcast (fc=1000 kHz, fm=5 kHz)
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+
+          // Power & Efficiency Analytics Card
+          const powerEfficiencyCard = (
             <div className="bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs">
               <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-3 flex items-center gap-1.5 font-bold">
                 <Zap className="w-3.5 h-3.5 text-[#C85A32]" />
@@ -786,7 +1040,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
               </div>
 
               {/* Efficiency gauge */}
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="text-[#585651]">Modulation Efficiency (η):</span>
                   <span className="font-mono font-bold text-[#C85A32] text-sm">
@@ -806,6 +1060,14 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                 </div>
               </div>
 
+              {/* Bandwidth Efficiency row */}
+              <div className="flex items-center justify-between gap-2 p-2 mb-3 bg-white rounded border border-[#E6E4DD] text-xs font-mono">
+                <span className="text-[#585651]">
+                  Bandwidth Efficiency (η<sub>BW</sub>) <span className="text-[10px] text-[#8A8882]">(B<sub>m</sub> / B<sub>AM</sub>)</span>:
+                </span>
+                <span className="font-bold text-[#1A1917] shrink-0">50.0%</span>
+              </div>
+
               {/* Power breakdown stats */}
               <div className="space-y-2 text-xs font-mono">
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E6E4DD]">
@@ -822,8 +1084,9 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                 </div>
               </div>
             </div>
+          );
 
-            {/* Mathematical Model Card */}
+          const analyticalFormulationCard = (
             <div className="bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs">
               <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-2 flex items-center gap-1.5 font-bold">
                 <BookOpen className="w-3.5 h-3.5 text-[#585651]" />
@@ -836,24 +1099,99 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
                 <MathView math={currentSubTopic.formula} displayMode={true} />
               </div>
             </div>
+          );
 
-            {/* Curricular Focus Areas */}
+          const hardwareCard = (
             <div className="bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] p-4 sm:p-5 shadow-xs">
               <div className="text-xs font-mono uppercase tracking-wider text-[#75736E] mb-3 flex items-center gap-1.5 font-bold">
                 <Layers className="w-3.5 h-3.5 text-[#585651]" />
-                <span>Curricular Topics</span>
+                <span>Hardware Architecture & Real-World Use</span>
               </div>
-              <ul className="space-y-2.5">
-                {currentSubTopic.topics.map((t, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-xs text-[#484642] leading-snug">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#C85A32] shrink-0 mt-0.5" />
-                    <span>{t}</span>
-                  </li>
-                ))}
+              <ul className="space-y-2.5 text-xs text-[#484642] leading-snug">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#C85A32] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-[#1A1917]">Modulator:</strong> Square-law / nonlinear device + BPF tuned to f<sub>c</sub>.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#C85A32] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-[#1A1917]">Demodulator:</strong> Non-coherent Diode + RC envelope detector (1/ω<sub>c</sub> ≪ RC ≪ 1/ω<sub>m</sub>, valid only for μ ≤ 1).
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#C85A32] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-[#1A1917]">Applications:</strong> Medium-Wave (530–1710 kHz) &amp; Short-Wave (2.3–26 MHz) AM broadcasting, CB &amp; Maritime HF voice.
+                  </span>
+                </li>
               </ul>
             </div>
-          </div>
-        </div>
+          );
+
+          if (controllerPos === 'right') {
+            return (
+              <div className="mt-6 flex flex-col gap-6 lg:h-[calc(100vh-220px)] lg:min-h-[600px] lg:grid lg:grid-cols-[minmax(0,64fr)_minmax(0,36fr)] lg:overflow-hidden">
+                <div className="order-1 min-w-0 lg:h-full lg:overflow-hidden">
+                  {graphsColumn}
+                </div>
+                <div className="order-2 min-w-0 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5">
+                  {modulationParamsCard}
+                  {powerEfficiencyCard}
+                  {analyticalFormulationCard}
+                  {hardwareCard}
+                </div>
+              </div>
+            );
+          }
+
+          if (controllerPos === 'left') {
+            return (
+              <div className="mt-6 flex flex-col gap-6 lg:h-[calc(100vh-220px)] lg:min-h-[600px] lg:grid lg:grid-cols-[minmax(0,36fr)_minmax(0,64fr)] lg:overflow-hidden">
+                <div className="order-2 lg:order-1 min-w-0 space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1.5">
+                  {modulationParamsCard}
+                  {powerEfficiencyCard}
+                  {analyticalFormulationCard}
+                  {hardwareCard}
+                </div>
+                <div className="order-1 lg:order-2 min-w-0 lg:h-full lg:overflow-hidden">
+                  {graphsColumn}
+                </div>
+              </div>
+            );
+          }
+
+          if (controllerPos === 'top') {
+            return (
+              <div className="mt-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                  {modulationParamsCard}
+                  {powerEfficiencyCard}
+                </div>
+                {graphsColumn}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                  {analyticalFormulationCard}
+                  {hardwareCard}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="mt-6 space-y-6">
+              {graphsColumn}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                {modulationParamsCard}
+                {powerEfficiencyCard}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                {analyticalFormulationCard}
+                {hardwareCard}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

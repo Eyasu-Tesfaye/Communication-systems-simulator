@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   AlertTriangle,
+  BarChart3,
   Plus,
   Sliders,
   SlidersHorizontal,
@@ -10,6 +11,8 @@ import {
 import { MathView } from '../../components/MathView';
 import { computeDescriptiveStats, normalPdf } from './math';
 
+type ControllerPos = 'below' | 'top' | 'left' | 'right';
+
 export const Module4_DescriptiveStats: React.FC = () => {
   // Preset raw data string (Exam Scores default)
   const defaultExamData =
@@ -17,6 +20,7 @@ export const Module4_DescriptiveStats: React.FC = () => {
   const [rawText, setRawText] = useState<string>(defaultExamData);
 
   // Parameter Controlling Bars State
+  const [controllerPos, setControllerPos] = useState<ControllerPos>('right');
   const [tukeyK, setTukeyK] = useState<number>(1.5);
   const [binCount, setBinCount] = useState<number>(12);
   const [enableTransform, setEnableTransform] = useState<boolean>(false);
@@ -235,224 +239,7 @@ export const Module4_DescriptiveStats: React.FC = () => {
         </div>
       </div>
 
-      {/* EXACT IMAGE 1 PARAMETER CONTROLLING BAR */}
-      <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
-        {/* Header with Title and Mode Indicator */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
-          <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
-            <span>Descriptive Analysis Controls & Hyperparameters</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Parameter Badge Capsule */}
-            <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
-              <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
-                k = {binCount} bins
-              </span>
-              <span className="text-[#8A8882] text-xs">·</span>
-              <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
-                Tukey = {tukeyK.toFixed(1)} IQR
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setTukeyK(1.5);
-                setBinCount(12);
-                setEnableTransform(false);
-                setScaleA(1);
-                setShiftB(0);
-              }}
-              className="px-2 py-1 text-xs font-mono text-[#75736E] hover:text-[#C85A32] hover:bg-white rounded border border-transparent hover:border-[#E6E4DD] flex items-center gap-1 cursor-pointer transition-colors"
-              title="Reset parameters to defaults"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span className="hidden sm:inline">Reset</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Parameter Sliders Grid - matching Image 1 layout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* 1. Histogram Bin Count (k) */}
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="font-medium text-[#1A1917]">Histogram Bin Count (k)</span>
-              <span className="font-mono text-[#C85A32] font-semibold">{binCount} bins</span>
-            </div>
-            <input
-              type="range"
-              min="4"
-              max="40"
-              step="1"
-              value={binCount}
-              onChange={(e) => setBinCount(parseInt(e.target.value, 10))}
-              className="w-full accent-[#C85A32] cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-              <span>Coarse (4)</span>
-              <span className="font-semibold text-[#1A1917]">Active: {binCount}</span>
-              <span>Fine (40)</span>
-            </div>
-          </div>
-
-          {/* 2. Tukey Fence Multiplier (k) */}
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="font-medium text-[#1A1917]">Tukey Fence Multiplier (k)</span>
-              <span className="font-mono text-[#C85A32] font-semibold">k = {tukeyK.toFixed(1)}</span>
-            </div>
-            <input
-              type="range"
-              min="0.5"
-              max="3.5"
-              step="0.1"
-              value={tukeyK}
-              onChange={(e) => setTukeyK(parseFloat(e.target.value))}
-              className="w-full accent-[#C85A32] cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
-              <span>Strict (0.5)</span>
-              <span className="font-semibold text-[#1A1917]">Threshold: {tukeyK.toFixed(1)} IQR</span>
-              <span>Permissive (3.5)</span>
-            </div>
-          </div>
-
-          {/* 3. Linear Transformation (Y = aX + b) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-medium text-[#1A1917]">Linear Transform (Y = aX + b)</span>
-              <button
-                type="button"
-                onClick={() => setEnableTransform((v) => !v)}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer border transition-colors ${
-                  enableTransform
-                    ? 'bg-[#C85A32] text-white border-[#C85A32]'
-                    : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
-                }`}
-              >
-                {enableTransform ? 'Active' : 'Bypass'}
-              </button>
-            </div>
-
-            {enableTransform ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="flex justify-between text-[11px] mb-0.5">
-                    <span className="font-mono text-[#585651]">Scale (a)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{scaleA.toFixed(1)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-4"
-                    max="4"
-                    step="0.1"
-                    value={scaleA}
-                    onChange={(e) => setScaleA(parseFloat(e.target.value))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] mb-0.5">
-                    <span className="font-mono text-[#585651]">Shift (b)</span>
-                    <span className="font-mono text-[#C85A32] font-semibold">{shiftB}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-50"
-                    max="50"
-                    step="1"
-                    value={shiftB}
-                    onChange={(e) => setShiftB(parseFloat(e.target.value))}
-                    className="w-full accent-[#C85A32] cursor-pointer"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="h-10 flex items-center">
-                <p className="text-[11px] text-[#75736E] line-clamp-2">
-                  Enable to dynamically scale & shift: <MathView math="\bar{y} = a\bar{x} + b" /> and <MathView math="s_y = |a|s_x" />.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Presets & Heuristic Rules Row - Matching Image 1 */}
-        <div className="pt-2 border-t border-[#E6E4DD]">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex items-center gap-1 text-xs text-[#75736E] font-mono mr-1">
-              <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
-              <span>Presets & Rules:</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setBinCount(Math.max(4, Math.ceil(Math.sqrt(activeNumbers.length || 10))))}
-              className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
-              title="Square-root rule: k = ceil(sqrt(n))"
-            >
-              √n Rule ({Math.max(4, Math.ceil(Math.sqrt(activeNumbers.length || 10)))})
-            </button>
-            <button
-              type="button"
-              onClick={() => setBinCount(Math.max(4, Math.ceil(1 + Math.log2(activeNumbers.length || 10))))}
-              className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
-              title="Sturges rule: k = ceil(1 + log2(n))"
-            >
-              Sturges Rule ({Math.max(4, Math.ceil(1 + Math.log2(activeNumbers.length || 10)))})
-            </button>
-            <button
-              type="button"
-              onClick={() => setBinCount(Math.max(4, Math.ceil(2 * Math.cbrt(activeNumbers.length || 10))))}
-              className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
-              title="Rice rule: k = ceil(2 * n^(1/3))"
-            >
-              Rice Rule ({Math.max(4, Math.ceil(2 * Math.cbrt(activeNumbers.length || 10)))})
-            </button>
-
-            <span className="text-[#8A8882] text-xs px-1">|</span>
-
-            <button
-              type="button"
-              onClick={() => setTukeyK(1.0)}
-              className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
-                tukeyK === 1.0
-                  ? 'bg-[#C85A32] text-white border-[#C85A32]'
-                  : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
-              }`}
-            >
-              Strict Outliers (1.0)
-            </button>
-            <button
-              type="button"
-              onClick={() => setTukeyK(1.5)}
-              className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
-                tukeyK === 1.5
-                  ? 'bg-[#C85A32] text-white border-[#C85A32]'
-                  : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
-              }`}
-            >
-              Standard Fence (1.5)
-            </button>
-            <button
-              type="button"
-              onClick={() => setTukeyK(3.0)}
-              className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
-                tukeyK === 3.0
-                  ? 'bg-[#C85A32] text-white border-[#C85A32]'
-                  : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
-              }`}
-            >
-              Extreme Fence (3.0)
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Tukey Outlier Warning Banner */}
+      {/* 3. Tukey Outlier Warning Banner */}
       {stats && stats.outliers.length > 0 && (
         <div className="p-4 bg-[#FBF4F0] border border-[#C85A32]/30 rounded-lg flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-[#C85A32] shrink-0 mt-0.5" />
@@ -469,7 +256,7 @@ export const Module4_DescriptiveStats: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Comprehensive Metrics Grid */}
+      {/* 4. Comprehensive Metrics Grid */}
       {stats && (
         <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
           <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#75736E]">
@@ -542,130 +329,457 @@ export const Module4_DescriptiveStats: React.FC = () => {
         </div>
       )}
 
-      {/* 6. Interactive Box & Whisker Plot */}
-      {boxPlotElements && stats && (
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
-            <h3 className="text-sm font-bold text-[#1A1917]">Tukey Box & Whisker Plot</h3>
-            <span className="text-xs font-mono text-[#75736E]">
-              Q₁ = {stats.q1.toFixed(1)} · Median = {stats.median.toFixed(1)} · Q₃ = {stats.q3.toFixed(1)}
-            </span>
+      {/* 5. Visual Distribution & Outlier Workbench */}
+      {(() => {
+        const isSideBySide = controllerPos === 'left' || controllerPos === 'right';
+
+        const controlsCard = (
+          <div className="p-4 sm:p-5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD] space-y-4">
+            {/* Header with Title and Mode Indicator */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E6E4DD]">
+              <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#75736E] font-semibold">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
+                <span>Descriptive Analysis Controls & Hyperparameters</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Parameter Badge Capsule */}
+                <div className="flex items-center bg-white p-0.5 rounded-md border border-[#E6E4DD] shadow-2xs">
+                  <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#C85A32]">
+                    k = {binCount} bins
+                  </span>
+                  <span className="text-[#8A8882] text-xs">·</span>
+                  <span className="px-2 py-0.5 text-xs font-mono font-bold text-[#1A1917]">
+                    Tukey = {tukeyK.toFixed(1)} IQR
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTukeyK(1.5);
+                    setBinCount(12);
+                    setEnableTransform(false);
+                    setScaleA(1);
+                    setShiftB(0);
+                  }}
+                  className="px-2 py-1 text-xs font-mono text-[#75736E] hover:text-[#C85A32] hover:bg-white rounded border border-transparent hover:border-[#E6E4DD] flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Reset parameters to defaults"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Parameter Sliders Grid */}
+            <div
+              className={`grid gap-4 ${
+                isSideBySide
+                  ? 'grid-cols-1'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              }`}
+            >
+              {/* 1. Histogram Bin Count (k) */}
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-medium text-[#1A1917]">Histogram Bin Count (k)</span>
+                  <span className="font-mono text-[#C85A32] font-semibold">{binCount} bins</span>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="40"
+                  step="1"
+                  value={binCount}
+                  onChange={(e) => setBinCount(parseInt(e.target.value, 10))}
+                  className="w-full accent-[#C85A32] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                  <span>Coarse (4)</span>
+                  <span className="font-semibold text-[#1A1917]">Active: {binCount}</span>
+                  <span>Fine (40)</span>
+                </div>
+              </div>
+
+              {/* 2. Tukey Fence Multiplier (k) */}
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-medium text-[#1A1917]">Tukey Fence Multiplier (k)</span>
+                  <span className="font-mono text-[#C85A32] font-semibold">k = {tukeyK.toFixed(1)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3.5"
+                  step="0.1"
+                  value={tukeyK}
+                  onChange={(e) => setTukeyK(parseFloat(e.target.value))}
+                  className="w-full accent-[#C85A32] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-[#8A8882] mt-0.5">
+                  <span>Strict (0.5)</span>
+                  <span className="font-semibold text-[#1A1917]">Threshold: {tukeyK.toFixed(1)} IQR</span>
+                  <span>Permissive (3.5)</span>
+                </div>
+              </div>
+
+              {/* 3. Linear Transformation (Y = aX + b) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-medium text-[#1A1917]">Linear Transform (Y = aX + b)</span>
+                  <button
+                    type="button"
+                    onClick={() => setEnableTransform((v) => !v)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer border transition-colors ${
+                      enableTransform
+                        ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                        : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    {enableTransform ? 'Active' : 'Bypass'}
+                  </button>
+                </div>
+
+                {enableTransform ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-[#585651]">Scale (a)</span>
+                        <span className="font-mono text-[#C85A32] font-semibold">{scaleA.toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-4"
+                        max="4"
+                        step="0.1"
+                        value={scaleA}
+                        onChange={(e) => setScaleA(parseFloat(e.target.value))}
+                        className="w-full accent-[#C85A32] cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-0.5">
+                        <span className="font-mono text-[#585651]">Shift (b)</span>
+                        <span className="font-mono text-[#C85A32] font-semibold">{shiftB}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-50"
+                        max="50"
+                        step="1"
+                        value={shiftB}
+                        onChange={(e) => setShiftB(parseFloat(e.target.value))}
+                        className="w-full accent-[#C85A32] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-10 flex items-center">
+                    <p className="text-[11px] text-[#75736E] line-clamp-2">
+                      Enable to dynamically scale & shift: <MathView math="\bar{y} = a\bar{x} + b" /> and <MathView math="s_y = |a|s_x" />.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Presets & Heuristic Rules Row */}
+            <div className="pt-2 border-t border-[#E6E4DD]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1 text-xs text-[#75736E] font-mono mr-1">
+                  <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
+                  <span>Presets & Rules:</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setBinCount(Math.max(4, Math.ceil(Math.sqrt(activeNumbers.length || 10))))}
+                  className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                  title="Square-root rule: k = ceil(sqrt(n))"
+                >
+                  √n Rule ({Math.max(4, Math.ceil(Math.sqrt(activeNumbers.length || 10)))})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBinCount(Math.max(4, Math.ceil(1 + Math.log2(activeNumbers.length || 10))))}
+                  className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                  title="Sturges rule: k = ceil(1 + log2(n))"
+                >
+                  Sturges Rule ({Math.max(4, Math.ceil(1 + Math.log2(activeNumbers.length || 10)))})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBinCount(Math.max(4, Math.ceil(2 * Math.cbrt(activeNumbers.length || 10))))}
+                  className="px-2.5 py-1 text-xs font-mono bg-white hover:bg-[#F3F2EC] text-[#1A1917] border border-[#E6E4DD] rounded shadow-2xs cursor-pointer transition-colors"
+                  title="Rice rule: k = ceil(2 * n^(1/3))"
+                >
+                  Rice Rule ({Math.max(4, Math.ceil(2 * Math.cbrt(activeNumbers.length || 10)))})
+                </button>
+
+                <span className="text-[#8A8882] text-xs px-1">|</span>
+
+                <button
+                  type="button"
+                  onClick={() => setTukeyK(1.0)}
+                  className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
+                    tukeyK === 1.0
+                      ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                      : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
+                  }`}
+                >
+                  Strict Outliers (1.0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTukeyK(1.5)}
+                  className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
+                    tukeyK === 1.5
+                      ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                      : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
+                  }`}
+                >
+                  Standard Fence (1.5)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTukeyK(3.0)}
+                  className={`px-2.5 py-1 text-xs font-mono rounded shadow-2xs cursor-pointer transition-colors border ${
+                    tukeyK === 3.0
+                      ? 'bg-[#C85A32] text-white border-[#C85A32]'
+                      : 'bg-white hover:bg-[#F3F2EC] text-[#1A1917] border-[#E6E4DD]'
+                  }`}
+                >
+                  Extreme Fence (3.0)
+                </button>
+              </div>
+            </div>
           </div>
+        );
 
-          <div className="relative w-full h-32 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none">
-            <svg viewBox={`0 0 ${svgW} 120`} className="w-full h-full">
-              {/* Whiskers */}
-              <line
-                x1={boxPlotElements.whiskerMinPx}
-                y1={60}
-                x2={boxPlotElements.whiskerMaxPx}
-                y2={60}
-                stroke="#8A8882"
-                strokeWidth="1.5"
-              />
-              <line
-                x1={boxPlotElements.whiskerMinPx}
-                y1={45}
-                x2={boxPlotElements.whiskerMinPx}
-                y2={75}
-                stroke="#8A8882"
-                strokeWidth="1.5"
-              />
-              <line
-                x1={boxPlotElements.whiskerMaxPx}
-                y1={45}
-                x2={boxPlotElements.whiskerMaxPx}
-                y2={75}
-                stroke="#8A8882"
-                strokeWidth="1.5"
-              />
+        const graphsStack = (
+          <div className={isSideBySide ? 'flex flex-col gap-4 lg:h-full lg:overflow-hidden' : 'space-y-4'}>
+            {/* Interactive Box & Whisker Plot */}
+            {boxPlotElements && stats ? (
+              <div className="bg-white rounded-lg border border-[#E6E4DD] p-4 shadow-xs space-y-2.5 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E6E4DD]">
+                  <h4 className="text-sm font-bold text-[#1A1917]">Tukey Box & Whisker Plot</h4>
+                  <span className="text-xs font-mono text-[#75736E]">
+                    Q₁ = {stats.q1.toFixed(1)} · Median = {stats.median.toFixed(1)} · Q₃ = {stats.q3.toFixed(1)}
+                  </span>
+                </div>
 
-              {/* IQR Box */}
-              <rect
-                x={boxPlotElements.q1Px}
-                y={35}
-                width={Math.max(2, boxPlotElements.q3Px - boxPlotElements.q1Px)}
-                height={50}
-                fill="rgba(200, 90, 50, 0.22)"
-                stroke="#C85A32"
-                strokeWidth="1.5"
-                rx="2"
-              />
+                <div className="relative w-full h-32 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none overflow-hidden">
+                  <svg viewBox={`0 0 ${svgW} 120`} className="w-full h-full">
+                    {/* Whiskers */}
+                    <line
+                      x1={boxPlotElements.whiskerMinPx}
+                      y1={60}
+                      x2={boxPlotElements.whiskerMaxPx}
+                      y2={60}
+                      stroke="#8A8882"
+                      strokeWidth="1.5"
+                    />
+                    <line
+                      x1={boxPlotElements.whiskerMinPx}
+                      y1={45}
+                      x2={boxPlotElements.whiskerMinPx}
+                      y2={75}
+                      stroke="#8A8882"
+                      strokeWidth="1.5"
+                    />
+                    <line
+                      x1={boxPlotElements.whiskerMaxPx}
+                      y1={45}
+                      x2={boxPlotElements.whiskerMaxPx}
+                      y2={75}
+                      stroke="#8A8882"
+                      strokeWidth="1.5"
+                    />
 
-              {/* Median Line */}
-              <line
-                x1={boxPlotElements.medPx}
-                y1={35}
-                x2={boxPlotElements.medPx}
-                y2={85}
-                stroke="#1A1917"
-                strokeWidth="2.5"
-              />
+                    {/* IQR Box */}
+                    <rect
+                      x={boxPlotElements.q1Px}
+                      y={35}
+                      width={Math.max(2, boxPlotElements.q3Px - boxPlotElements.q1Px)}
+                      height={50}
+                      fill="rgba(200, 90, 50, 0.22)"
+                      stroke="#C85A32"
+                      strokeWidth="1.5"
+                      rx="2"
+                    />
 
-              {/* Outlier Dots */}
-              {boxPlotElements.outlierPxs.map((px, idx) => (
-                <circle key={idx} cx={px} cy={60} r="4.5" fill="#B54E28" stroke="#FFFFFF" strokeWidth="1.5" />
-              ))}
+                    {/* Median Line */}
+                    <line
+                      x1={boxPlotElements.medPx}
+                      y1={35}
+                      x2={boxPlotElements.medPx}
+                      y2={85}
+                      stroke="#1A1917"
+                      strokeWidth="2.5"
+                    />
 
-              {/* Labels */}
-              <text x={boxPlotElements.q1Px} y={105} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
-                Q₁
-              </text>
-              <text x={boxPlotElements.medPx} y={105} fill="#1A1917" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-                Median
-              </text>
-              <text x={boxPlotElements.q3Px} y={105} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
-                Q₃
-              </text>
-            </svg>
+                    {/* Outlier Dots */}
+                    {boxPlotElements.outlierPxs.map((px, idx) => (
+                      <circle key={idx} cx={px} cy={60} r="4.5" fill="#B54E28" stroke="#FFFFFF" strokeWidth="1.5" />
+                    ))}
+
+                    {/* Labels */}
+                    <text x={boxPlotElements.q1Px} y={105} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                      Q₁
+                    </text>
+                    <text x={boxPlotElements.medPx} y={105} fill="#1A1917" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
+                      Median
+                    </text>
+                    <text x={boxPlotElements.q3Px} y={105} fill="#75736E" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                      Q₃
+                    </text>
+                  </svg>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] text-xs font-mono text-[#75736E]">
+                Enter numerical values above to render the Tukey Box & Whisker Plot.
+              </div>
+            )}
+
+            {/* Histogram with Fitted Parametric Normal Curve */}
+            {histAndFittedCurve && stats ? (
+              <div
+                className={`bg-white rounded-lg border border-[#E6E4DD] p-4 shadow-xs space-y-2.5 ${
+                  isSideBySide ? 'lg:flex-1 lg:min-h-0 lg:flex lg:flex-col lg:overflow-hidden' : ''
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E6E4DD] shrink-0">
+                  <h4 className="text-sm font-bold text-[#1A1917]">
+                    Sample Histogram with Fitted Normal Curve <MathView math="\mathcal{N}(\bar{x}, s^2)" />
+                  </h4>
+                  <span className="text-xs font-mono text-[#75736E]">
+                    Gaussian Envelope Fit
+                  </span>
+                </div>
+
+                <div
+                  className={`relative w-full bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none overflow-hidden ${
+                    isSideBySide ? 'h-48 lg:flex-1 lg:min-h-0' : 'h-48'
+                  }`}
+                >
+                  <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-full">
+                    {/* Baseline */}
+                    <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#8A8882" strokeWidth="1.5" />
+
+                    {/* Binned Frequency Bars */}
+                    {histAndFittedCurve.counts.map((c, idx) => {
+                      const bStart = histAndFittedCurve.domainMin + idx * histAndFittedCurve.binW;
+                      const px = histAndFittedCurve.toPxX(bStart);
+                      const py = histAndFittedCurve.toPxY(c);
+                      const bW = (histAndFittedCurve.binW / (histAndFittedCurve.domainMax - histAndFittedCurve.domainMin)) * plotW;
+                      const bH = pad.top + plotH - py;
+                      return (
+                        <rect
+                          key={idx}
+                          x={px}
+                          y={py}
+                          width={Math.max(1, bW - 1)}
+                          height={bH}
+                          fill="rgba(37, 99, 235, 0.22)"
+                          stroke="#2563EB"
+                          strokeWidth="0.75"
+                        />
+                      );
+                    })}
+
+                    {/* Fitted Normal Path */}
+                    <path d={histAndFittedCurve.normPath} fill="none" stroke="#C85A32" strokeWidth="2.5" />
+                  </svg>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-[#FAF9F6] rounded-lg border border-[#E6E4DD] text-xs font-mono text-[#75736E]">
+                Enter at least 3 valid numbers above to render the Sample Histogram with Fitted Normal Curve.
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
 
-      {/* 7. Histogram with Fitted Parametric Normal Curve */}
-      {histAndFittedCurve && stats && (
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
-            <h3 className="text-sm font-bold text-[#1A1917]">
-              Sample Histogram with Fitted Normal Curve <MathView math="\mathcal{N}(\bar{x}, s^2)" />
-            </h3>
-            <span className="text-xs font-mono text-[#75736E]">
-              Gaussian Envelope Fit
-            </span>
+        return (
+          <div className="bg-white rounded-lg border border-[#E6E4DD] p-5 shadow-xs space-y-4">
+            {/* Workbench Header with 4-position layout switcher */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD]">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <BarChart3 className="w-4 h-4 text-[#C85A32]" />
+                  <h3 className="text-sm font-bold text-[#1A1917]">
+                    Visual Distribution & Outlier Workbench
+                  </h3>
+                </div>
+                <p className="text-xs text-[#585651]">
+                  Tune histogram binning, Tukey outlier fences, and linear scaling directly alongside the visual plots.
+                </p>
+              </div>
+
+              <div
+                role="group"
+                aria-label="Workbench controls position"
+                className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold shrink-0 self-start sm:self-auto"
+              >
+                {(['below', 'top', 'left', 'right'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setControllerPos(pos)}
+                    aria-pressed={controllerPos === pos}
+                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-[11px] font-mono ${
+                      controllerPos === pos
+                        ? 'bg-white shadow-2xs text-[#1A1917]'
+                        : 'text-[#75736E] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    {pos === 'below'
+                      ? 'Bars: Below'
+                      : pos === 'top'
+                        ? 'Bars: Top'
+                        : pos === 'left'
+                          ? 'Bars: Left'
+                          : 'Bars: Right'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Flexible Workbench Content */}
+            {controllerPos === 'below' ? (
+              <div className="space-y-4">
+                {graphsStack}
+                {controlsCard}
+              </div>
+            ) : controllerPos === 'top' ? (
+              <div className="space-y-4">
+                {controlsCard}
+                {graphsStack}
+              </div>
+            ) : controllerPos === 'left' ? (
+              <div className="flex flex-col gap-4 lg:h-[calc(100vh-240px)] lg:min-h-[560px] lg:grid lg:grid-cols-[minmax(0,35fr)_minmax(0,65fr)] lg:overflow-hidden">
+                <div className="order-2 lg:order-1 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-1.5">
+                  {controlsCard}
+                </div>
+                <div className="order-1 lg:order-2 min-w-0 lg:h-full lg:overflow-hidden">
+                  {graphsStack}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 lg:h-[calc(100vh-240px)] lg:min-h-[560px] lg:grid lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:overflow-hidden">
+                <div className="order-1 min-w-0 lg:h-full lg:overflow-hidden">
+                  {graphsStack}
+                </div>
+                <div className="order-2 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-1.5">
+                  {controlsCard}
+                </div>
+              </div>
+            )}
           </div>
-
-          <div className="relative w-full h-48 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] select-none">
-            <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-full">
-              {/* Baseline */}
-              <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="#8A8882" strokeWidth="1.5" />
-
-              {/* Binned Frequency Bars */}
-              {histAndFittedCurve.counts.map((c, idx) => {
-                const bStart = histAndFittedCurve.domainMin + idx * histAndFittedCurve.binW;
-                const px = histAndFittedCurve.toPxX(bStart);
-                const py = histAndFittedCurve.toPxY(c);
-                const bW = (histAndFittedCurve.binW / (histAndFittedCurve.domainMax - histAndFittedCurve.domainMin)) * plotW;
-                const bH = pad.top + plotH - py;
-                return (
-                  <rect
-                    key={idx}
-                    x={px}
-                    y={py}
-                    width={Math.max(1, bW - 1)}
-                    height={bH}
-                    fill="rgba(37, 99, 235, 0.22)"
-                    stroke="#2563EB"
-                    strokeWidth="0.75"
-                  />
-                );
-              })}
-
-              {/* Fitted Normal Path */}
-              <path d={histAndFittedCurve.normPath} fill="none" stroke="#C85A32" strokeWidth="2.5" />
-            </svg>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 8. Sum of Squares Step-by-Step Breakdown Table */}
       {stats && (
