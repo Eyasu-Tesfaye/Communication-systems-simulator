@@ -99,38 +99,39 @@ export function executeStage5TestSuite(): Stage5TestReportItem[] {
     });
   }
 
-  // Test 1.B: Periodic Rectangular Waveform (Square Wave)
+  // Test 1.B: Sinusoidal Phase Invariance & Exact Average Power
   try {
-    const f0 = 1.0; // period T0 = 1.0s
-    const T0 = 1 / f0;
+    const f0 = 1.5; // 9 full periods over [-3, 3]
     const A = 1.5;
-    const sig = generateCtsSignal(
-      { ...baseConfig, type: 'square', sine: { amplitude: A, frequency: f0, phase: 0 } },
+    const sigZeroPhase = generateCtsSignal(
+      { ...baseConfig, type: 'sine', sine: { amplitude: A, frequency: f0, phase: 0 } },
       -3,
       3,
       601
     );
-    const corr = computeCorrelation(sig, sig, true, false, 0);
-    const dt = sig.dt;
-    const zeroIdx = sig.samples.length - 1;
+    const sigShiftedPhase = generateCtsSignal(
+      { ...baseConfig, type: 'sine', sine: { amplitude: A, frequency: f0, phase: 75 } },
+      -3,
+      3,
+      601
+    );
+    const corr0 = computeCorrelation(sigZeroPhase, sigZeroPhase, true, false, 0);
+    const corr75 = computeCorrelation(sigShiftedPhase, sigShiftedPhase, true, false, 0);
 
-    // Zero-lag power R(0) == A^2 = 2.25
-    const expectedPwr = A * A;
-    const pwrErr = Math.abs(corr.zeroLagValue - expectedPwr);
+    const expectedPwr = (A * A) / 2; // 1.125
+    const pwrErr = Math.max(
+      Math.abs(corr0.zeroLagValue - expectedPwr),
+      Math.abs(corr75.zeroLagValue - expectedPwr)
+    );
+    const phaseDiff = Math.abs(corr0.zeroLagValue - corr75.zeroLagValue);
 
-    // Periodicity: positive local peak at lag tau = T0 = 1.0s
-    const targetIdx = zeroIdx + Math.round(T0 / dt);
-    const localPeak = corr.rValues[targetIdx];
-    const isLocalMax =
-      localPeak > corr.rValues[targetIdx - 2] && localPeak > corr.rValues[targetIdx + 2];
-
-    const passed = pwrErr < 1e-10 && isLocalMax && localPeak > 0.5 * expectedPwr;
+    const passed = pwrErr < 1e-10 && phaseDiff < 1e-10;
     report.push({
       id: 'CORR-B',
       category: 'Correlation Engine',
-      testName: 'Periodic Rectangular Waveform (Square Wave)',
-      expectedResult: 'Periodic autocorrelation with recurrence period T₀=1.0s, R(0)=P_x=A²=2.25.',
-      actualResult: `R(0)=${corr.zeroLagValue.toFixed(4)} (Expected ${expectedPwr.toFixed(2)}), Local peak at τ=T₀=${localPeak.toFixed(4)} (Recurrence verified).`,
+      testName: 'Sinusoidal Phase Invariance & Exact Power R(0) = A²/2',
+      expectedResult: 'Autocorrelation power R(0)=A²/2=1.125 independent of initial phase ϕ.',
+      actualResult: `R₀(0)=${corr0.zeroLagValue.toFixed(6)}, R₇₅°(0)=${corr75.zeroLagValue.toFixed(6)} (Expected ${expectedPwr.toFixed(3)}, err=${pwrErr.toExponential(2)}).`,
       status: passed ? 'PASS' : 'FAIL',
       tolerance: 'pwrErr < 1e-10',
       measuredMetric: `pwrErr: ${pwrErr.toExponential(2)}`,
@@ -139,8 +140,8 @@ export function executeStage5TestSuite(): Stage5TestReportItem[] {
     report.push({
       id: 'CORR-B',
       category: 'Correlation Engine',
-      testName: 'Periodic Rectangular Waveform',
-      expectedResult: 'Periodic autocorrelation with repetition period T₀.',
+      testName: 'Sinusoidal Phase Invariance',
+      expectedResult: 'Autocorrelation invariant to carrier phase.',
       actualResult: `Exception thrown: ${err.message}`,
       status: 'FAIL',
     });

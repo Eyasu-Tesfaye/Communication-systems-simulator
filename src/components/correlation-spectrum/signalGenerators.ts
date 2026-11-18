@@ -1,35 +1,37 @@
 /**
- * Signal Generation Engine for Module 07: Correlation & Spectral Analysis
+ * Signal Generation Engine for Module 05: Correlation & Spectral Analysis
  * Supports real-valued deterministic and stochastic signals for continuous-time
  * approximations (CTS) and discrete-time calculations (DTS).
+ *
+ * Core signal types: Sinusoid, Rectangular Pulse, White Noise, Colored Noise.
  */
 
-export type SignalType = 'sine' | 'pulse' | 'square' | 'white_noise' | 'colored_noise';
+export type SignalType = 'sine' | 'pulse' | 'white_noise' | 'colored_noise';
 export type SignalCategory = 'energy' | 'power';
 
 export interface SinusoidParams {
   amplitude: number; // A (V)
-  frequency: number; // f_0 (Hz in CTS, cycles/sample in DTS)
+  frequency: number; // f_0 (Hz in CTS, scaled cycles/sample in DTS)
   phase: number;     // phi (degrees, converted to radians internally)
 }
 
 export interface PulseParams {
-  amplitude: number;  // A (V)
-  width: number;      // W (seconds in CTS, integer samples in DTS)
-  position: number;   // t_0 (seconds in CTS, sample index n_0 in DTS)
+  amplitude: number; // A (V)
+  width: number;     // W (seconds in CTS, scaled samples in DTS)
+  position: number;  // t_0 (seconds in CTS, scaled sample index in DTS)
 }
 
 export interface WhiteNoiseParams {
-  stdDev: number;     // sigma (noise amplitude / standard deviation)
-  variance?: number;  // sigma^2 (noise variance)
-  seed: number;       // realization seed
+  stdDev: number;    // sigma (noise amplitude / standard deviation)
+  variance?: number; // sigma^2 (noise variance)
+  seed: number;      // realization seed
 }
 
 export interface ColoredNoiseParams {
   stdDev: number;      // sigma (output standard deviation)
   variance?: number;   // sigma^2 (noise variance)
   cutoffFreq?: number; // fc in Hz (digital low-pass filter 3-dB cutoff frequency)
-  filterParam: number; // alpha: AR(1) pole / lowpass memory coefficient in (-0.95, 0.95)
+  filterParam: number; // alpha: AR(1) pole / memory coefficient in (-0.95, 0.95)
   seed: number;        // realization seed
 }
 
@@ -45,13 +47,13 @@ export interface GeneratedSignal {
   type: SignalType;
   category: SignalCategory;
   name: string;
-  timeVector: number[];    // t or n values
+  timeVector: number[];    // t or n values (full floating-point precision)
   samples: number[];       // x[n] or x(t_n)
-  dt: number;              // sampling interval (seconds or 1 for DTS)
-  duration: number;        // total duration
-  energy: number;          // total energy (integral for CTS, sum for DTS)
-  power: number;           // average power
-  // Function to evaluate the signal shifted by lag tau: y(t - tau) with zero padding outside window
+  weights: number[];       // quadrature weights (trapezoidal [0.5, 1, ..., 1, 0.5] for CTS; all 1 for DTS)
+  dt: number;              // sampling interval (seconds for CTS, 1 for DTS)
+  duration: number;        // total span T = (N-1)*dt for CTS, N for DTS
+  energy: number;          // total energy (trapezoidal integral for CTS, sum for DTS)
+  power: number;           // time-average power (energy/T for CTS, (1/N)*sum for DTS)
   evalShifted: (lag: number) => number[];
 }
 
@@ -70,7 +72,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * Box-Muller transform for standard normal random numbers
+ * Box-Muller transform for standard normal random numbers N(0, 1)
  */
 function createGaussianRNG(seed: number): () => number {
   const rand = mulberry32(seed);
@@ -111,10 +113,38 @@ export function generateGaussianWhiteNoise(numPoints: number, seed: number): num
 }
 
 /**
+ * Core AR(1) filter preserving exact stationary variance targetStdDev^2:
+ * y[n] = alpha * y[n-1] + sqrt(1 - alpha^2) * targetStdDev * w[n]
+ */
+function applyAr1Filter(
+  rawWhiteNoise: number[],
+  alpha: number,
+  targetStdDev: number,
+  warmupRng?: () => number
+): number[] {
+  const N = rawWhiteNoise.length;
+  const clampedAlpha = Math.max(-0.95, Math.min(0.95, alpha));
+  const safeStd = Math.max(0, targetStdDev);
+  const innovationScale = Math.sqrt(Math.max(0, 1 - clampedAlpha * clampedAlpha));
+
+  const output = new Array(N);
+  let state = (warmupRng ? warmupRng() : rawWhiteNoise[0] || 0) * safeStd;
+  for (let w = 0; w < 64; w++) {
+    const innov = warmupRng ? warmupRng() : rawWhiteNoise[w % Math.max(1, N)] || 0;
+    state = clampedAlpha * state + innovationScale * safeStd * innov;
+  }
+
+  for (let i = 0; i < N; i++) {
+    state = clampedAlpha * state + innovationScale * safeStd * rawWhiteNoise[i];
+    output[i] = state;
+  }
+  return output;
+}
+
+/**
  * Applies a digital single-pole lowpass filter to an input white noise sequence
  * Difference equation: y[n] = alpha * y[n-1] + sqrt(1 - alpha^2) * targetStdDev * w[n]
  * where alpha = exp(-2 * pi * cutoffFreq / sampleRate)
- * preserves stationary variance = targetStdDev^2
  */
 export function filterColoredNoise(
   rawWhiteNoise: number[],
@@ -123,30 +153,17 @@ export function filterColoredNoise(
   targetStdDev: number,
   warmupRng?: () => number
 ): number[] {
-  const N = rawWhiteNoise.length;
   const nyquist = sampleRate / 2;
-  const clampedFc = Math.max(0.1, Math.min(nyquist * 0.95, cutoffFreq));
+  const clampedFc = Math.max(0.01, Math.min(nyquist * 0.95, cutoffFreq));
   const alpha = Math.exp((-2 * Math.PI * clampedFc) / sampleRate);
-  const innovationScale = Math.sqrt(Math.max(0.001, 1 - alpha * alpha));
-
-  const output = new Array(N);
-  // Stationary warm-up to reach steady-state variance
-  let state = (warmupRng ? warmupRng() : rawWhiteNoise[0]) * targetStdDev;
-  for (let w = 0; w < 60; w++) {
-    const innov = warmupRng ? warmupRng() : rawWhiteNoise[w % N];
-    state = alpha * state + innovationScale * targetStdDev * innov;
-  }
-
-  for (let i = 0; i < N; i++) {
-    state = alpha * state + innovationScale * targetStdDev * rawWhiteNoise[i];
-    output[i] = state;
-  }
-  return output;
+  return applyAr1Filter(rawWhiteNoise, alpha, targetStdDev, warmupRng);
 }
 
 /**
  * Generates continuous-time approximation (CTS) signal vector
- * Time window: t in [-T/2, +T/2]
+ * Time window: t in [tMin, tMax] with N = numPoints samples and dt = (tMax - tMin)/(N - 1).
+ * Uses trapezoidal quadrature weights [0.5, 1, ..., 1, 0.5] so continuous integrals
+ * for energy E_x and time-average power P_x = (1/T) \int x(t)^2 dt match theory without endpoint bias.
  */
 export function generateCtsSignal(
   config: UnifiedSignalConfig,
@@ -154,136 +171,132 @@ export function generateCtsSignal(
   tMax: number = 3.0,
   numPoints: number = 301
 ): GeneratedSignal {
-  const dt = (tMax - tMin) / (numPoints - 1);
-  const timeVector: number[] = new Array(numPoints);
-  for (let i = 0; i < numPoints; i++) {
-    timeVector[i] = Number((tMin + i * dt).toFixed(4));
+  const N = Math.max(2, numPoints);
+  const duration = Math.max(1e-6, tMax - tMin);
+  const dt = duration / (N - 1);
+
+  const timeVector: number[] = new Array(N);
+  const weights: number[] = new Array(N);
+  for (let i = 0; i < N; i++) {
+    timeVector[i] = tMin + i * dt;
+    weights[i] = i === 0 || i === N - 1 ? 0.5 : 1.0;
   }
 
   const { type, sine, pulse, whiteNoise, coloredNoise } = config;
-  const samples = new Array(numPoints).fill(0);
+  const samples = new Array(N).fill(0);
 
   let category: SignalCategory = 'power';
   let name = '';
 
   if (type === 'sine') {
     category = 'power';
-    name = `Sinusoid (f₀=${sine.frequency}Hz, A=${sine.amplitude}V)`;
-    const omega = 2 * Math.PI * sine.frequency;
+    const f0 = Math.max(0, sine.frequency);
+    const omega = 2 * Math.PI * f0;
     const phaseRad = (sine.phase * Math.PI) / 180;
-    for (let i = 0; i < numPoints; i++) {
+    name = `Sinusoid (f₀=${f0}Hz, A=${sine.amplitude}V)`;
+    for (let i = 0; i < N; i++) {
       samples[i] = sine.amplitude * Math.cos(omega * timeVector[i] + phaseRad);
     }
   } else if (type === 'pulse') {
     category = 'energy';
-    name = `Rect Pulse (W=${pulse.width}s, t₀=${pulse.position}s)`;
-    const halfW = pulse.width / 2;
-    for (let i = 0; i < numPoints; i++) {
-      const dist = Math.abs(timeVector[i] - pulse.position);
-      if (dist < halfW - 1e-6) {
-        samples[i] = pulse.amplitude;
-      } else if (Math.abs(dist - halfW) <= 1e-6) {
-        samples[i] = pulse.amplitude * 0.5;
-      } else {
-        samples[i] = 0;
+    const width = Math.max(0, pulse.width);
+    const halfW = width / 2;
+    name = `Rect Pulse (W=${width}s, t₀=${pulse.position}s)`;
+    if (width > 0) {
+      const eps = dt * 1e-4;
+      for (let i = 0; i < N; i++) {
+        const t = timeVector[i];
+        // Half-open interval [t0 - W/2, t0 + W/2) ensures exact energy A^2 * W on grid multiples
+        if (t >= pulse.position - halfW - eps && t < pulse.position + halfW - eps) {
+          samples[i] = pulse.amplitude;
+        } else {
+          samples[i] = 0;
+        }
       }
-    }
-  } else if (type === 'square') {
-    category = 'power';
-    name = `Square Wave (f₀=${sine.frequency}Hz, A=${sine.amplitude}V)`;
-    const omega = 2 * Math.PI * Math.max(1e-4, sine.frequency);
-    const phaseRad = (sine.phase * Math.PI) / 180;
-    for (let i = 0; i < numPoints; i++) {
-      const v = Math.cos(omega * timeVector[i] + phaseRad);
-      samples[i] = v >= 0 ? sine.amplitude : -sine.amplitude;
     }
   } else if (type === 'white_noise') {
     category = 'power';
-    name = `White Gaussian Noise (σ=${whiteNoise.stdDev})`;
-    const raw = generateGaussianWhiteNoise(numPoints, whiteNoise.seed);
-    for (let i = 0; i < numPoints; i++) {
-      samples[i] = whiteNoise.stdDev * raw[i];
+    const safeStd = Math.max(0, whiteNoise.stdDev);
+    name = `White Gaussian Noise (σ=${safeStd.toFixed(2)})`;
+    const raw = generateGaussianWhiteNoise(N, whiteNoise.seed);
+    for (let i = 0; i < N; i++) {
+      samples[i] = safeStd * raw[i];
     }
   } else if (type === 'colored_noise') {
     category = 'power';
     const Fs = 1 / dt;
-    let fc = coloredNoise.cutoffFreq;
-    let alpha = coloredNoise.filterParam;
-    if (fc !== undefined && fc > 0) {
-      alpha = Math.exp((-2 * Math.PI * fc) / Fs);
-    } else {
-      fc = Number(((-Fs / (2 * Math.PI)) * Math.log(Math.max(1e-4, Math.abs(alpha)))).toFixed(2));
-    }
-    alpha = Math.max(-0.95, Math.min(0.95, alpha));
-    name = `Colored Noise (fc=${fc.toFixed(1)}Hz, α=${alpha.toFixed(2)}, σ=${coloredNoise.stdDev})`;
-
-    // Decoupled generation: raw white noise + lowpass filter
-    const raw = generateGaussianWhiteNoise(numPoints, coloredNoise.seed);
+    const safeStd = Math.max(0, coloredNoise.stdDev);
+    const raw = generateGaussianWhiteNoise(N, coloredNoise.seed);
     const warmupRng = createGaussianRNG(coloredNoise.seed);
-    const filtered = filterColoredNoise(raw, fc, Fs, coloredNoise.stdDev, warmupRng);
-    for (let i = 0; i < numPoints; i++) {
+
+    let filtered: number[];
+    let alpha: number;
+    let fc: number;
+
+    if (coloredNoise.cutoffFreq !== undefined && coloredNoise.cutoffFreq > 0) {
+      const nyquist = Fs / 2;
+      fc = Math.max(0.05, Math.min(nyquist * 0.95, coloredNoise.cutoffFreq));
+      alpha = Math.exp((-2 * Math.PI * fc) / Fs);
+      filtered = applyAr1Filter(raw, alpha, safeStd, warmupRng);
+    } else {
+      alpha = Math.max(-0.95, Math.min(0.95, coloredNoise.filterParam));
+      fc =
+        alpha > 0
+          ? Number(((-Fs / (2 * Math.PI)) * Math.log(Math.max(1e-4, alpha))).toFixed(2))
+          : Fs / 2;
+      filtered = applyAr1Filter(raw, alpha, safeStd, warmupRng);
+    }
+
+    name = `Colored Noise (fc=${fc.toFixed(1)}Hz, α=${alpha.toFixed(2)}, σ=${safeStd.toFixed(2)})`;
+    for (let i = 0; i < N; i++) {
       samples[i] = filtered[i];
     }
   }
 
-  // Calculate actual energy and average power of generated record
-  let sumSq = 0;
-  for (let i = 0; i < numPoints; i++) {
-    sumSq += samples[i] * samples[i];
+  // Trapezoidal energy and continuous time-average power
+  let weightedSumSq = 0;
+  for (let i = 0; i < N; i++) {
+    weightedSumSq += weights[i] * samples[i] * samples[i];
   }
-  const energy = sumSq * dt; // Integral approx: sum(x^2) * dt
-  const power = sumSq / numPoints; // Time average: (1/N) * sum(x^2)
+  const energy = weightedSumSq * dt;
+  const power = energy / duration; // equals weightedSumSq / (N - 1)
 
-  // Evaluator function for delayed signal x(t - lag) with zero padding outside [tMin, tMax]
+  // Evaluator for delayed signal x(t - lag) with zero padding outside [tMin, tMax]
   const evalShifted = (lag: number): number[] => {
-    const shifted = new Array(numPoints).fill(0);
-    // For each point t_i in timeVector, we need the value of the signal at t_i - lag.
+    const shifted = new Array(N).fill(0);
+    const eps = dt * 1e-4;
     if (type === 'sine') {
-      const omega = 2 * Math.PI * sine.frequency;
+      const f0 = Math.max(0, sine.frequency);
+      const omega = 2 * Math.PI * f0;
       const phaseRad = (sine.phase * Math.PI) / 180;
-      for (let i = 0; i < numPoints; i++) {
+      for (let i = 0; i < N; i++) {
         const delayedT = timeVector[i] - lag;
-        if (delayedT >= tMin && delayedT <= tMax) {
+        if (delayedT >= tMin - eps && delayedT <= tMax + eps) {
           shifted[i] = sine.amplitude * Math.cos(omega * delayedT + phaseRad);
-        } else {
-          shifted[i] = 0; // zero-padded outside finite observation interval
-        }
-      }
-    } else if (type === 'square') {
-      const omega = 2 * Math.PI * Math.max(1e-4, sine.frequency);
-      const phaseRad = (sine.phase * Math.PI) / 180;
-      for (let i = 0; i < numPoints; i++) {
-        const delayedT = timeVector[i] - lag;
-        if (delayedT >= tMin && delayedT <= tMax) {
-          const v = Math.cos(omega * delayedT + phaseRad);
-          shifted[i] = v >= 0 ? sine.amplitude : -sine.amplitude;
-        } else {
-          shifted[i] = 0;
         }
       }
     } else if (type === 'pulse') {
-      const halfW = pulse.width / 2;
-      for (let i = 0; i < numPoints; i++) {
-        const delayedT = timeVector[i] - lag;
-        if (delayedT >= tMin && delayedT <= tMax) {
-          if (Math.abs(delayedT - pulse.position) <= halfW) {
+      const width = Math.max(0, pulse.width);
+      const halfW = width / 2;
+      if (width > 0) {
+        for (let i = 0; i < N; i++) {
+          const delayedT = timeVector[i] - lag;
+          if (
+            delayedT >= tMin - eps &&
+            delayedT <= tMax + eps &&
+            delayedT >= pulse.position - halfW - eps &&
+            delayedT < pulse.position + halfW - eps
+          ) {
             shifted[i] = pulse.amplitude;
-          } else {
-            shifted[i] = 0;
           }
-        } else {
-          shifted[i] = 0;
         }
       }
     } else {
-      // Noise: shift array by k = round(lag / dt) samples
       const k = Math.round(lag / dt);
-      for (let i = 0; i < numPoints; i++) {
+      for (let i = 0; i < N; i++) {
         const srcIdx = i - k;
-        if (srcIdx >= 0 && srcIdx < numPoints) {
+        if (srcIdx >= 0 && srcIdx < N) {
           shifted[i] = samples[srcIdx];
-        } else {
-          shifted[i] = 0;
         }
       }
     }
@@ -296,8 +309,9 @@ export function generateCtsSignal(
     name,
     timeVector,
     samples,
+    weights,
     dt,
-    duration: tMax - tMin,
+    duration,
     energy,
     power,
     evalShifted,
@@ -310,95 +324,95 @@ export function generateCtsSignal(
  */
 export function generateDtsSignal(
   config: UnifiedSignalConfig,
-  numSamples: number = 41, // e.g. -20 to +20
+  numSamples: number = 41,
   centered: boolean = true
 ): GeneratedSignal {
-  const timeVector: number[] = new Array(numSamples);
-  const offset = centered ? -Math.floor(numSamples / 2) : 0;
-  for (let i = 0; i < numSamples; i++) {
+  const N = Math.max(1, numSamples);
+  const timeVector: number[] = new Array(N);
+  const weights: number[] = new Array(N).fill(1.0);
+  const offset = centered ? -Math.floor(N / 2) : 0;
+  for (let i = 0; i < N; i++) {
     timeVector[i] = offset + i;
   }
 
   const { type, sine, pulse, whiteNoise, coloredNoise } = config;
-  const samples = new Array(numSamples).fill(0);
+  const samples = new Array(N).fill(0);
 
   let category: SignalCategory = 'power';
   let name = '';
 
   if (type === 'sine') {
     category = 'power';
-    name = `Discrete Sinusoid (ω₀=${(2 * Math.PI * (sine.frequency / 10)).toFixed(2)} rad)`;
-    // Normalized discrete frequency
-    const omega = 2 * Math.PI * (sine.frequency / 10);
+    const normFreq = Math.max(0, sine.frequency) / 10;
+    const omega = 2 * Math.PI * normFreq;
     const phaseRad = (sine.phase * Math.PI) / 180;
-    for (let i = 0; i < numSamples; i++) {
+    name = `Discrete Sinusoid (f₀=${normFreq.toFixed(2)} cyc/smp)`;
+    for (let i = 0; i < N; i++) {
       samples[i] = sine.amplitude * Math.cos(omega * timeVector[i] + phaseRad);
-    }
-  } else if (type === 'square') {
-    category = 'power';
-    name = `Discrete Square Wave (f₀=${sine.frequency})`;
-    const omega = 2 * Math.PI * (Math.max(1e-4, sine.frequency) / 10);
-    const phaseRad = (sine.phase * Math.PI) / 180;
-    for (let i = 0; i < numSamples; i++) {
-      const v = Math.cos(omega * timeVector[i] + phaseRad);
-      samples[i] = v >= 0 ? sine.amplitude : -sine.amplitude;
     }
   } else if (type === 'pulse') {
     category = 'energy';
-    name = `Discrete Pulse (W=${Math.round(pulse.width * 5)} samples)`;
-    const halfW = Math.round((pulse.width * 5) / 2);
+    const widthSamples = Math.max(0, Math.round(pulse.width * 5));
     const pos = Math.round(pulse.position * 5);
-    for (let i = 0; i < numSamples; i++) {
-      const n = timeVector[i];
-      if (Math.abs(n - pos) <= halfW) {
-        samples[i] = pulse.amplitude;
-      } else {
-        samples[i] = 0;
+    name = `Discrete Pulse (W=${widthSamples} samples)`;
+    if (widthSamples > 0) {
+      const start = pos - Math.floor(widthSamples / 2);
+      const end = start + widthSamples; // exact widthSamples count
+      for (let i = 0; i < N; i++) {
+        const n = timeVector[i];
+        if (n >= start && n < end) {
+          samples[i] = pulse.amplitude;
+        }
       }
     }
   } else if (type === 'white_noise') {
     category = 'power';
-    name = `Discrete White Noise (σ=${whiteNoise.stdDev})`;
-    const raw = generateGaussianWhiteNoise(numSamples, whiteNoise.seed);
-    for (let i = 0; i < numSamples; i++) {
-      samples[i] = whiteNoise.stdDev * raw[i];
+    const safeStd = Math.max(0, whiteNoise.stdDev);
+    name = `Discrete White Noise (σ=${safeStd.toFixed(2)})`;
+    const raw = generateGaussianWhiteNoise(N, whiteNoise.seed);
+    for (let i = 0; i < N; i++) {
+      samples[i] = safeStd * raw[i];
     }
   } else if (type === 'colored_noise') {
     category = 'power';
-    const Fs = 1; // normalized sample rate in DTS
-    let fc = coloredNoise.cutoffFreq;
-    let alpha = coloredNoise.filterParam;
-    if (fc !== undefined && fc > 0) {
-      alpha = Math.exp((-2 * Math.PI * fc) / 20); // 20 samples baseline rate
-    } else {
-      fc = Number(((-20 / (2 * Math.PI)) * Math.log(Math.max(1e-4, Math.abs(alpha)))).toFixed(2));
-    }
-    alpha = Math.max(-0.95, Math.min(0.95, alpha));
-    name = `Discrete AR(1) Noise (fc=${fc.toFixed(1)}, α=${alpha.toFixed(2)})`;
-    const raw = generateGaussianWhiteNoise(numSamples, coloredNoise.seed);
+    const safeStd = Math.max(0, coloredNoise.stdDev);
+    const raw = generateGaussianWhiteNoise(N, coloredNoise.seed);
     const warmupRng = createGaussianRNG(coloredNoise.seed);
-    const filtered = filterColoredNoise(raw, fc, 20, coloredNoise.stdDev, warmupRng);
-    for (let i = 0; i < numSamples; i++) {
+
+    let alpha: number;
+    let fc: number;
+    if (coloredNoise.cutoffFreq !== undefined && coloredNoise.cutoffFreq > 0) {
+      fc = Math.max(0.05, Math.min(9.5, coloredNoise.cutoffFreq));
+      alpha = Math.exp((-2 * Math.PI * fc) / 20);
+    } else {
+      alpha = Math.max(-0.95, Math.min(0.95, coloredNoise.filterParam));
+      fc =
+        alpha > 0
+          ? Number(((-20 / (2 * Math.PI)) * Math.log(Math.max(1e-4, alpha))).toFixed(2))
+          : 10;
+    }
+
+    name = `Discrete AR(1) Noise (α=${alpha.toFixed(2)})`;
+    const filtered = applyAr1Filter(raw, alpha, safeStd, warmupRng);
+    for (let i = 0; i < N; i++) {
       samples[i] = filtered[i];
     }
   }
 
   let sumSq = 0;
-  for (let i = 0; i < numSamples; i++) {
+  for (let i = 0; i < N; i++) {
     sumSq += samples[i] * samples[i];
   }
   const energy = sumSq; // DTS energy: sum(x[n]^2)
-  const power = sumSq / numSamples; // DTS average power: (1/N) * sum(x[n]^2)
+  const power = sumSq / N; // DTS average power: (1/N) * sum(x[n]^2)
 
   const evalShifted = (lag: number): number[] => {
     const k = Math.round(lag);
-    const shifted = new Array(numSamples).fill(0);
-    for (let i = 0; i < numSamples; i++) {
+    const shifted = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) {
       const srcIdx = i - k;
-      if (srcIdx >= 0 && srcIdx < numSamples) {
+      if (srcIdx >= 0 && srcIdx < N) {
         shifted[i] = samples[srcIdx];
-      } else {
-        shifted[i] = 0;
       }
     }
     return shifted;
@@ -410,8 +424,9 @@ export function generateDtsSignal(
     name,
     timeVector,
     samples,
+    weights,
     dt: 1,
-    duration: numSamples,
+    duration: N,
     energy,
     power,
     evalShifted,
