@@ -76,18 +76,18 @@ export const ModuleExplorer: React.FC<ModuleExplorerProps> = ({
           </p>
         </div>
 
-        {/* Two-Chapter Segmented Tab Control (Fixed Equal Columns to Prevent Resize) */}
+        {/* Two-Chapter Segmented Tab Control */}
         <div
           role="tablist"
           aria-label="Lab chapters"
-          className="grid grid-cols-2 p-1 bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg gap-1 shrink-0 w-full sm:w-auto sm:min-w-[390px]"
+          className="inline-flex flex-wrap sm:flex-nowrap items-center p-1 bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg gap-1 shrink-0 w-full sm:w-auto"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeChapterTab === 'signals'}
             onClick={() => setActiveChapterTab('signals')}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
               activeChapterTab === 'signals'
                 ? 'bg-white text-[#C85A32] shadow-2xs border-[#E6E4DD]'
                 : 'border-transparent text-[#75736E] hover:text-[#1A1917]'
@@ -102,14 +102,14 @@ export const ModuleExplorer: React.FC<ModuleExplorerProps> = ({
             role="tab"
             aria-selected={activeChapterTab === 'am'}
             onClick={() => setActiveChapterTab('am')}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
               activeChapterTab === 'am'
                 ? 'bg-white text-[#C85A32] shadow-2xs border-[#E6E4DD]'
                 : 'border-transparent text-[#75736E] hover:text-[#1A1917]'
             }`}
           >
             <Radio className="w-3.5 h-3.5 shrink-0" />
-            <span>Amplitude Mod</span>
+            <span>Modulation/Demodulation</span>
             <span className="text-[10px] text-[#A8A69E] font-normal">01–07</span>
           </button>
         </div>
@@ -123,7 +123,7 @@ export const ModuleExplorer: React.FC<ModuleExplorerProps> = ({
           aria-label={
             activeChapterTab === 'signals'
               ? 'List of Signals & Processes modules'
-              : 'List of Amplitude Modulation modules'
+              : 'List of Modulation/Demodulation modules'
           }
         >
           {activeList.map((m, idx) => {
