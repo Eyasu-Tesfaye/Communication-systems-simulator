@@ -2553,7 +2553,7 @@ export const Module2_6_AM_PM: React.FC<Module2_6_AM_PMProps> = ({
 }) => {
   const currentSubTopic: AMSubTopic = AM_MODULES[5]; // Module 2.6 Phase Modulation and Demodulation
   const prevMod = AM_MODULES[4]; // Module 2.5 FM
-  const nextMod = AM_MODULES[6]; // Module 2.7 Demodulation
+  const nextMod = AM_MODULES[0]; // Module 2.1 CAM
 
   const [params, setParams] = useState<PMParams>(DEFAULT_PM_PARAMS);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -2612,7 +2612,7 @@ export const Module2_6_AM_PM: React.FC<Module2_6_AM_PMProps> = ({
       <style>{LAB_STYLES}</style>
 
       <div className={presentationMode ? 'mx-auto max-w-[1600px] space-y-8' : 'py-2 space-y-8'}>
-        {/* Module Header Bar (Matching Modules 2.1 - 2.7) */}
+        {/* Module Header Bar (Matching Modules 2.1 - 2.6) */}
         <div
           id="pm-top"
           className="pb-6 border-b border-[#E6E4DD] flex flex-col md:flex-row md:items-end justify-between gap-6"

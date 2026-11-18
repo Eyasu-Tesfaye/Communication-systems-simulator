@@ -210,7 +210,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     ? 'bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/40 shadow-2xs'
                     : 'text-[#75736E] hover:text-[#1A1917] hover:bg-[#FAF9F6]'
                 }`}
-                title="Modulation/Demodulation (01–07)"
+                title="Modulation/Demodulation (01–06)"
                 aria-label="Modulation/Demodulation"
               >
                 <Radio className="w-4 h-4" />
@@ -386,7 +386,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               })}
 
             {/* ============================================================== */}
-            {/* SECTION 2: Modulation/Demodulation (01–07 / 2.1–2.7)          */}
+            {/* SECTION 2: Modulation/Demodulation (01–06 / 2.1–2.6)          */}
             {/* ============================================================== */}
             {!isCollapsed && (
               <button
@@ -409,9 +409,9 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     Modulation/Demodulation
                   </span>
                 </div>
-                {/* 01-07 replaces former 5 topics badge */}
+                {/* 01-06 count matches 2.1–2.6 */}
                 <span className="text-[9px] font-mono text-[#A8A69E] shrink-0">
-                  01–07
+                  01–06
                 </span>
               </button>
             )}
@@ -650,7 +650,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               {/* Module List in Drawer */}
               <div className="mt-4 pt-1">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] mb-2 px-1">
-                  {activeChapter === 'signals' ? 'Signals & Processes (01–07)' : 'Modulation/Demodulation (01–07)'}
+                  {activeChapter === 'signals' ? 'Signals & Processes (01–07)' : 'Modulation/Demodulation (01–06)'}
                 </div>
 
                 <nav className="flex flex-col gap-1" aria-label="Mobile Module Items">

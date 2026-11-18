@@ -72,7 +72,7 @@ export const ModuleExplorer: React.FC<ModuleExplorerProps> = ({
           <p className="mt-1 text-sm text-[#585651]">
             {activeChapterTab === 'signals'
               ? 'Seven connected areas of signal analysis, each with its own workspace.'
-              : 'Seven connected areas of modulation & detection, each with its own workspace.'}
+              : 'Six connected areas of modulation & detection, each with its own workspace.'}
           </p>
         </div>
 
@@ -110,7 +110,7 @@ export const ModuleExplorer: React.FC<ModuleExplorerProps> = ({
           >
             <Radio className="w-3.5 h-3.5 shrink-0" />
             <span>Modulation/Demodulation</span>
-            <span className="text-[10px] text-[#A8A69E] font-normal">01–07</span>
+            <span className="text-[10px] text-[#A8A69E] font-normal">01–06</span>
           </button>
         </div>
       </div>

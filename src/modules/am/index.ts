@@ -1,5 +1,5 @@
 /**
- * Amplitude & Angle Modulation Modules: 2.1 to 2.7
+ * Amplitude & Angle Modulation Modules: 2.1 to 2.6
  */
 
 import { Module2_1_CAM } from './Module2_1_CAM';
@@ -8,7 +8,6 @@ import { Module2_3_SSB } from './Module2_3_SSB';
 import { Module2_4_VSB } from './Module2_4_VSB';
 import { Module2_5_FM } from './Module2_5_FM';
 import { Module2_6_AM_PM } from './Module2_6_AM_PM';
-import { Module2_7_Demodulation } from './Module2_7_Demodulation';
 
 export {
   Module2_1_CAM,
@@ -17,7 +16,6 @@ export {
   Module2_4_VSB,
   Module2_5_FM,
   Module2_6_AM_PM,
-  Module2_7_Demodulation,
 };
 
 export const AM_MODULE_COMPONENTS = {
@@ -40,7 +38,4 @@ export const AM_MODULE_COMPONENTS = {
   'pm': Module2_6_AM_PM,
   '2.6': Module2_6_AM_PM,
   '06': Module2_6_AM_PM,
-  'demodulation': Module2_7_Demodulation,
-  '2.7': Module2_7_Demodulation,
-  '07': Module2_7_Demodulation,
 };
