@@ -210,8 +210,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     ? 'bg-[#FBF4F0] text-[#C85A32] border border-[#C85A32]/40 shadow-2xs'
                     : 'text-[#75736E] hover:text-[#1A1917] hover:bg-[#FAF9F6]'
                 }`}
-                title="Amplitude Modulation (01–07)"
-                aria-label="Amplitude Modulation"
+                title="Modulation/Demodulation (01–06)"
+                aria-label="Modulation/Demodulation"
               >
                 <Radio className="w-4 h-4" />
               </button>
@@ -227,7 +227,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     setIsAmOpen(false);
                     onSelectChapter('signals');
                   }}
-                  className={`flex-1 py-1 px-2 text-[11px] font-mono font-semibold rounded transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`shrink-0 py-1 px-2 text-[10.5px] font-mono font-semibold rounded transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
                     activeChapter === 'signals'
                       ? 'bg-white text-[#C85A32] shadow-2xs border border-[#E6E4DD]/80 font-bold'
                       : 'text-[#75736E] hover:text-[#1A1917]'
@@ -235,7 +235,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   title="Signals & Random Processes"
                 >
                   <Activity className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Signals</span>
+                  <span>Signals</span>
                 </button>
                 <button
                   type="button"
@@ -244,15 +244,15 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     setIsSignalsOpen(false);
                     onSelectChapter('am');
                   }}
-                  className={`flex-1 py-1 px-2 text-[11px] font-mono font-semibold rounded transition-all text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 min-w-0 py-1 px-1.5 text-[10px] font-mono font-semibold tracking-tight rounded transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
                     activeChapter === 'am'
                       ? 'bg-white text-[#C85A32] shadow-2xs border border-[#E6E4DD]/80 font-bold'
                       : 'text-[#75736E] hover:text-[#1A1917]'
                   }`}
-                  title="Amplitude Modulation"
+                  title="Modulation/Demodulation"
                 >
                   <Radio className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Amplitude Mod</span>
+                  <span className="truncate">Modulation/Demodulation</span>
                 </button>
               </div>
             </div>
@@ -386,7 +386,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               })}
 
             {/* ============================================================== */}
-            {/* SECTION 2: Amplitude Modulation (01–07 / 2.1–2.7)             */}
+            {/* SECTION 2: Modulation/Demodulation (01–06 / 2.1–2.6)          */}
             {/* ============================================================== */}
             {!isCollapsed && (
               <button
@@ -397,7 +397,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   if (next) setIsSignalsOpen(false);
                 }}
                 className="w-full flex items-center justify-between px-2 py-1.5 rounded transition-colors text-left cursor-pointer group mt-2.5 hover:bg-[#FAF9F6]"
-                title={isAmOpen ? 'Collapse Amplitude Modulation section' : 'Expand Amplitude Modulation section'}
+                title={isAmOpen ? 'Collapse Modulation/Demodulation section' : 'Expand Modulation/Demodulation section'}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   {isAmOpen ? (
@@ -405,18 +405,17 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                   ) : (
                     <ChevronRight className="w-3.5 h-3.5 text-[#75736E] group-hover:text-[#1A1917] shrink-0" />
                   )}
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold truncate text-[#1A1917]">
-                    Amplitude Modulation
+                  <span className="text-[10px] font-mono uppercase tracking-wide font-bold truncate text-[#1A1917]">
+                    Modulation/Demodulation
                   </span>
                 </div>
-                {/* 01-07 replaces former 5 topics badge */}
-                <span className="text-[9px] font-mono text-[#A8A69E] shrink-0">
-                  01–07
+                <span className="text-[9px] font-mono text-[#A8A69E] shrink-0 ml-1">
+                  01–06
                 </span>
               </button>
             )}
 
-            {/* AM Sub-topics List with Module Numbers (01 to 07) */}
+            {/* Modulation/Demodulation Sub-topics List with Module Numbers (01 to 06) */}
             {isAmOpen &&
               AM_MODULES.map((sub) => {
                 const isActive =
@@ -622,7 +621,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     setIsAmOpen(false);
                     onSelectChapter('signals');
                   }}
-                  className={`flex-1 py-1.5 px-2 text-xs font-mono font-semibold rounded transition-all text-center ${
+                  className={`shrink-0 py-1.5 px-2.5 text-xs font-mono font-semibold rounded transition-all text-center ${
                     activeChapter === 'signals'
                       ? 'bg-white text-[#C85A32] shadow-2xs font-bold'
                       : 'text-[#75736E]'
@@ -637,20 +636,20 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
                     setIsSignalsOpen(false);
                     onSelectChapter('am');
                   }}
-                  className={`flex-1 py-1.5 px-2 text-xs font-mono font-semibold rounded transition-all text-center ${
+                  className={`flex-1 min-w-0 py-1.5 px-2 text-[11px] font-mono font-semibold rounded transition-all text-center truncate ${
                     activeChapter === 'am'
                       ? 'bg-white text-[#C85A32] shadow-2xs font-bold'
                       : 'text-[#75736E]'
                   }`}
                 >
-                  Amplitude Mod
+                  Modulation/Demodulation
                 </button>
               </div>
 
               {/* Module List in Drawer */}
               <div className="mt-4 pt-1">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] mb-2 px-1">
-                  {activeChapter === 'signals' ? 'Signals & Processes (01–07)' : 'Amplitude Modulation (01–07)'}
+                  {activeChapter === 'signals' ? 'Signals & Processes (01–07)' : 'Modulation/Demodulation (01–06)'}
                 </div>
 
                 <nav className="flex flex-col gap-1" aria-label="Mobile Module Items">

@@ -632,12 +632,12 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onNavigateModule('/am/demodulation')}
+                onClick={() => onNavigateModule('/am/pm')}
                 className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-medium text-[#585651] hover:text-[#1A1917] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Previous: Demodulation and Detection"
+                title="Previous: Phase Modulation and Demodulation"
               >
                 <ArrowLeft className="w-3 h-3" />
-                <span>Demod (07)</span>
+                <span>PM (2.6)</span>
               </button>
               <button
                 onClick={() => onNavigateModule('/am/dsb-sc')}

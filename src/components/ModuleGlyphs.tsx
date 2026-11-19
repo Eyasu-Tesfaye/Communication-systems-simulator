@@ -150,21 +150,6 @@ export const ModuleGlyph: React.FC<GlyphProps> = ({ id, className = 'w-5 h-5', a
         </svg>
       );
 
-    case 'demodulation':
-      // Diode envelope detector / demodulation
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-          <path d="M3 12h5" />
-          <polygon points="8,8 14,12 8,16" fill={accent ? '#C85A32' : 'currentColor'} fillOpacity="0.2" stroke={strokeColor} strokeWidth="1.5" />
-          <line x1="14" y1="8" x2="14" y2="16" stroke={strokeColor} strokeWidth="1.5" />
-          <path d="M14 12h7" />
-          <path d="M18 12v3" strokeOpacity="0.7" />
-          <line x1="16" y1="15" x2="20" y2="15" strokeWidth="1.5" />
-          <line x1="16" y1="18" x2="20" y2="18" strokeWidth="1.5" />
-          <path d="M18 18v2" strokeOpacity="0.7" />
-        </svg>
-      );
-
     default:
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">

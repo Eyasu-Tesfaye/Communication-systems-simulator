@@ -28,7 +28,7 @@ import Module5_Correlation from './modules/Module5_Correlation.jsx';
 import Module6_EulerSignals from './modules/Module6_EulerSignals.jsx';
 import Module7_Probability from './modules/Module7_Probability.jsx';
 
-// Amplitude Modulation Modules (2.1 – 2.7):
+// Modulation/Demodulation Modules (2.1 – 2.6):
 import {
   Module2_1_CAM,
   Module2_2_DSBSC,
@@ -36,7 +36,6 @@ import {
   Module2_4_VSB,
   Module2_5_FM,
   Module2_6_AM_PM,
-  Module2_7_Demodulation,
 } from './modules/am';
 
 export default function App() {
@@ -95,7 +94,7 @@ export default function App() {
     [navigate]
   );
 
-  // Jump directly to an AM sub-topic by id (cam, dsb-sc, ssb, vsb, demodulation)
+  // Jump directly to a Modulation/Demodulation sub-topic by id (cam, dsb-sc, ssb, vsb, fm, am-pm)
   const handleSelectAmSubTopic = useCallback(
     (subTopicId: string) => {
       const target = AM_MODULES.find((m) => m.id === subTopicId);
@@ -110,7 +109,7 @@ export default function App() {
     [navigate]
   );
 
-  // Switch between Signals and Amplitude Modulation
+  // Switch between Signals and Modulation/Demodulation
   const handleSelectChapter = useCallback(
     (chapter: 'signals' | 'am') => {
       setActiveChapter(chapter);
@@ -227,7 +226,7 @@ export default function App() {
     }
   };
 
-  // Render the active view for Amplitude Modulation (2.1 to 2.7)
+  // Render the active view for Modulation/Demodulation (2.1 to 2.6)
   const renderActiveAmSlot = () => {
     const handleAmNavigate = (path: string) => {
       const am = findAMModuleByPathOrId(path);
@@ -296,15 +295,6 @@ export default function App() {
             onNavigateModule={handleAmNavigate}
           />
         );
-      case 'demodulation':
-      case '2.7':
-      case '07':
-        return (
-          <Module2_7_Demodulation
-            onNavigateHome={handleNavigateHome}
-            onNavigateModule={handleAmNavigate}
-          />
-        );
       default:
         return (
           <Module2_1_CAM
@@ -341,7 +331,7 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col">
         <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {activeSection === 'am-view' ? (
-            /* Dedicated Amplitude Modulation Workspace */
+            /* Dedicated Modulation/Demodulation Workspace */
             <div className="animate-in fade-in duration-100">
               {renderActiveAmSlot()}
             </div>
