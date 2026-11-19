@@ -6,20 +6,18 @@
  */
 
 export type AudioSourceType = 'melody' | 'voice' | 'chord' | 'tone' | 'mic' | 'upload';
-export type AudioProbeStage = 'original' | 'carrier' | 'dsbsc' | 'envelope' | 'coherent';
+export type AudioProbeStage = 'original' | 'dsbsc' | 'envelope' | 'coherent';
 
 export interface DsbScAudioParams {
   sourceType: AudioSourceType;
   probeStage: AudioProbeStage;
-  fcAudio: number;         // Audible carrier frequency in Hz (800 - 6000)
-  carrierAmp: number;      // TX carrier amplitude A_c (0.2 - 2.0)
-  carrierPhaseDeg: number; // TX carrier phase φ_c (-180 to 180 deg)
-  thetaDeg: number;        // Receiver LO phase θ (-180 to 180 deg)
-  freqOffsetHz: number;    // Receiver LO frequency offset Δf (-250 to 250 Hz)
-  lpfEnabled: boolean;     // Enable/bypass 4th-order Butterworth LPF
-  lpfCutoffHz: number;     // LPF cutoff frequency (300 - 6000 Hz)
-  noiseLevel: number;      // Channel AWGN amplitude (0 - 0.35)
-  volume: number;          // Master output gain (0 - 1)
+  fcAudio: number;       // Audible carrier frequency in Hz (1600 - 4500)
+  thetaDeg: number;      // Receiver LO phase error (-180 to 180 deg)
+  freqOffsetHz: number;  // Receiver LO frequency offset Δf (-250 to 250 Hz)
+  lpfEnabled: boolean;   // Enable/bypass 4th-order Butterworth LPF
+  lpfCutoffHz: number;   // LPF cutoff frequency (300 - 6000 Hz)
+  noiseLevel: number;    // Channel AWGN amplitude (0 - 0.35)
+  volume: number;        // Master output gain (0 - 1)
 }
 
 export interface DecodedAudioInfo {
@@ -394,9 +392,7 @@ export class DsbScAudioEngine {
     const buf = ctx.createBuffer(1, totalSamples, sampleRate);
     const out = buf.getChannelData(0);
 
-    const carrierPhaseRad = (params.carrierPhaseDeg * Math.PI) / 180;
     const thetaRad = (params.thetaDeg * Math.PI) / 180;
-    const carrierAmp = Math.max(0.1, Math.min(2.5, params.carrierAmp));
     const twoPiFc = 2 * Math.PI * params.fcAudio;
     const twoPiFrx = 2 * Math.PI * (params.fcAudio + params.freqOffsetHz);
 
@@ -425,21 +421,16 @@ export class DsbScAudioEngine {
       }
 
       let sample = m;
-      if (params.probeStage === 'carrier') {
-        // Pure TX Carrier: c(t) = Ac * cos(2*pi*fc*t + phi_c)
-        // Gently scaled for comfortable headphone listening while preserving Ac proportion
-        sample = carrierAmp * Math.cos(twoPiFc * t + carrierPhaseRad) * 0.45;
-      } else if (params.probeStage !== 'original') {
-        // 1. DSB-SC Modulation: s(t) = Ac * m(t) * cos(2*pi*fc*t + phi_c)
-        const txCarrier = carrierAmp * Math.cos(twoPiFc * t + carrierPhaseRad);
-        const s = m * txCarrier;
+      if (params.probeStage !== 'original') {
+        // 1. DSB-SC Modulation: s(t) = m(t) * cos(2*pi*fc*t)
+        const s = m * Math.cos(twoPiFc * t);
 
         if (params.probeStage === 'dsbsc') {
           const noise = params.noiseLevel > 0 ? nextGauss() * params.noiseLevel * 0.45 : 0;
           sample = s + noise;
         } else if (params.probeStage === 'envelope') {
           // Non-coherent Diode Envelope Detection: full-wave rectify |s(t) + n(t)|
-          // Live LPF nodes then extract ~ (2/pi)*Ac*|m(t)|, demonstrating severe rectification distortion!
+          // Live LPF nodes then extract ~ (2/pi)*|m(t)|, demonstrating severe rectification distortion!
           const noise = params.noiseLevel > 0 ? nextGauss() * params.noiseLevel * 0.45 : 0;
           sample = Math.abs(s + noise) * 1.4;
         } else {

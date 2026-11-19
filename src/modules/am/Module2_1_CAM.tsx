@@ -16,6 +16,7 @@ import {
 import { AM_MODULES, AMSubTopic } from '../../data/modules';
 import { ModuleGlyph } from '../../components/ModuleGlyphs';
 import { MathView } from '../../components/MathView';
+import { CamEnvelopeDemodTab } from './CamEnvelopeDemodTab';
 
 interface Module2_1_CAMProps {
   onNavigateHome: () => void;
@@ -23,6 +24,7 @@ interface Module2_1_CAMProps {
 }
 
 type ControllerPos = 'below' | 'top' | 'left' | 'right';
+type CamSubTab = 'modulation' | 'demodulation';
 
 export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
   onNavigateHome,
@@ -40,6 +42,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
   const [showBaseband, setShowBaseband] = useState<boolean>(false);
   const [showEnvelopeDetector, setShowEnvelopeDetector] = useState<boolean>(false);
   const [controllerPos, setControllerPos] = useState<ControllerPos>('right');
+  const [demodControllerPos, setDemodControllerPos] = useState<ControllerPos>('right');
+  const [activeTab, setActiveTab] = useState<CamSubTab>('modulation');
 
   // Animation Playback
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -526,15 +530,20 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
 
   // Repaint canvases
   useEffect(() => {
-    drawTimeDomain();
-  }, [drawTimeDomain]);
+    if (activeTab === 'modulation') {
+      drawTimeDomain();
+    }
+  }, [drawTimeDomain, activeTab]);
 
   useEffect(() => {
-    drawFreqDomain();
-  }, [drawFreqDomain]);
+    if (activeTab === 'modulation') {
+      drawFreqDomain();
+    }
+  }, [drawFreqDomain, activeTab]);
 
   // Redraw canvases cleanly on container resize / layout switch (even when paused)
   useEffect(() => {
+    if (activeTab !== 'modulation') return;
     const timeCanvas = timeCanvasRef.current;
     const freqCanvas = freqCanvasRef.current;
     if (!timeCanvas && !freqCanvas) return;
@@ -548,7 +557,7 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
     if (freqCanvas) observer.observe(freqCanvas);
 
     return () => observer.disconnect();
-  }, [drawTimeDomain, drawFreqDomain, controllerPos]);
+  }, [drawTimeDomain, drawFreqDomain, controllerPos, activeTab]);
 
   const handleResetParameters = () => {
     setModIndex(0.75);
@@ -602,33 +611,35 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
 
           {/* Layout Switcher & Quick Nav */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <div
-              role="group"
-              aria-label="Controls layout position"
-              className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold"
-            >
-              {(['below', 'top', 'left', 'right'] as const).map((pos) => (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => setControllerPos(pos)}
-                  aria-pressed={controllerPos === pos}
-                  className={`px-2 py-1 rounded transition-colors cursor-pointer text-[11px] font-mono ${
-                    controllerPos === pos
-                      ? 'bg-white shadow-2xs text-[#1A1917]'
-                      : 'text-[#75736E] hover:text-[#1A1917]'
-                  }`}
-                >
-                  {pos === 'below'
-                    ? 'Bars: Below'
-                    : pos === 'top'
-                      ? 'Bars: Top'
-                      : pos === 'left'
-                        ? 'Bars: Left'
-                        : 'Bars: Right'}
-                </button>
-              ))}
-            </div>
+            {activeTab === 'modulation' && (
+              <div
+                role="group"
+                aria-label="Controls layout position"
+                className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold"
+              >
+                {(['below', 'top', 'left', 'right'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setControllerPos(pos)}
+                    aria-pressed={controllerPos === pos}
+                    className={`px-2 py-1 rounded transition-colors cursor-pointer text-[11px] font-mono ${
+                      controllerPos === pos
+                        ? 'bg-white shadow-2xs text-[#1A1917]'
+                        : 'text-[#75736E] hover:text-[#1A1917]'
+                    }`}
+                  >
+                    {pos === 'below'
+                      ? 'Bars: Below'
+                      : pos === 'top'
+                        ? 'Bars: Top'
+                        : pos === 'left'
+                          ? 'Bars: Left'
+                          : 'Bars: Right'}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -651,8 +662,98 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
           </div>
         </div>
 
+        {/* Top Sub-Tab Navigation Bar: Modulation vs Envelope Demodulation */}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div
+            role="tablist"
+            aria-label="Conventional AM workspace modes"
+            className="inline-flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-1.5 rounded-lg bg-[#FAF9F6] border border-[#E6E4DD]"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'modulation'}
+              onClick={() => setActiveTab('modulation')}
+              className={`px-4 py-2 rounded-md text-xs sm:text-sm font-mono font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
+                activeTab === 'modulation'
+                  ? 'bg-white text-[#1A1917] border-[#C85A32]/40 shadow-2xs'
+                  : 'bg-transparent text-[#585651] border-transparent hover:text-[#1A1917] hover:bg-white/60'
+              }`}
+            >
+              <span className={activeTab === 'modulation' ? 'text-[#C85A32]' : 'text-[#8A8882]'}>
+                01.
+              </span>{' '}
+              AM Modulation (DSB-FC)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'demodulation'}
+              onClick={() => setActiveTab('demodulation')}
+              className={`px-4 py-2 rounded-md text-xs sm:text-sm font-mono font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
+                activeTab === 'demodulation'
+                  ? 'bg-white text-[#1A1917] border-[#C85A32]/40 shadow-2xs'
+                  : 'bg-transparent text-[#585651] border-transparent hover:text-[#1A1917] hover:bg-white/60'
+              }`}
+            >
+              <span className={activeTab === 'demodulation' ? 'text-[#C85A32]' : 'text-[#8A8882]'}>
+                02.
+              </span>{' '}
+              Envelope Demodulation (Diode-RC)
+            </button>
+          </div>
+
+          {activeTab === 'demodulation' && (
+            <div
+              role="group"
+              aria-label="Demodulation controls layout position"
+              className="inline-flex rounded-md border border-[#E6E4DD] p-0.5 bg-[#FAF9F6] text-xs font-semibold shrink-0"
+            >
+              {(['below', 'top', 'left', 'right'] as const).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => setDemodControllerPos(pos)}
+                  aria-pressed={demodControllerPos === pos}
+                  className={`px-2.5 py-1.5 rounded transition-colors cursor-pointer text-[11px] font-mono whitespace-nowrap ${
+                    demodControllerPos === pos
+                      ? 'bg-white shadow-2xs text-[#1A1917]'
+                      : 'text-[#75736E] hover:text-[#1A1917]'
+                  }`}
+                >
+                  {pos === 'below'
+                    ? 'Bars: Below'
+                    : pos === 'top'
+                      ? 'Bars: Top'
+                      : pos === 'left'
+                        ? 'Bars: Left'
+                        : 'Bars: Right'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {activeTab === 'demodulation' ? (
+          <CamEnvelopeDemodTab
+            modIndex={modIndex}
+            setModIndex={setModIndex}
+            carrierFreq={carrierFreq}
+            messageFreq={messageFreq}
+            setMessageFreq={setMessageFreq}
+            carrierAmp={carrierAmp}
+            isPlaying={isPlaying}
+            setIsPlaying={setIsPlaying}
+            speed={speed}
+            setSpeed={setSpeed}
+            time={time}
+            controllerPos={demodControllerPos}
+            onResetCoreParams={handleResetParameters}
+          />
+        ) : (
+          <>
         {/* Technical Notice Banner */}
-        <div className="mt-6 p-3.5 sm:p-4 rounded-md bg-[#FAF9F6] border border-[#E6E4DD] flex items-start gap-3">
+        <div className="mt-5 p-3.5 sm:p-4 rounded-md bg-[#FAF9F6] border border-[#E6E4DD] flex items-start gap-3">
           <Info className="w-4 h-4 text-[#C85A32] shrink-0 mt-0.5" />
           <div className="text-xs sm:text-sm text-[#585651] leading-relaxed">
             <span className="font-semibold text-[#1A1917]">Conventional AM Foundation: </span>
@@ -1192,6 +1293,8 @@ export const Module2_1_CAM: React.FC<Module2_1_CAMProps> = ({
             </div>
           );
         })()}
+          </>
+        )}
       </div>
     </div>
   );

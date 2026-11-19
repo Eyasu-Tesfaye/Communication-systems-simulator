@@ -17,9 +17,6 @@ import {
   Maximize2,
   Minimize2,
   Activity,
-  ChevronUp,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import {
   AudioProbeStage,
@@ -34,8 +31,6 @@ const DEFAULT_AUDIO_PARAMS: DsbScAudioParams = {
   sourceType: 'melody',
   probeStage: 'original',
   fcAudio: 2600,
-  carrierAmp: 1.0,
-  carrierPhaseDeg: 0,
   thetaDeg: 0,
   freqOffsetHz: 0,
   lpfEnabled: true,
@@ -100,9 +95,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
   const [internalFullscreen, setInternalFullscreen] = useState<boolean>(false);
-  const [controlsTab, setControlsTab] = useState<'carrier' | 'receiver'>('carrier');
-  const [isFsControlsExpanded, setIsFsControlsExpanded] = useState<boolean>(false);
-  const [fsExpandedTab, setFsExpandedTab] = useState<'carrier' | 'receiver'>('carrier');
 
   const isFullscreen = controlledFullscreen !== undefined ? controlledFullscreen : internalFullscreen;
   const setIsFullscreen = useCallback(
@@ -173,8 +165,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     params.sourceType,
     params.probeStage,
     params.fcAudio,
-    params.carrierAmp,
-    params.carrierPhaseDeg,
     params.thetaDeg,
     params.freqOffsetHz,
     params.noiseLevel,
@@ -262,8 +252,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
       ? '#DC2626'
       : activeParams.probeStage === 'original'
       ? '#0284C7'
-      : activeParams.probeStage === 'carrier'
-      ? '#475569'
       : activeParams.probeStage === 'dsbsc'
       ? '#C85A32'
       : activeParams.probeStage === 'envelope'
@@ -310,10 +298,10 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
       ctx.restore();
     }
 
-    // --- BOTTOM PANEL: Live Audio FFT Spectrum (Dynamic 0–7 kHz or 0–12 kHz) ---
+    // --- BOTTOM PANEL: Live Audio FFT Spectrum (0 Hz to 7000 Hz) ---
     const specTop = waveTop + panelH + gapY;
     const specBaseY = specTop + panelH;
-    const maxDisplayHz = activeParams.fcAudio > 3200 ? 12000 : 7000;
+    const maxDisplayHz = 7000;
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(padL, specTop, plotW, panelH);
@@ -325,9 +313,9 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     ctx.font = 'bold 10px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
     ctx.fillText(
-      `LIVE AUDIO SPECTRUM (0 – ${maxDisplayHz / 1000} kHz) · fc=${activeParams.fcAudio}Hz · Ac=${activeParams.carrierAmp.toFixed(
-        2
-      )}V · LPF=${activeParams.lpfEnabled ? `${activeParams.lpfCutoffHz}Hz` : 'Bypassed'}`,
+      `LIVE AUDIO SPECTRUM (0 – 7 kHz) · fc=${activeParams.fcAudio}Hz · LPF=${
+        activeParams.lpfEnabled ? `${activeParams.lpfCutoffHz}Hz` : 'Bypassed'
+      }`,
       padL,
       specTop - 7
     );
@@ -418,8 +406,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     ctx.fillStyle = '#75736E';
     ctx.font = '9.5px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    const tickStep = maxDisplayHz > 8000 ? 2000 : 1000;
-    for (let hz = 0; hz <= maxDisplayHz; hz += tickStep) {
+    for (let hz = 0; hz <= maxDisplayHz; hz += 1000) {
       const x = freqToX(hz);
       ctx.fillText(hz === 0 ? '0 Hz' : `${hz / 1000}k`, x, h - 5);
     }
@@ -595,27 +582,24 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
       setParams((p) => ({
         ...p,
         probeStage: 'coherent',
-        thetaDeg: p.carrierPhaseDeg,
+        thetaDeg: 0,
         freqOffsetHz: 0,
         lpfEnabled: true,
         lpfCutoffHz: 2100,
       }));
     } else if (preset === 'quadrature') {
-      setParams((p) => {
-        const quadTheta = ((((p.carrierPhaseDeg + 90 + 180) % 360) + 360) % 360) - 180;
-        return {
-          ...p,
-          probeStage: 'coherent',
-          thetaDeg: quadTheta,
-          freqOffsetHz: 0,
-          lpfEnabled: true,
-        };
-      });
+      setParams((p) => ({
+        ...p,
+        probeStage: 'coherent',
+        thetaDeg: 90,
+        freqOffsetHz: 0,
+        lpfEnabled: true,
+      }));
     } else if (preset === 'beat') {
       setParams((p) => ({
         ...p,
         probeStage: 'coherent',
-        thetaDeg: p.carrierPhaseDeg,
+        thetaDeg: 0,
         freqOffsetHz: 2,
         lpfEnabled: true,
         lpfCutoffHz: 2100,
@@ -624,7 +608,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
       setParams((p) => ({
         ...p,
         probeStage: 'coherent',
-        thetaDeg: p.carrierPhaseDeg,
+        thetaDeg: 0,
         freqOffsetHz: 85,
         lpfEnabled: true,
         lpfCutoffHz: 2400,
@@ -639,46 +623,35 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
     }
   };
 
-  const rawPhaseDiff = params.thetaDeg - params.carrierPhaseDeg;
-  const effectivePhaseDiffDeg = ((((rawPhaseDiff + 180) % 360) + 360) % 360) - 180;
-  const cosTheta = Math.cos((effectivePhaseDiffDeg * Math.PI) / 180);
+  const cosTheta = Math.cos((params.thetaDeg * Math.PI) / 180);
   const isLocked =
     params.probeStage === 'coherent' &&
-    Math.abs(effectivePhaseDiffDeg) <= 3 &&
+    Math.abs(params.thetaDeg) <= 3 &&
     Math.abs(params.freqOffsetHz) < 0.5 &&
     params.lpfEnabled;
   const isQuadratureNull =
     params.probeStage === 'coherent' &&
-    Math.abs(Math.abs(effectivePhaseDiffDeg) - 90) <= 5 &&
+    Math.abs(Math.abs(params.thetaDeg) - 90) <= 5 &&
     Math.abs(params.freqOffsetHz) < 0.5;
-  const isSidebandFoldRisk = params.fcAudio < 1600;
 
   const acousticStatusText =
     params.probeStage === 'original'
       ? 'BEFORE MODULATION m(t) — Clean original sound with clear pauses'
-      : params.probeStage === 'carrier'
-      ? `CARRIER SIGNAL c(t) = ${params.carrierAmp.toFixed(2)}·cos(2π·${params.fcAudio}t${
-          params.carrierPhaseDeg === 0
-            ? ''
-            : params.carrierPhaseDeg > 0
-            ? ` + ${params.carrierPhaseDeg}°`
-            : ` − ${Math.abs(params.carrierPhaseDeg)}°`
-        }) — Pure unmodulated carrier tone`
       : params.probeStage === 'dsbsc'
-      ? `MODULATED DSB-SC s(t) @ ${params.fcAudio}Hz (Ac=${params.carrierAmp.toFixed(2)}V) — Shifted metallic sidebands (carrier suppressed)`
+      ? `MODULATED DSB-SC s(t) @ ${params.fcAudio}Hz — Shifted metallic sidebands & silent gaps (carrier suppressed)`
       : params.probeStage === 'envelope'
       ? 'DIODE ENVELOPE |s(t)| — Distorted & octave-doubled (proves AM radio fails on DSB-SC)'
       : !params.lpfEnabled
       ? `AFTER DEMODULATION m̂(t) — LPF Bypassed: high-pitched 2fc (${2 * params.fcAudio}Hz) whistle leaking`
       : isQuadratureNull
-      ? 'AFTER DEMODULATION m̂(t) — Quadrature Null (Δφ = ±90°): signal canceled to silence'
+      ? 'AFTER DEMODULATION m̂(t) — Quadrature Null (θ = ±90°): signal canceled to silence'
       : Math.abs(params.freqOffsetHz) >= 15
       ? `AFTER DEMODULATION m̂(t) — Frequency shift Δf = ${params.freqOffsetHz > 0 ? '+' : ''}${params.freqOffsetHz}Hz detunes pitch`
       : Math.abs(params.freqOffsetHz) >= 0.5
       ? `AFTER DEMODULATION m̂(t) — Slow Beat Δf = ${params.freqOffsetHz.toFixed(1)}Hz fades volume in & out`
       : isLocked
-      ? 'AFTER DEMODULATION m̂(t) — Coherent Lock (Δφ = 0°, Δf = 0Hz): clean original sound restored!'
-      : `AFTER DEMODULATION m̂(t) — Phase Error Δφ = ${effectivePhaseDiffDeg}° attenuates volume by cos Δφ = ${cosTheta.toFixed(2)}`;
+      ? 'AFTER DEMODULATION m̂(t) — Coherent Lock (θ = 0°, Δf = 0Hz): clean original sound restored!'
+      : `AFTER DEMODULATION m̂(t) — Phase Error θ = ${params.thetaDeg}° attenuates volume by cos θ = ${cosTheta.toFixed(2)}`;
 
   const renderAudioCanvasCard = (fullscreenMode: boolean) => (
     <div
@@ -690,8 +663,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
         <div className="flex items-center gap-2 text-[11px] font-mono font-bold text-[#1A1917]">
           {params.probeStage === 'coherent' && isLocked ? (
             <Lock className="w-3.5 h-3.5 text-[#059669]" />
-          ) : params.probeStage === 'carrier' ? (
-            <Radio className="w-3.5 h-3.5 text-[#475569]" />
           ) : params.probeStage === 'envelope' || isQuadratureNull || !params.lpfEnabled ? (
             <AlertTriangle className="w-3.5 h-3.5 text-[#C85A32]" />
           ) : (
@@ -702,7 +673,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
 
         {params.probeStage === 'coherent' && (
           <span className="text-[11px] font-mono text-[#75736E] tabular-nums">
-            cos(θ−φc) = <strong className="text-[#1A1917]">{cosTheta.toFixed(2)}</strong>
+            cos(θ) = <strong className="text-[#1A1917]">{cosTheta.toFixed(2)}</strong>
           </span>
         )}
       </div>
@@ -725,8 +696,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           <strong className="text-[#1A1917]">
             {params.probeStage === 'original'
               ? '1. Before Modulation m(t)'
-              : params.probeStage === 'carrier'
-              ? `Carrier c(t) @ ${params.fcAudio}Hz (Ac=${params.carrierAmp.toFixed(2)}V, φc=${params.carrierPhaseDeg}°)`
               : params.probeStage === 'dsbsc'
               ? `2. Modulated DSB-SC s(t) @ ${params.fcAudio}Hz`
               : params.probeStage === 'envelope'
@@ -735,23 +704,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           </strong>
         </span>
         <span className="tabular-nums">
-          fc={params.fcAudio}Hz · Ac={params.carrierAmp.toFixed(2)}V · φc={params.carrierPhaseDeg}° · θ={params.thetaDeg}° · Δf=
-          {params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz}Hz
+          θ={params.thetaDeg}° · Δf={params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz}Hz
         </span>
       </div>
     </div>
   );
 
   if (isFullscreen) {
-    const hasCustomExtraControls =
-      Math.abs(params.carrierAmp - 1.0) > 0.01 ||
-      params.carrierPhaseDeg !== 0 ||
-      params.freqOffsetHz !== 0 ||
-      params.noiseLevel > 0 ||
-      params.lpfCutoffHz !== 2100;
-
     return (
-      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col p-3 sm:p-4 overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col p-4 sm:p-5 overflow-hidden">
         {/* Hidden shared file input */}
         <input
           ref={fileInputRef}
@@ -761,19 +722,19 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           className="hidden"
         />
 
-        {/* Fullscreen Top Header Strip (Single Line) */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#E6E4DD] shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden whitespace-nowrap">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <AudioLines className="w-4 h-4 text-[#C85A32] shrink-0" />
+        {/* Fullscreen Top Header Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E6E4DD] shrink-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <AudioLines className="w-4 h-4 text-[#C85A32]" />
               <span className="text-sm font-bold text-[#1A1917]">
-                <span className="hidden xl:inline">Module 2.2: </span>Audio Lab
+                Module 2.2: Audio Lab
               </span>
             </div>
 
             {/* Mode Switcher inside Fullscreen Header (Signal Oscilloscope <-> Audio Sound Lab) */}
             {onSwitchToOscilloscope && (
-              <div className="inline-flex items-center bg-[#EFECE5] border border-[#E6E4DD] rounded p-0.5 gap-0.5 text-[11px] font-mono shrink-0">
+              <div className="inline-flex items-center bg-[#EFECE5] border border-[#E6E4DD] rounded p-0.5 gap-0.5 text-[11px] font-mono">
                 <button
                   type="button"
                   onClick={onSwitchToOscilloscope}
@@ -793,14 +754,13 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             )}
 
             {/* Compact Listen Probe Switcher inside Header */}
-            <div className="flex items-center gap-0.5 bg-white p-0.5 rounded border border-[#E6E4DD] text-[11px] font-mono shadow-2xs shrink-0">
+            <div className="flex items-center flex-wrap gap-1 bg-white p-0.5 rounded border border-[#E6E4DD] text-[11px] font-mono shadow-2xs">
               {(
                 [
-                  { id: 'original', label: '1. Before', activeCls: 'bg-[#0284C7] text-white' },
-                  { id: 'carrier', label: 'c(t)', activeCls: 'bg-[#475569] text-white' },
-                  { id: 'dsbsc', label: '2. Mod', activeCls: 'bg-[#C85A32] text-white' },
-                  { id: 'coherent', label: '3. After', activeCls: 'bg-[#059669] text-white' },
-                  { id: 'envelope', label: 'Diode', activeCls: 'bg-[#DC2626] text-white' },
+                  { id: 'original', label: '1. Before m(t)', activeCls: 'bg-[#0284C7] text-white' },
+                  { id: 'dsbsc', label: '2. Mod s(t)', activeCls: 'bg-[#C85A32] text-white' },
+                  { id: 'coherent', label: '3. After m̂(t)', activeCls: 'bg-[#059669] text-white' },
+                  { id: 'envelope', label: 'Diode Fail', activeCls: 'bg-[#DC2626] text-white' },
                 ] as Array<{ id: AudioProbeStage; label: string; activeCls: string }>
               ).map((probe) => (
                 <button
@@ -832,33 +792,32 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           </div>
 
           {/* Right Header: Mic Record, Play/Pause, Stop, Reset, Volume, Exit Fullscreen */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {isRecordingMic ? (
               <button
                 type="button"
                 onClick={() => void handleStopMicRecording()}
-                className="px-2 py-1 bg-[#DC2626] text-white rounded text-xs font-mono font-semibold flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 bg-[#DC2626] text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 cursor-pointer"
               >
                 <MicOff className="w-3.5 h-3.5" />
-                <span>Stop ({micElapsed.toFixed(1)}s)</span>
+                <span>Stop Mic ({micElapsed.toFixed(1)}s)</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => void handleStartMicRecording()}
                 disabled={isDecoding}
-                className="px-2 py-1 bg-[#FBF4F0] border border-[#C85A32]/40 text-[#C85A32] hover:bg-[#C85A32] hover:text-white rounded text-xs font-mono font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                title="Record voice from microphone"
+                className="px-2.5 py-1 bg-[#FBF4F0] border border-[#C85A32]/40 text-[#C85A32] hover:bg-[#C85A32] hover:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <Mic className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">{micAudio ? 'Re-rec' : 'Mic'}</span>
+                <span>{micAudio ? 'Re-record Mic' : 'Record Mic'}</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={handlePlayPause}
-              className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-2xs ${
+              className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs ${
                 isPlaying
                   ? 'bg-[#C85A32] text-white hover:bg-[#B24E29]'
                   : 'bg-white border border-[#E6E4DD] text-[#1A1917] hover:bg-[#FAF9F6]'
@@ -884,14 +843,15 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 setIsAutoComparing(false);
                 setParams(DEFAULT_AUDIO_PARAMS);
               }}
-              className="p-1.5 bg-white border border-[#E6E4DD] rounded text-[#585651] hover:text-[#C85A32] cursor-pointer shadow-2xs"
+              className="px-2.5 py-1 bg-white border border-[#E6E4DD] rounded text-xs font-mono text-[#585651] hover:text-[#C85A32] cursor-pointer shadow-2xs flex items-center gap-1"
               title="Reset Audio Lab parameters"
               aria-label="Reset Audio Lab parameters"
             >
               <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset</span>
             </button>
 
-            <div className="flex items-center gap-1 bg-white border border-[#E6E4DD] rounded px-2 py-1 shadow-2xs">
+            <div className="flex items-center gap-1.5 bg-white border border-[#E6E4DD] rounded px-2 py-1 shadow-2xs">
               <Volume2 className="w-3.5 h-3.5 text-[#585651]" />
               <input
                 type="range"
@@ -908,322 +868,101 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             <button
               type="button"
               onClick={() => setIsFullscreen(false)}
-              className="px-2.5 py-1 bg-[#1A1917] text-white rounded text-xs font-semibold hover:bg-[#2C2A26] flex items-center gap-1 cursor-pointer shadow-xs"
+              className="px-3 py-1 bg-[#1A1917] text-white rounded text-xs font-semibold hover:bg-[#2C2A26] flex items-center gap-1.5 cursor-pointer shadow-xs"
               title="Exit Fullscreen (Esc)"
             >
               <Minimize2 className="w-3.5 h-3.5" />
-              <span>Exit</span>
+              <span>Exit Fullscreen</span>
             </button>
           </div>
         </div>
 
-        {/* Fullscreen Body: Full-Screen Audio Waveform + Live FFT Spectrum (Zero Overlap) */}
-        <div className="flex-1 min-h-0 my-2.5 overflow-hidden flex flex-col">
+        {/* Fullscreen Body: Full-Screen Audio Waveform + Live FFT Spectrum */}
+        <div className="flex-1 min-h-0 my-3 overflow-hidden flex flex-col">
           {renderAudioCanvasCard(true)}
         </div>
 
-        {/* Fullscreen Bottom Dock (Non-Overlapping Flex Child: Expandable Drawer + Single-Line Base Controls) */}
-        <div className="shrink-0 bg-white border border-[#E6E4DD] rounded-lg shadow-sm overflow-hidden">
-          {/* Expandable Secondary Controls Drawer (1 clean horizontal line with Breadcrumb Tab Switch) */}
-          {isFsControlsExpanded && (
-            <div className="px-3 py-2 bg-[#FAF9F6] border-b border-[#E6E4DD] flex items-center justify-between gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden whitespace-nowrap">
-              {/* Breadcrumb / Section Switcher */}
-              <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-mono">
-                <span className="text-[#75736E] font-semibold">Controls</span>
-                <ChevronRight className="w-3 h-3 text-[#A8A69E]" />
-                <div className="inline-flex items-center bg-white border border-[#E6E4DD] rounded p-0.5 gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setFsExpandedTab('carrier')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold cursor-pointer transition-colors ${
-                      fsExpandedTab === 'carrier'
-                        ? 'bg-[#1A1917] text-white'
-                        : 'text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    Carrier c(t)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFsExpandedTab('receiver')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold cursor-pointer transition-colors ${
-                      fsExpandedTab === 'receiver'
-                        ? 'bg-[#1A1917] text-white'
-                        : 'text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    Receiver &amp; Tests
-                  </button>
-                </div>
-              </div>
-
-              {/* Active Expanded Controls (Single Line) */}
-              {fsExpandedTab === 'carrier' ? (
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10.5px] font-mono text-[#75736E]">f_c:</span>
-                    {[1200, 2600, 4000, 5500].map((fc) => (
-                      <button
-                        key={fc}
-                        type="button"
-                        onClick={() => setParams((p) => ({ ...p, fcAudio: fc }))}
-                        className={`px-1.5 py-0.5 rounded text-[10.5px] font-mono border cursor-pointer ${
-                          params.fcAudio === fc
-                            ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                            : 'bg-white border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                        }`}
-                      >
-                        {(fc / 1000).toFixed(1)}k
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="h-4 w-px bg-[#E6E4DD]" />
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-mono font-bold text-[#475569] tabular-nums">
-                      Ac: {params.carrierAmp.toFixed(2)}V
-                    </span>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="2.0"
-                      step="0.05"
-                      value={params.carrierAmp}
-                      onChange={(e) => setParams((p) => ({ ...p, carrierAmp: parseFloat(e.target.value) }))}
-                      className="w-20 accent-[#475569] cursor-pointer"
-                      aria-label="Carrier amplitude"
-                    />
-                  </div>
-
-                  <span className="h-4 w-px bg-[#E6E4DD]" />
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-mono font-bold text-[#475569] tabular-nums">
-                      φc: {params.carrierPhaseDeg > 0 ? `+${params.carrierPhaseDeg}` : params.carrierPhaseDeg}°
-                    </span>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="5"
-                      value={params.carrierPhaseDeg}
-                      onChange={(e) => setParams((p) => ({ ...p, carrierPhaseDeg: parseInt(e.target.value, 10) }))}
-                      className="w-20 accent-[#475569] cursor-pointer"
-                      aria-label="Carrier phase"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => selectProbeStage(params.probeStage === 'carrier' ? 'dsbsc' : 'carrier')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold border cursor-pointer transition-colors ${
-                      params.probeStage === 'carrier'
-                        ? 'bg-[#475569] text-white border-[#475569]'
-                        : 'bg-white border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    {params.probeStage === 'carrier' ? 'Listening c(t)' : 'Listen c(t)'}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => applyAudioPreset('coherent')}
-                      className={`px-2 py-0.5 rounded border text-[11px] font-semibold cursor-pointer ${
-                        isLocked
-                          ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                          : 'bg-white border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      Lock
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyAudioPreset('quadrature')}
-                      className={`px-2 py-0.5 rounded border text-[11px] font-semibold cursor-pointer ${
-                        isQuadratureNull
-                          ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                          : 'bg-white border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      90° Null
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyAudioPreset('beat')}
-                      className={`px-2 py-0.5 rounded border text-[11px] font-semibold cursor-pointer ${
-                        params.probeStage === 'coherent' && params.freqOffsetHz === 2
-                          ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                          : 'bg-white border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      2Hz Beat
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyAudioPreset('shift')}
-                      className={`px-2 py-0.5 rounded border text-[11px] font-semibold cursor-pointer ${
-                        params.probeStage === 'coherent' && params.freqOffsetHz === 85
-                          ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                          : 'bg-white border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      Pitch Shift
-                    </button>
-                  </div>
-
-                  <span className="h-4 w-px bg-[#E6E4DD]" />
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-mono font-bold text-[#C85A32] tabular-nums">
-                      Δf: {params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz}Hz
-                    </span>
-                    <input
-                      type="range"
-                      min="-250"
-                      max="250"
-                      step="1"
-                      value={params.freqOffsetHz}
-                      onChange={(e) => {
-                        setIsAutoComparing(false);
-                        const nextDf = parseInt(e.target.value, 10);
-                        setParams((p) => ({
-                          ...p,
-                          probeStage:
-                            p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                              ? 'coherent'
-                              : p.probeStage,
-                          freqOffsetHz: nextDf,
-                        }));
-                      }}
-                      className="w-20 accent-[#C85A32] cursor-pointer"
-                      aria-label="Frequency offset"
-                    />
-                  </div>
-
-                  {params.lpfEnabled && (
-                    <>
-                      <span className="h-4 w-px bg-[#E6E4DD]" />
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-mono font-bold text-[#059669] tabular-nums">
-                          LPF: {params.lpfCutoffHz}Hz
-                        </span>
-                        <input
-                          type="range"
-                          min="300"
-                          max="6000"
-                          step="50"
-                          value={params.lpfCutoffHz}
-                          onChange={(e) => {
-                            setIsAutoComparing(false);
-                            const cutoff = parseInt(e.target.value, 10);
-                            setParams((p) => ({
-                              ...p,
-                              probeStage:
-                                p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                                  ? 'coherent'
-                                  : p.probeStage,
-                              lpfCutoffHz: cutoff,
-                            }));
-                          }}
-                          className="w-20 accent-[#059669] cursor-pointer"
-                          aria-label="LPF cutoff"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <span className="h-4 w-px bg-[#E6E4DD]" />
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-mono font-bold text-[#585651] tabular-nums">
-                      Noise: {Math.round(params.noiseLevel * 100)}%
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="0.35"
-                      step="0.01"
-                      value={params.noiseLevel}
-                      onChange={(e) => setParams((p) => ({ ...p, noiseLevel: parseFloat(e.target.value) }))}
-                      className="w-16 accent-[#585651] cursor-pointer"
-                      aria-label="Channel noise"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Base Controls Strip (Always Strictly ONE Single Line) */}
-          <div className="px-3 py-2 flex items-center justify-between gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden whitespace-nowrap">
-            {/* Left: Compact Source Selector + Upload */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <label className="flex items-center gap-1.5 bg-[#FAF9F6] border border-[#E6E4DD] rounded px-2 py-1 text-[11px] font-mono">
-                <span className="text-[10px] uppercase font-semibold text-[#75736E]">Source</span>
-                <select
-                  aria-label="Select audio source"
-                  value={params.sourceType}
-                  onChange={(e) => {
-                    const nextId = e.target.value as AudioSourceType;
-                    if (nextId === 'upload' && !uploadedAudio) {
+        {/* Fullscreen Sticky Bottom Horizontal Controls Bar */}
+        <div className="sticky bottom-0 shrink-0 bg-white border border-[#E6E4DD] rounded-lg px-3.5 py-2.5 shadow-md z-30">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Left: Source Picker + Upload */}
+            <div className="flex flex-wrap items-center gap-1">
+              {SOURCE_OPTIONS.map((src) => (
+                <button
+                  key={src.id}
+                  type="button"
+                  onClick={() => {
+                    if (src.id === 'upload' && !uploadedAudio) {
                       fileInputRef.current?.click();
-                    } else if (nextId === 'mic' && !micAudio && !isRecordingMic) {
+                    } else if (src.id === 'mic' && !micAudio && !isRecordingMic) {
                       void handleStartMicRecording();
                     } else {
                       getEngine().resetPlayhead();
-                      setParams((p) => ({ ...p, sourceType: nextId }));
+                      setParams((p) => ({ ...p, sourceType: src.id }));
                     }
                   }}
-                  className="bg-transparent font-bold text-[#1A1917] focus:outline-none cursor-pointer"
+                  className={`px-2 py-1 rounded text-[11px] font-mono border cursor-pointer transition-colors ${
+                    params.sourceType === src.id
+                      ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
+                      : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
+                  }`}
                 >
-                  {SOURCE_OPTIONS.map((src) => (
-                    <option key={src.id} value={src.id}>
-                      {src.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
+                  {src.label}
+                </button>
+              ))}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isDecoding || isRecordingMic}
-                className="p-1.5 rounded border border-dashed border-[#D5D2C9] bg-[#FAF9F6] text-[#585651] hover:text-[#C85A32] cursor-pointer"
+                className="px-2 py-1 rounded text-[11px] font-mono border border-dashed border-[#D5D2C9] bg-[#FAF9F6] text-[#585651] hover:text-[#C85A32] flex items-center gap-1 cursor-pointer"
                 title="Upload custom audio file"
-                aria-label="Upload custom audio file"
               >
-                <Upload className="w-3.5 h-3.5 text-[#C85A32]" />
+                <Upload className="w-3 h-3 text-[#C85A32]" />
+                <span>Upload</span>
               </button>
             </div>
 
-            {/* Center: Essential Base Sliders Only (Carrier fc, LO Phase θ, LPF Toggle) */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-[#C85A32] shrink-0" />
-                <span className="text-xs font-mono font-bold text-[#1A1917] tabular-nums">
-                  fc: {params.fcAudio}Hz
-                </span>
-                <input
-                  type="range"
-                  min="800"
-                  max="6000"
-                  step="50"
-                  value={params.fcAudio}
-                  onChange={(e) => setParams((p) => ({ ...p, fcAudio: parseInt(e.target.value, 10) }))}
-                  className="w-24 accent-[#1A1917] cursor-pointer"
-                  aria-label="Carrier frequency"
-                />
+            {/* Center: Quick Presets + Inline Sliders */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => applyAudioPreset('coherent')}
+                  className={`px-2 py-1 rounded border text-[11px] font-semibold cursor-pointer ${
+                    isLocked
+                      ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                      : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
+                  }`}
+                >
+                  Lock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyAudioPreset('quadrature')}
+                  className={`px-2 py-1 rounded border text-[11px] font-semibold cursor-pointer ${
+                    isQuadratureNull
+                      ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                      : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
+                  }`}
+                >
+                  90° Null
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyAudioPreset('shift')}
+                  className={`px-2 py-1 rounded border text-[11px] font-semibold cursor-pointer ${
+                    params.probeStage === 'coherent' && params.freqOffsetHz === 85
+                      ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                      : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
+                  }`}
+                >
+                  Pitch Shift
+                </button>
               </div>
 
-              <span className="h-4 w-px bg-[#E6E4DD]" />
-
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-mono font-bold text-[#D97706] tabular-nums">
-                  θ: {params.thetaDeg > 0 ? `+${params.thetaDeg}` : params.thetaDeg}°
+                <span className="text-xs font-mono font-bold text-[#D97706] whitespace-nowrap">
+                  θ: {params.thetaDeg}°
                 </span>
                 <input
                   type="range"
@@ -1236,21 +975,40 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                     const nextTheta = parseInt(e.target.value, 10);
                     setParams((p) => ({
                       ...p,
-                      probeStage:
-                        p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                          ? 'coherent'
-                          : p.probeStage,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
                       thetaDeg: nextTheta,
                     }));
                   }}
                   className="w-24 accent-[#D97706] cursor-pointer"
-                  aria-label="Receiver LO phase"
+                  aria-label="Phase error"
                 />
               </div>
 
-              <span className="h-4 w-px bg-[#E6E4DD]" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-mono font-bold text-[#C85A32] whitespace-nowrap">
+                  Δf: {params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz}Hz
+                </span>
+                <input
+                  type="range"
+                  min="-250"
+                  max="250"
+                  step="1"
+                  value={params.freqOffsetHz}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const nextDf = parseInt(e.target.value, 10);
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      freqOffsetHz: nextDf,
+                    }));
+                  }}
+                  className="w-24 accent-[#C85A32] cursor-pointer"
+                  aria-label="Frequency offset"
+                />
+              </div>
 
-              <label className="flex items-center gap-1.5 text-xs font-mono text-[#059669] font-semibold cursor-pointer select-none">
+              <label className="flex items-center gap-1 text-xs font-mono text-[#059669] font-semibold cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={params.lpfEnabled}
@@ -1259,41 +1017,57 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                     const checked = e.target.checked;
                     setParams((p) => ({
                       ...p,
-                      probeStage:
-                        p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                          ? 'coherent'
-                          : p.probeStage,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
                       lpfEnabled: checked,
                     }));
                   }}
                   className="accent-[#059669] rounded"
                 />
-                <span>LPF {params.lpfEnabled ? `(${params.lpfCutoffHz}Hz)` : '(Off)'}</span>
+                <span>LPF</span>
               </label>
-            </div>
 
-            {/* Right: Expand / Collapse More Controls Trigger */}
-            <button
-              type="button"
-              onClick={() => setIsFsControlsExpanded((prev) => !prev)}
-              className={`px-2.5 py-1 rounded border text-[11px] font-mono font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
-                isFsControlsExpanded
-                  ? 'bg-[#1A1917] text-white border-[#1A1917]'
-                  : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#1A1917] hover:border-[#C85A32]/50 hover:text-[#C85A32]'
-              }`}
-              aria-expanded={isFsControlsExpanded}
-            >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{isFsControlsExpanded ? 'Hide Controls' : 'More Controls'}</span>
-              {!isFsControlsExpanded && hasCustomExtraControls && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#C85A32]" aria-hidden="true" />
+              {params.lpfEnabled && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-[#059669] whitespace-nowrap">
+                    {params.lpfCutoffHz}Hz
+                  </span>
+                  <input
+                    type="range"
+                    min="300"
+                    max="6000"
+                    step="50"
+                    value={params.lpfCutoffHz}
+                    onChange={(e) => {
+                      setIsAutoComparing(false);
+                      const cutoff = parseInt(e.target.value, 10);
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        lpfCutoffHz: cutoff,
+                      }));
+                    }}
+                    className="w-24 accent-[#059669] cursor-pointer"
+                    aria-label="LPF cutoff"
+                  />
+                </div>
               )}
-              {isFsControlsExpanded ? (
-                <ChevronDown className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronUp className="w-3.5 h-3.5" />
-              )}
-            </button>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-mono font-bold text-[#585651] whitespace-nowrap">
+                  Noise: {Math.round(params.noiseLevel * 100)}%
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="0.35"
+                  step="0.01"
+                  value={params.noiseLevel}
+                  onChange={(e) => setParams((p) => ({ ...p, noiseLevel: parseFloat(e.target.value) }))}
+                  className="w-20 accent-[#585651] cursor-pointer"
+                  aria-label="Channel noise"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1381,7 +1155,6 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
               {(
                 [
                   { id: 'original', label: '1. Before Mod m(t)', activeCls: 'bg-[#0284C7] text-white border-[#0284C7]' },
-                  { id: 'carrier', label: 'Carrier c(t)', activeCls: 'bg-[#475569] text-white border-[#475569]' },
                   { id: 'dsbsc', label: '2. Modulated s(t)', activeCls: 'bg-[#C85A32] text-white border-[#C85A32]' },
                   { id: 'coherent', label: '3. After Demod m̂(t)', activeCls: 'bg-[#059669] text-white border-[#059669]' },
                   { id: 'envelope', label: 'Diode |s(t)| (Fails)', activeCls: 'bg-[#DC2626] text-white border-[#DC2626]' },
@@ -1421,9 +1194,9 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
         {renderAudioCanvasCard(false)}
       </div>
 
-      {/* RIGHT SIDEBAR: Compact Source Picker + Tabbed Carrier / Receiver Controls (Zero Scroll) */}
-      <div className="lg:col-span-4 lg:sticky lg:top-4">
-        <div className="bg-white rounded-lg border border-[#E6E4DD] p-3 shadow-xs space-y-2.5">
+      {/* RIGHT SIDEBAR: Sound Source, Quick Experiments & Receiver Parameters */}
+      <div className="lg:col-span-4 lg:sticky lg:top-4 space-y-3">
+        <div className="bg-white rounded-lg border border-[#E6E4DD] p-3.5 shadow-xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DD]">
             <span className="text-xs font-mono uppercase tracking-wider text-[#1A1917] font-bold flex items-center gap-1.5">
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#C85A32]" />
@@ -1442,28 +1215,12 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
             </button>
           </div>
 
-          {/* 1. Compact Input Audio Source m(t) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-[#75736E] font-semibold">
-                Input Audio Source m(t)
-              </label>
-              {isRecordingMic ? (
-                <span className="text-[10px] font-mono text-[#DC2626] font-bold tabular-nums">
-                  REC {micElapsed.toFixed(1)}s / 8.0s
-                </span>
-              ) : params.sourceType === 'mic' && micAudio ? (
-                <span className="text-[10px] font-mono text-[#059669] font-semibold truncate max-w-[130px]">
-                  {micAudio.name}
-                </span>
-              ) : params.sourceType === 'upload' && uploadedAudio ? (
-                <span className="text-[10px] font-mono text-[#059669] font-semibold truncate max-w-[130px]">
-                  {uploadedAudio.name}
-                </span>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-3 gap-1">
+          {/* 1. Audio Source Selector, Microphone Voice Capture & Upload */}
+          <div>
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-[#75736E] font-semibold mb-1.5">
+              Input Audio Source m(t)
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
               {SOURCE_OPTIONS.map((src) => (
                 <button
                   key={src.id}
@@ -1478,8 +1235,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                       setParams((p) => ({ ...p, sourceType: src.id }));
                     }
                   }}
-                  title={src.hint}
-                  className={`py-1 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                  className={`py-1.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
                     params.sourceType === src.id
                       ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
                       : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
@@ -1489,15 +1245,63 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
                 </button>
               ))}
             </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-[#585651]">
+              {SOURCE_OPTIONS.find((s) => s.id === params.sourceType)?.hint}
+            </p>
 
-            {isRecordingMic && (
-              <div className="h-1.5 w-full bg-[#E6E4DD] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#DC2626] transition-all duration-75"
-                  style={{ width: `${Math.round(micRms * 100)}%` }}
-                />
+            {/* Microphone Voice Capture Box */}
+            <div className="mt-2 p-2.5 rounded-md border border-[#E6E4DD] bg-[#FAF9F6] space-y-2">
+              <div className="flex items-center justify-between text-[10.5px] font-mono">
+                <span className="font-semibold text-[#1A1917] flex items-center gap-1.5">
+                  <Mic className={`w-3.5 h-3.5 ${isRecordingMic ? 'text-[#DC2626]' : 'text-[#C85A32]'}`} />
+                  <span>Microphone Voice</span>
+                </span>
+                {isRecordingMic ? (
+                  <span className="text-[#DC2626] font-bold tabular-nums">
+                    REC {micElapsed.toFixed(1)}s / 8.0s
+                  </span>
+                ) : micAudio ? (
+                  <span className="text-[#059669] font-semibold truncate max-w-[130px]">
+                    {micAudio.name}
+                  </span>
+                ) : (
+                  <span className="text-[#8A8882]">Up to 8s</span>
+                )}
               </div>
-            )}
+
+              {isRecordingMic && (
+                <div className="h-1.5 w-full bg-[#E6E4DD] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#DC2626] transition-all duration-75"
+                    style={{ width: `${Math.round(micRms * 100)}%` }}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-1.5">
+                {isRecordingMic ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleStopMicRecording()}
+                    className="flex-1 py-1.5 px-2.5 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] font-mono font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <MicOff className="w-3.5 h-3.5" />
+                    <span>Stop & Test My Voice</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleStartMicRecording()}
+                    disabled={isDecoding}
+                    className="flex-1 py-1.5 px-2.5 rounded border border-[#C85A32]/40 bg-[#FBF4F0] hover:bg-[#C85A32] hover:text-white text-[#C85A32] text-[11px] font-mono font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>{micAudio ? 'Re-record Voice' : 'Record from Microphone'}</span>
+                  </button>
+                )}
+              </div>
+              {micError && <p className="text-[10.5px] font-mono text-[#DC2626]">{micError}</p>}
+            </div>
 
             <input
               ref={fileInputRef}
@@ -1506,509 +1310,282 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
               onChange={handleFileUpload}
               className="hidden"
             />
-            <div className="grid grid-cols-2 gap-1.5">
-              {isRecordingMic ? (
-                <button
-                  type="button"
-                  onClick={() => void handleStopMicRecording()}
-                  className="py-1 px-2 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[10.5px] font-mono font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                >
-                  <MicOff className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Stop Mic</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handleStartMicRecording()}
-                  disabled={isDecoding}
-                  className="py-1 px-2 rounded border border-[#C85A32]/40 bg-[#FBF4F0] hover:bg-[#C85A32] hover:text-white text-[#C85A32] text-[10.5px] font-mono font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Mic className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{micAudio ? 'Re-record Mic' : 'Record Mic'}</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isDecoding || isRecordingMic}
-                className="py-1 px-2 rounded border border-dashed border-[#D5D2C9] bg-[#FAF9F6] hover:bg-white hover:border-[#C85A32]/50 text-[10.5px] font-mono text-[#585651] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-              >
-                <Upload className="w-3 h-3 text-[#C85A32] shrink-0" />
-                <span className="truncate">
-                  {isDecoding ? 'Decoding...' : uploadedAudio ? 'Change File' : 'Upload File'}
-                </span>
-              </button>
-            </div>
-            {(micError || uploadError) && (
-              <p className="text-[10px] font-mono text-[#DC2626]">{micError || uploadError}</p>
-            )}
-          </div>
-
-          {/* 2. Carrier vs Receiver Tab Switcher (Zero-Scroll Control Panel) */}
-          <div className="pt-2 border-t border-[#E6E4DD]">
-            <div
-              role="tablist"
-              aria-label="Carrier and Receiver audio controls"
-              className="grid grid-cols-2 p-0.5 bg-[#FAF9F6] border border-[#E6E4DD] rounded-md gap-0.5"
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isDecoding || isRecordingMic}
+              className="mt-2 w-full py-1.5 px-2.5 rounded border border-dashed border-[#D5D2C9] bg-[#FAF9F6] hover:bg-white hover:border-[#C85A32]/50 text-[11px] font-mono text-[#585651] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={controlsTab === 'carrier'}
-                onClick={() => setControlsTab('carrier')}
-                className={`py-1.5 px-2 rounded text-[11px] font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  controlsTab === 'carrier'
-                    ? 'bg-white text-[#C85A32] border border-[#E6E4DD] shadow-2xs font-bold'
-                    : 'text-[#75736E] hover:text-[#1A1917] border border-transparent'
-                }`}
-              >
-                <Radio className="w-3 h-3 shrink-0" />
-                <span>Carrier c(t)</span>
-                <span className="text-[9.5px] text-[#8A8882] font-normal tabular-nums">
-                  {(params.fcAudio / 1000).toFixed(1)}k
-                </span>
-              </button>
+              <Upload className="w-3.5 h-3.5 text-[#C85A32] shrink-0" />
+              <span className="truncate">
+                {isDecoding
+                  ? 'Processing audio...'
+                  : uploadedAudio
+                  ? `Loaded: ${uploadedAudio.name} (Change)`
+                  : 'Upload Audio (.wav / .mp3 / .ogg)'}
+              </span>
+            </button>
+            {uploadError && <p className="mt-1 text-[10.5px] font-mono text-[#DC2626]">{uploadError}</p>}
+          </div>
 
+          {/* 2. Quick Listening Experiments */}
+          <div className="pt-2.5 border-t border-[#E6E4DD]">
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-[#75736E] font-semibold mb-1.5">
+              Quick Sound Tests
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                role="tab"
-                aria-selected={controlsTab === 'receiver'}
-                onClick={() => setControlsTab('receiver')}
-                className={`py-1.5 px-2 rounded text-[11px] font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  controlsTab === 'receiver'
-                    ? 'bg-white text-[#C85A32] border border-[#E6E4DD] shadow-2xs font-bold'
-                    : 'text-[#75736E] hover:text-[#1A1917] border border-transparent'
+                onClick={() => applyAudioPreset('coherent')}
+                className={`px-2 py-1.5 rounded border text-[11px] font-semibold text-left transition-colors cursor-pointer truncate ${
+                  isLocked
+                    ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
                 }`}
               >
-                <SlidersHorizontal className="w-3 h-3 shrink-0" />
-                <span>Receiver</span>
-                <span className="text-[9.5px] text-[#8A8882] font-normal tabular-nums">
-                  θ={params.thetaDeg}°
-                </span>
+                01. Coherent Lock
+              </button>
+              <button
+                type="button"
+                onClick={() => applyAudioPreset('quadrature')}
+                className={`px-2 py-1.5 rounded border text-[11px] font-semibold text-left transition-colors cursor-pointer truncate ${
+                  isQuadratureNull
+                    ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
+                }`}
+              >
+                02. Quadrature Null
+              </button>
+              <button
+                type="button"
+                onClick={() => applyAudioPreset('beat')}
+                className={`px-2 py-1.5 rounded border text-[11px] font-semibold text-left transition-colors cursor-pointer truncate ${
+                  params.probeStage === 'coherent' && params.freqOffsetHz === 2
+                    ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
+                }`}
+              >
+                03. 2Hz Beat Fade
+              </button>
+              <button
+                type="button"
+                onClick={() => applyAudioPreset('shift')}
+                className={`px-2 py-1.5 rounded border text-[11px] font-semibold text-left transition-colors cursor-pointer truncate ${
+                  params.probeStage === 'coherent' && params.freqOffsetHz === 85
+                    ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
+                }`}
+              >
+                04. Pitch Shift (Δf)
+              </button>
+              <button
+                type="button"
+                onClick={() => applyAudioPreset('diodeFail')}
+                className={`col-span-2 px-2 py-1.5 rounded border text-[11px] font-semibold text-left transition-colors cursor-pointer flex items-center justify-between ${
+                  params.probeStage === 'envelope'
+                    ? 'bg-[#FEF2F2] border-[#DC2626] text-[#DC2626]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
+                }`}
+              >
+                <span>05. Diode Envelope Detector (Hear Why It Fails)</span>
+                <Radio className="w-3 h-3 shrink-0" />
               </button>
             </div>
           </div>
 
-          {/* 3. Active Tab Content */}
-          {controlsTab === 'carrier' ? (
-            <div role="tabpanel" className="space-y-2.5 pt-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10.5px] font-mono text-[#585651]">
-                  c(t) = A<sub>c</sub> cos(2πf<sub>c</sub>t + φ<sub>c</sub>)
+          {/* 3. Receiver Synchronization & Filter Controls */}
+          <div className="pt-2.5 border-t border-[#E6E4DD] space-y-2.5">
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <label htmlFor="audio-theta" className="text-[#585651] font-medium">
+                  LO Phase Error (θ)
+                </label>
+                <span className="font-mono font-bold text-[#D97706] tabular-nums">
+                  {params.thetaDeg > 0 ? `+${params.thetaDeg}` : params.thetaDeg}°
                 </span>
-                <button
-                  type="button"
-                  onClick={() => selectProbeStage(params.probeStage === 'carrier' ? 'dsbsc' : 'carrier')}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border transition-colors cursor-pointer ${
-                    params.probeStage === 'carrier'
-                      ? 'bg-[#475569] text-white border-[#475569]'
-                      : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                  }`}
-                  title="Audition pure carrier wave c(t)"
-                >
-                  {params.probeStage === 'carrier' ? 'Listening c(t)' : 'Listen c(t)'}
-                </button>
               </div>
-
-              {/* Carrier Frequency f_c */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <label htmlFor="audio-fc" className="text-[#585651] font-medium">
-                    Carrier Freq (f_c)
-                  </label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min={800}
-                      max={6000}
-                      step={50}
-                      value={params.fcAudio}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!Number.isNaN(val)) {
-                          setParams((p) => ({ ...p, fcAudio: Math.max(800, Math.min(6000, val)) }));
-                        }
-                      }}
-                      className="w-16 px-1.5 py-0.5 text-right font-mono font-bold text-[#1A1917] bg-[#FAF9F6] border border-[#E6E4DD] rounded text-[11px] tabular-nums"
-                      aria-label="Carrier frequency numeric input"
-                    />
-                    <span className="font-mono text-[10.5px] text-[#75736E]">Hz</span>
-                  </div>
-                </div>
-                <input
-                  id="audio-fc"
-                  type="range"
-                  min="800"
-                  max="6000"
-                  step="50"
-                  value={params.fcAudio}
-                  onChange={(e) => setParams((p) => ({ ...p, fcAudio: parseInt(e.target.value, 10) }))}
-                  className="w-full accent-[#1A1917] cursor-pointer"
-                />
-                <div className="mt-1 flex items-center justify-between gap-1">
-                  <div className="flex gap-1">
-                    {[1200, 2600, 4000, 5500].map((fc) => (
-                      <button
-                        key={fc}
-                        type="button"
-                        onClick={() => setParams((p) => ({ ...p, fcAudio: fc }))}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
-                          params.fcAudio === fc
-                            ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                            : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
-                        }`}
-                      >
-                        {(fc / 1000).toFixed(1)}k
-                      </button>
-                    ))}
-                  </div>
-                  {isSidebandFoldRisk && (
-                    <span className="text-[9.5px] font-mono font-semibold text-[#D97706]">
-                      Low fc (fold)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Carrier Amplitude A_c */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <label htmlFor="audio-ac" className="text-[#585651] font-medium">
-                    Carrier Amplitude (A_c)
-                  </label>
-                  <span className="font-mono font-bold text-[#475569] tabular-nums">
-                    ±{params.carrierAmp.toFixed(2)} V
-                  </span>
-                </div>
-                <input
-                  id="audio-ac"
-                  type="range"
-                  min="0.2"
-                  max="2.0"
-                  step="0.05"
-                  value={params.carrierAmp}
-                  onChange={(e) => setParams((p) => ({ ...p, carrierAmp: parseFloat(e.target.value) }))}
-                  className="w-full accent-[#475569] cursor-pointer"
-                />
-                <div className="mt-1 flex gap-1">
-                  {[0.5, 1.0, 1.5, 2.0].map((ac) => (
-                    <button
-                      key={ac}
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, carrierAmp: ac }))}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
-                        Math.abs(params.carrierAmp - ac) < 0.01
-                          ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                          : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      {ac.toFixed(1)}V
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* TX Carrier Phase φ_c */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <label htmlFor="audio-phic" className="text-[#585651] font-medium">
-                    Carrier Phase (φ_c)
-                  </label>
-                  <span className="font-mono font-bold text-[#475569] tabular-nums">
-                    {params.carrierPhaseDeg > 0 ? `+${params.carrierPhaseDeg}` : params.carrierPhaseDeg}°
-                  </span>
-                </div>
-                <input
-                  id="audio-phic"
-                  type="range"
-                  min="-180"
-                  max="180"
-                  step="5"
-                  value={params.carrierPhaseDeg}
-                  onChange={(e) => setParams((p) => ({ ...p, carrierPhaseDeg: parseInt(e.target.value, 10) }))}
-                  className="w-full accent-[#475569] cursor-pointer"
-                />
-                <div className="mt-1 flex gap-1">
-                  {[0, 45, 90, 180].map((deg) => (
-                    <button
-                      key={deg}
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, carrierPhaseDeg: deg }))}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
-                        params.carrierPhaseDeg === deg
-                          ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                          : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      {deg}°
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-2 rounded bg-[#FAF9F6] border border-[#E6E4DD] text-[10.5px] text-[#585651] leading-snug">
-                <strong className="text-[#1A1917]">Tip:</strong> Lower <code className="font-mono">f_c</code> below 1.6 kHz to hear sideband folding, or shift <code className="font-mono">φ_c</code> to 90° and switch to <strong>Receiver</strong> to re-lock <code className="font-mono">θ</code>.
-              </div>
-            </div>
-          ) : (
-            <div role="tabpanel" className="space-y-2 pt-0.5">
-              {/* Compact Quick Sound Tests */}
-              <div>
-                <div className="grid grid-cols-2 gap-1">
+              <input
+                id="audio-theta"
+                type="range"
+                min="-180"
+                max="180"
+                step="5"
+                value={params.thetaDeg}
+                onChange={(e) => {
+                  setIsAutoComparing(false);
+                  const val = parseInt(e.target.value, 10);
+                  setParams((p) => ({
+                    ...p,
+                    probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                    thetaDeg: val,
+                  }));
+                }}
+                className="w-full accent-[#D97706] cursor-pointer"
+              />
+              <div className="mt-1 flex gap-1">
+                {[0, 45, 90, 180].map((deg) => (
                   <button
+                    key={deg}
                     type="button"
-                    onClick={() => applyAudioPreset('coherent')}
-                    className={`px-2 py-1 rounded border text-[10.5px] font-semibold text-left transition-colors cursor-pointer truncate ${
-                      isLocked
-                        ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    01. Coherent Lock
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyAudioPreset('quadrature')}
-                    className={`px-2 py-1 rounded border text-[10.5px] font-semibold text-left transition-colors cursor-pointer truncate ${
-                      isQuadratureNull
-                        ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    02. Quadrature Null
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyAudioPreset('beat')}
-                    className={`px-2 py-1 rounded border text-[10.5px] font-semibold text-left transition-colors cursor-pointer truncate ${
-                      params.probeStage === 'coherent' && params.freqOffsetHz === 2
-                        ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    03. 2Hz Beat Fade
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyAudioPreset('shift')}
-                    className={`px-2 py-1 rounded border text-[10.5px] font-semibold text-left transition-colors cursor-pointer truncate ${
-                      params.probeStage === 'coherent' && params.freqOffsetHz === 85
-                        ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    04. Pitch Shift (Δf)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyAudioPreset('diodeFail')}
-                    className={`col-span-2 px-2 py-1 rounded border text-[10.5px] font-semibold text-left transition-colors cursor-pointer flex items-center justify-between ${
-                      params.probeStage === 'envelope'
-                        ? 'bg-[#FEF2F2] border-[#DC2626] text-[#DC2626]'
-                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:text-[#1A1917]'
-                    }`}
-                  >
-                    <span>05. Diode Envelope Detector (Hear Failure)</span>
-                    <Radio className="w-3 h-3 shrink-0" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Receiver LO Phase θ */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <label htmlFor="audio-theta" className="text-[#585651] font-medium">
-                    Receiver LO Phase (θ)
-                  </label>
-                  <span className="font-mono font-bold text-[#D97706] tabular-nums">
-                    {params.thetaDeg > 0 ? `+${params.thetaDeg}` : params.thetaDeg}°
-                  </span>
-                </div>
-                <input
-                  id="audio-theta"
-                  type="range"
-                  min="-180"
-                  max="180"
-                  step="5"
-                  value={params.thetaDeg}
-                  onChange={(e) => {
-                    setIsAutoComparing(false);
-                    const val = parseInt(e.target.value, 10);
-                    setParams((p) => ({
-                      ...p,
-                      probeStage:
-                        p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                          ? 'coherent'
-                          : p.probeStage,
-                      thetaDeg: val,
-                    }));
-                  }}
-                  className="w-full accent-[#D97706] cursor-pointer"
-                />
-                <div className="mt-0.5 flex gap-1">
-                  {[0, 45, 90, 180].map((deg) => (
-                    <button
-                      key={deg}
-                      type="button"
-                      onClick={() => {
-                        setIsAutoComparing(false);
-                        setParams((p) => ({
-                          ...p,
-                          probeStage:
-                            p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                              ? 'coherent'
-                              : p.probeStage,
-                          thetaDeg: deg,
-                        }));
-                      }}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
-                        params.thetaDeg === deg
-                          ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                          : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      {deg === 0 ? '0° Lock' : deg === 90 ? '90° Null' : `${deg}°`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* LO Freq Offset Δf */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <label htmlFor="audio-df" className="text-[#585651] font-medium">
-                    LO Freq Offset (Δf)
-                  </label>
-                  <span className="font-mono font-bold text-[#C85A32] tabular-nums">
-                    {params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz} Hz
-                  </span>
-                </div>
-                <input
-                  id="audio-df"
-                  type="range"
-                  min="-250"
-                  max="250"
-                  step="1"
-                  value={params.freqOffsetHz}
-                  onChange={(e) => {
-                    setIsAutoComparing(false);
-                    const val = parseInt(e.target.value, 10);
-                    setParams((p) => ({
-                      ...p,
-                      probeStage:
-                        p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                          ? 'coherent'
-                          : p.probeStage,
-                      freqOffsetHz: val,
-                    }));
-                  }}
-                  className="w-full accent-[#C85A32] cursor-pointer"
-                />
-                <div className="mt-0.5 flex gap-1">
-                  {[0, 2, 40, 120].map((df) => (
-                    <button
-                      key={df}
-                      type="button"
-                      onClick={() => {
-                        setIsAutoComparing(false);
-                        setParams((p) => ({
-                          ...p,
-                          probeStage:
-                            p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                              ? 'coherent'
-                              : p.probeStage,
-                          freqOffsetHz: df,
-                        }));
-                      }}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
-                        params.freqOffsetHz === df
-                          ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
-                          : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
-                      }`}
-                    >
-                      {df === 0 ? '0 Hz' : `+${df} Hz`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* LPF & AWGN Noise */}
-              <div className="pt-1.5 border-t border-[#F0EFEA] space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="audio-lpf" className="text-[11px] text-[#585651] font-medium">
-                    Receiver LPF Cutoff
-                  </label>
-                  <label className="flex items-center gap-1 text-[11px] font-mono cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={params.lpfEnabled}
-                      onChange={(e) => {
-                        setIsAutoComparing(false);
-                        const checked = e.target.checked;
-                        setParams((p) => ({
-                          ...p,
-                          probeStage:
-                            p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                              ? 'coherent'
-                              : p.probeStage,
-                          lpfEnabled: checked,
-                        }));
-                      }}
-                      className="accent-[#059669] rounded"
-                    />
-                    <span className="font-semibold text-[#059669]">
-                      {params.lpfEnabled ? `${params.lpfCutoffHz} Hz` : 'Bypassed'}
-                    </span>
-                  </label>
-                </div>
-                {params.lpfEnabled && (
-                  <input
-                    id="audio-lpf"
-                    type="range"
-                    min="300"
-                    max="6000"
-                    step="50"
-                    value={params.lpfCutoffHz}
-                    onChange={(e) => {
+                    onClick={() => {
                       setIsAutoComparing(false);
-                      const val = parseInt(e.target.value, 10);
                       setParams((p) => ({
                         ...p,
-                        probeStage:
-                          p.probeStage === 'original' || p.probeStage === 'dsbsc' || p.probeStage === 'carrier'
-                            ? 'coherent'
-                            : p.probeStage,
-                        lpfCutoffHz: val,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        thetaDeg: deg,
                       }));
                     }}
-                    className="w-full accent-[#059669] cursor-pointer"
-                  />
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between text-[11px] mb-0.5">
-                    <label htmlFor="audio-noise" className="text-[#585651] font-medium">
-                      Channel AWGN Noise
-                    </label>
-                    <span className="font-mono font-bold text-[#585651] tabular-nums">
-                      {Math.round(params.noiseLevel * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    id="audio-noise"
-                    type="range"
-                    min="0"
-                    max="0.35"
-                    step="0.01"
-                    value={params.noiseLevel}
-                    onChange={(e) => setParams((p) => ({ ...p, noiseLevel: parseFloat(e.target.value) }))}
-                    className="w-full accent-[#585651] cursor-pointer"
-                  />
-                </div>
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
+                      params.thetaDeg === deg
+                        ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
+                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
+                    }`}
+                  >
+                    {deg === 0 ? '0° Lock' : deg === 90 ? '90° Null' : `${deg}°`}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <label htmlFor="audio-df" className="text-[#585651] font-medium">
+                  LO Freq Offset (Δf)
+                </label>
+                <span className="font-mono font-bold text-[#C85A32] tabular-nums">
+                  {params.freqOffsetHz > 0 ? `+${params.freqOffsetHz}` : params.freqOffsetHz} Hz
+                </span>
+              </div>
+              <input
+                id="audio-df"
+                type="range"
+                min="-250"
+                max="250"
+                step="1"
+                value={params.freqOffsetHz}
+                onChange={(e) => {
+                  setIsAutoComparing(false);
+                  const val = parseInt(e.target.value, 10);
+                  setParams((p) => ({
+                    ...p,
+                    probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                    freqOffsetHz: val,
+                  }));
+                }}
+                className="w-full accent-[#C85A32] cursor-pointer"
+              />
+              <div className="mt-1 flex gap-1">
+                {[0, 2, 40, 120].map((df) => (
+                  <button
+                    key={df}
+                    type="button"
+                    onClick={() => {
+                      setIsAutoComparing(false);
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        freqOffsetHz: df,
+                      }));
+                    }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
+                      params.freqOffsetHz === df
+                        ? 'bg-[#1A1917] text-white border-[#1A1917] font-bold'
+                        : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651]'
+                    }`}
+                  >
+                    {df === 0 ? '0 Hz' : `+${df} Hz`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <label htmlFor="audio-fc" className="text-[#585651] font-medium">
+                  Audible Carrier (f_c)
+                </label>
+                <span className="font-mono font-bold text-[#1A1917] tabular-nums">{params.fcAudio} Hz</span>
+              </div>
+              <input
+                id="audio-fc"
+                type="range"
+                min="1600"
+                max="4500"
+                step="100"
+                value={params.fcAudio}
+                onChange={(e) => setParams((p) => ({ ...p, fcAudio: parseInt(e.target.value, 10) }))}
+                className="w-full accent-[#1A1917] cursor-pointer"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-[#F0EFEA] space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="audio-lpf" className="text-[11px] text-[#585651] font-medium">
+                  Receiver LPF Cutoff
+                </label>
+                <label className="flex items-center gap-1 text-[11px] font-mono cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={params.lpfEnabled}
+                    onChange={(e) => {
+                      setIsAutoComparing(false);
+                      const checked = e.target.checked;
+                      setParams((p) => ({
+                        ...p,
+                        probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                        lpfEnabled: checked,
+                      }));
+                    }}
+                    className="accent-[#059669] rounded"
+                  />
+                  <span className="font-semibold text-[#059669]">
+                    {params.lpfEnabled ? `${params.lpfCutoffHz} Hz` : 'Bypassed'}
+                  </span>
+                </label>
+              </div>
+              {params.lpfEnabled && (
+                <input
+                  id="audio-lpf"
+                  type="range"
+                  min="300"
+                  max="6000"
+                  step="50"
+                  value={params.lpfCutoffHz}
+                  onChange={(e) => {
+                    setIsAutoComparing(false);
+                    const val = parseInt(e.target.value, 10);
+                    setParams((p) => ({
+                      ...p,
+                      probeStage: p.probeStage === 'original' || p.probeStage === 'dsbsc' ? 'coherent' : p.probeStage,
+                      lpfCutoffHz: val,
+                    }));
+                  }}
+                  className="w-full accent-[#059669] cursor-pointer"
+                />
+              )}
+
+              <div>
+                <div className="flex items-center justify-between text-[11px] mb-0.5">
+                  <label htmlFor="audio-noise" className="text-[#585651] font-medium">
+                    Channel AWGN Noise
+                  </label>
+                  <span className="font-mono font-bold text-[#585651] tabular-nums">
+                    {Math.round(params.noiseLevel * 100)}%
+                  </span>
+                </div>
+                <input
+                  id="audio-noise"
+                  type="range"
+                  min="0"
+                  max="0.35"
+                  step="0.01"
+                  value={params.noiseLevel}
+                  onChange={(e) => setParams((p) => ({ ...p, noiseLevel: parseFloat(e.target.value) }))}
+                  className="w-full accent-[#585651] cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
