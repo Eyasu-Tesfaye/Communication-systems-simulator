@@ -145,7 +145,15 @@ export const VsbSpectrumComparisonSection: React.FC<VsbSectionProps> = ({
               {vsbToWRatio.toFixed(2)}×
             </span>
             <span className="text-[11px] font-mono text-[#75736E]">
-              {isApproxStandard ? '≈ 1.25 BWm' : `fv=${effectiveFv.toFixed(2)}`}
+              {isApproxStandard ? (
+                <>
+                  ≈ 1.25 <MathView math={TEX.bwm} />
+                </>
+              ) : (
+                <>
+                  <MathView math={TEX.fv} /> = {effectiveFv.toFixed(2)} Hz
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -358,7 +366,7 @@ export const VsbModulatorSection: React.FC<VsbSectionProps> = ({
             {/* Output s_VSB(t) */}
             <rect x="644" y="26" width="102" height="44" rx="6" fill="#FBF4F0" stroke="#C85A32" strokeWidth="1.6" />
             <text x="695" y="45" textAnchor="middle" className="text-[11px] font-mono font-bold fill-[#C85A32]">
-              s_VSB(t)
+              VSB Output s(t)
             </text>
             <text x="695" y="60" textAnchor="middle" className="text-[9.5px] font-mono fill-[#585651]">
               BW = {(params.W + effectiveFv).toFixed(2)} Hz
@@ -380,8 +388,8 @@ export const VsbModulatorSection: React.FC<VsbSectionProps> = ({
 
       {/* Plot 2: VSB Output Spectrum */}
       <VsbTwoSidedSpectrumPlot
-        title="2. VSB Output Spectrum S_VSB(f) = H(f) · S_DSB-SC(f)"
-        subtitle={`Full upper sideband + vestige fv = ${effectiveFv.toFixed(2)} Hz`}
+        title="2. VSB Output Spectrum"
+        subtitle={`Full upper sideband + vestige (${effectiveFv.toFixed(2)} Hz)`}
         curve={sim.vsbSpectrumCurve}
         maxFreq={sim.spectrumMaxFreq}
         fc={params.fc}
@@ -503,7 +511,7 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
             {/* Input s_VSB(t) */}
             <rect x="14" y="24" width="120" height="44" rx="6" fill="#FBF4F0" stroke="#C85A32" strokeWidth="1.5" />
             <text x="74" y="43" textAnchor="middle" className="text-[11px] font-mono font-bold fill-[#C85A32]">
-              s_VSB(t)
+              VSB Input s(t)
             </text>
             <text x="74" y="58" textAnchor="middle" className="text-[9.5px] font-mono fill-[#585651]">
               Received VSB Signal
@@ -529,7 +537,7 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
             {/* v(t) -> LPF */}
             <line x1="259" y1="46" x2="380" y2="46" stroke="#585651" strokeWidth="1.6" markerEnd="url(#demodArrow)" />
             <text x="320" y="37" textAnchor="middle" className="text-[9.5px] font-mono font-bold fill-[#1A1917]">
-              v(t) = s_VSB(t)cos(2π fc t)
+              v(t) = s(t) · cos(2π fc t)
             </text>
 
             {/* LPF Box */}
@@ -562,7 +570,7 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
                 isConditionSatisfied ? 'fill-[#059669]' : 'fill-[#B91C1C]'
               }`}
             >
-              Recovered m_rec(t)
+              Recovered Output
             </text>
             <text x="688" y="58" textAnchor="middle" className="text-[9.5px] font-mono fill-[#585651]">
               {isConditionSatisfied ? 'Distortionless' : 'Distorted Output'}
@@ -669,11 +677,11 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
         />
 
         <VsbTimePlot
-          title="2. VSB Modulated Signal s_VSB(t)"
-          subtitle={`fc = ${params.fc.toFixed(0)} Hz · fv = ${sim.effectiveFv.toFixed(2)} Hz`}
+          title="2. VSB Modulated Signal s(t)"
+          subtitle={`Carrier ${params.fc.toFixed(0)} Hz · Vestige ${sim.effectiveFv.toFixed(2)} Hz`}
           timeSteps={sim.timeSteps}
           values={sim.vsbSignal}
-          primaryLabel="s_VSB(t)"
+          primaryLabel="s(t)"
           primaryColor="#C85A32"
           simTime={simTime}
           onSeekTime={onSeekTime}
@@ -683,7 +691,7 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
         />
 
         <VsbTimePlot
-          title="3. Product Modulator Output v(t) = s_VSB(t) · cos(2π fc t)"
+          title="3. Product Modulator Output v(t) = s(t) · cos(2π fc t)"
           subtitle="Baseband component + 2fc component (removed by LPF)"
           timeSteps={sim.timeSteps}
           values={sim.productSignal}
@@ -697,7 +705,7 @@ export const VsbDemodulationSection: React.FC<VsbSectionProps> = ({
         />
 
         <VsbTimePlot
-          title="4. Recovered Output m_rec(t) vs. Original m(t)"
+          title="4. Recovered Output vs. Original Message m(t)"
           subtitle={
             isConditionSatisfied
               ? 'Condition satisfied -> Exact recovery'
