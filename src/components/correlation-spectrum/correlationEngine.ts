@@ -75,9 +75,8 @@ export function computeCorrelation(
   const powerX = signalX.power;
   const powerY = isAutocorrelation ? signalX.power : signalY.power;
 
-  const normDenominator = isEnergy
-    ? Math.sqrt(Math.max(1e-12, energyX * energyY))
-    : Math.sqrt(Math.max(1e-12, powerX * powerY));
+  const rawNormProd = isEnergy ? energyX * energyY : powerX * powerY;
+  const normDenominator = rawNormProd > 0 ? Math.sqrt(rawNormProd) : 0;
 
   // Compute correlation across all integer shifts k in [-(N-1), +(N-1)]
   let zeroLagIndex = N - 1;
@@ -120,7 +119,8 @@ export function computeCorrelation(
     }
 
     rValues[idx] = rVal;
-    normalizedValues[idx] = normDenominator > 0 ? rVal / normDenominator : 0;
+    normalizedValues[idx] =
+      normDenominator > 0 ? Math.max(-1, Math.min(1, rVal / normDenominator)) : 0;
 
     // Track peak
     if (Math.abs(rVal) > maxAbsVal) {
@@ -132,19 +132,17 @@ export function computeCorrelation(
 
   const zeroLagValue = rValues[zeroLagIndex];
 
-  // Evaluate correlation at currently selected lag (interpolate or nearest point)
-  // Find closest lag index
-  let closestIdx = zeroLagIndex;
-  let minDiff = Infinity;
-  for (let idx = 0; idx < numLags; idx++) {
-    const diff = Math.abs(lags[idx] - currentLag);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestIdx = idx;
-    }
-  }
-  const currentR = rValues[closestIdx];
-  const currentNormalized = normalizedValues[closestIdx];
+  // Evaluate correlation at currently selected lag (exact integer lookup in DTS, linear interpolation in CTS)
+  const effectiveLag = isDiscrete ? Math.round(currentLag) : currentLag;
+  const evaluated = interpolateCorrelationSeries(
+    lags,
+    rValues,
+    normalizedValues,
+    effectiveLag,
+    isDiscrete
+  );
+  const currentR = evaluated.rValue;
+  const currentNormalized = evaluated.rhoValue;
 
   // Formula representation
   let formulaTex = '';
@@ -179,7 +177,7 @@ export function computeCorrelation(
     lags,
     rValues,
     normalizedValues,
-    currentLag,
+    currentLag: effectiveLag,
     currentR,
     currentNormalized,
     zeroLagValue,
@@ -191,6 +189,90 @@ export function computeCorrelation(
     powerY,
   };
 }
+
+function interpolateCorrelationSeries(
+  lags: number[],
+  rValues: number[],
+  normalizedValues: number[],
+  targetLag: number,
+  isDiscrete: boolean
+): { lag: number; rValue: number; rhoValue: number } {
+  if (lags.length === 0) {
+    return { lag: targetLag, rValue: 0, rhoValue: 0 };
+  }
+  if (isDiscrete) {
+    const k = Math.round(targetLag);
+    const minK = lags[0];
+    const maxK = lags[lags.length - 1];
+    if (k < minK || k > maxK) {
+      return { lag: k, rValue: 0, rhoValue: 0 };
+    }
+    const idx = Math.round(k - minK);
+    return {
+      lag: lags[idx] ?? k,
+      rValue: rValues[idx] ?? 0,
+      rhoValue: Math.max(-1, Math.min(1, normalizedValues[idx] ?? 0)),
+    };
+  }
+
+  const minLag = lags[0];
+  const maxLag = lags[lags.length - 1];
+  if (targetLag < minLag - 1e-9 || targetLag > maxLag + 1e-9) {
+    return { lag: targetLag, rValue: 0, rhoValue: 0 };
+  }
+
+  const clampedLag = Math.max(minLag, Math.min(maxLag, targetLag));
+  if (lags.length === 1) {
+    return {
+      lag: clampedLag,
+      rValue: rValues[0] ?? 0,
+      rhoValue: Math.max(-1, Math.min(1, normalizedValues[0] ?? 0)),
+    };
+  }
+
+  // Binary search for bracketing interval [i0, i1]
+  let lo = 0;
+  let hi = lags.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (lags[mid] <= clampedLag) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+
+  const l0 = lags[lo];
+  const l1 = lags[hi];
+  const span = l1 - l0;
+  const frac = span > 1e-12 ? Math.max(0, Math.min(1, (clampedLag - l0) / span)) : 0;
+
+  const rValue = rValues[lo] * (1 - frac) + rValues[hi] * frac;
+  const rhoRaw = normalizedValues[lo] * (1 - frac) + normalizedValues[hi] * frac;
+  return {
+    lag: clampedLag,
+    rValue,
+    rhoValue: Math.max(-1, Math.min(1, rhoRaw)),
+  };
+}
+
+/**
+ * Evaluates correlation value R(tau) and normalized coefficient rho(tau)
+ * at a given target lag (exact integer lookup in DTS, linear interpolation in CTS).
+ */
+export function evaluateCorrelationAtLag(
+  corr: CorrelationResult,
+  targetLag: number
+): { lag: number; rValue: number; rhoValue: number } {
+  return interpolateCorrelationSeries(
+    corr.lags,
+    corr.rValues,
+    corr.normalizedValues,
+    targetLag,
+    corr.isDiscrete
+  );
+}
+
 
 /**
  * MATHEMATICAL VALIDATION TEST SUITE

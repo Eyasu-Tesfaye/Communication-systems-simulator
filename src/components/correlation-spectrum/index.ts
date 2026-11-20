@@ -18,6 +18,7 @@ export { SignalPlotCanvas } from './SignalPlotCanvas';
 // Computation and Signal Engines
 export {
   computeCorrelation,
+  evaluateCorrelationAtLag,
   type CorrelationResult,
   runCorrelationValidationTests,
 } from './correlationEngine';
@@ -34,9 +35,17 @@ export {
   generateGaussianWhiteNoise,
   filterColoredNoise,
   type SignalType,
+  type ChannelEchoConfig,
   type UnifiedSignalConfig,
   type GeneratedSignal,
 } from './signalGenerators';
+
+export {
+  type CoreSignalType,
+  type SharedLabState,
+  CORE_SIGNAL_OPTIONS,
+  DEFAULT_SHARED_LAB_STATE,
+} from './labTypes';
 
 export {
   executeStage5TestSuite,

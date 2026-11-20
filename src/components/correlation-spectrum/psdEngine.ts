@@ -23,6 +23,7 @@ export interface PsdResult {
   // Peak and Area Metrics
   peakFrequency: number;      // frequency where S(f) is maximum (positive branch)
   peakPsdValue: number;       // max S(f)
+  bandwidth: number;          // 90% occupied power bandwidth Delta f (Hz or cyc/sample)
   psdArea: number;            // numerical integral: sum(S(f) * df)
   areaError: number;          // abs(psdArea - zeroLagValue)
   relativeAreaError: number;  // abs(psdArea - zeroLagValue) / zeroLagValue
@@ -126,12 +127,6 @@ export function computePsd(
   const zeroIdx = N - 1;
 
   // Step 2: Zero-pad autocorrelation symmetrically to length nFft for smooth spectral interpolation
-  // To compute the continuous-time Fourier transform approximation:
-  // S(f) = dt * sum_{k = -(N-1)}^{N-1} R[k] * e^{-j 2pi f k dt}
-  // Standard circular indexing for centered real-even sequence:
-  // index 0 -> k = 0 (R[0])
-  // index k -> positive lag k (R[k])
-  // index nFft - k -> negative lag -k (R[-k] = R[k])
   const fftReal = new Float64Array(nFft);
   const fftImag = new Float64Array(nFft);
 
@@ -146,52 +141,119 @@ export function computePsd(
   // Step 3: Fast Fourier Transform of the autocorrelation sequence
   fftRadix2(fftReal, fftImag, false);
 
-  // Step 4: Scale to obtain physical PSD S_xx(f)
-  // Continuous-time FT: S(f) = dt * FFT(R_xx)
-  // Discrete-time FT scaled to Hz: S(f) = dt * FFT(R_xx) = (1/Fs) * DTFT
-  // This guarantees integral_{-Fs/2}^{+Fs/2} S(f) df == R_xx(0)
+  // Step 4: Scale to obtain physical PSD/ESD S_xx(f)
   const df = Fs / nFft;
   const rawPsd = new Float64Array(nFft);
   for (let i = 0; i < nFft; i++) {
-    // PSD of real-even autocorrelation is strictly real: sqrt(re^2 + im^2) or max(0, re)
     const val = fftReal[i] * dt;
     rawPsd[i] = Math.max(0, val);
   }
 
   // Step 5: Construct two-sided centered frequency axis via fftshift
-  // Frequency bins: -Fs/2, ..., 0, ..., +Fs/2 - df
   const halfN = nFft / 2;
   const frequencyAxis = new Array(nFft);
   const psdValues = new Array(nFft);
 
   for (let i = 0; i < nFft; i++) {
     const freq = (i - halfN) * df;
-    frequencyAxis[i] = Number(freq.toFixed(3));
+    frequencyAxis[i] = Number(freq.toFixed(6));
 
-    // Shift: second half of raw FFT array is negative frequencies
     const shiftedIdx = (i + halfN) % nFft;
     psdValues[i] = rawPsd[shiftedIdx];
   }
 
-  // Step 6: Find peak frequency (in positive frequency half)
-  let peakVal = 0;
-  let peakFreq = 0;
-  for (let i = halfN; i < nFft; i++) {
+  // Step 6: Find peak frequency on non-negative frequency half [0, Fs/2]
+  // with 3-point parabolic sub-bin interpolation for sharp spectral peaks.
+  let peakIdx = halfN;
+  let peakVal = psdValues[halfN];
+  for (let i = halfN + 1; i < nFft; i++) {
     if (psdValues[i] > peakVal) {
       peakVal = psdValues[i];
-      peakFreq = frequencyAxis[i];
+      peakIdx = i;
+    }
+  }
+  // Also check Nyquist bin (shared at index 0: f = ±Fs/2)
+  let peakIsNyquist = false;
+  if (psdValues[0] > peakVal) {
+    peakVal = psdValues[0];
+    peakIdx = 0;
+    peakIsNyquist = true;
+  }
+
+  let peakFreq = peakIsNyquist ? Fs / 2 : (peakIdx - halfN) * df;
+  if (!peakIsNyquist && peakIdx > halfN && peakIdx < nFft - 1) {
+    const yL = psdValues[peakIdx - 1];
+    const yC = psdValues[peakIdx];
+    const yR = psdValues[peakIdx + 1];
+    const denom = yL - 2 * yC + yR;
+    if (denom < -1e-18) {
+      const delta = Math.max(-0.5, Math.min(0.5, (0.5 * (yL - yR)) / denom));
+      peakFreq = Math.max(0, (peakIdx - halfN + delta) * df);
+      const interpPeak = yC - 0.25 * (yL - yR) * delta;
+      if (interpPeak > peakVal) {
+        peakVal = interpPeak;
+      }
     }
   }
 
-  // Step 7: Numerical integration of PSD area: integral S_xx(f) df
+  // Step 7: Numerical integration of total two-sided PSD area: integral S_xx(f) df
   let psdArea = 0;
   for (let i = 0; i < nFft; i++) {
     psdArea += psdValues[i] * df;
   }
 
+  // Compute 80% occupied power bandwidth (f_85 - f_05) over [0, Fs/2]
+  // Split DC (i = halfN) and Nyquist (i = 0) bins evenly across 0 and Fs/2 so posPower == 0.5 * psdArea exactly.
+  const posBins: Array<{ fStart: number; fEnd: number; area: number }> = [
+    { fStart: 0, fEnd: 0.5 * df, area: 0.5 * psdValues[halfN] * df },
+  ];
+  for (let k = 1; k < halfN; k++) {
+    posBins.push({
+      fStart: (k - 0.5) * df,
+      fEnd: (k + 0.5) * df,
+      area: psdValues[halfN + k] * df,
+    });
+  }
+  posBins.push({
+    fStart: Fs / 2 - 0.5 * df,
+    fEnd: Fs / 2,
+    area: 0.5 * psdValues[0] * df,
+  });
+
+  const posPower = posBins.reduce((acc, b) => acc + b.area, 0);
+  let bandwidth = 0;
+  if (posPower > 1e-18) {
+    const targetLow = 0.05 * posPower;
+    const targetHigh = 0.85 * posPower;
+    let cum = 0;
+    let f05 = 0;
+    let f85 = Fs / 2;
+    let found05 = false;
+    let found85 = false;
+
+    for (const bin of posBins) {
+      const prevCum = cum;
+      cum += bin.area;
+      if (!found05 && cum >= targetLow) {
+        const frac = bin.area > 1e-18 ? (targetLow - prevCum) / bin.area : 0;
+        f05 = bin.fStart + Math.max(0, Math.min(1, frac)) * (bin.fEnd - bin.fStart);
+        found05 = true;
+      }
+      if (!found85 && cum >= targetHigh) {
+        const frac = bin.area > 1e-18 ? (targetHigh - prevCum) / bin.area : 0;
+        f85 = bin.fStart + Math.max(0, Math.min(1, frac)) * (bin.fEnd - bin.fStart);
+        found85 = true;
+        break;
+      }
+    }
+    bandwidth = Math.max(df, f85 - f05);
+  }
+
   const zeroLagValue = corr.zeroLagValue;
   const areaError = Math.abs(psdArea - zeroLagValue);
   const relativeAreaError = zeroLagValue > 1e-12 ? areaError / zeroLagValue : areaError;
+
+  const isEnergySignal = corr.convention === 'energy';
 
   return {
     lagAxis: corr.lags,
@@ -201,13 +263,14 @@ export function computePsd(
     psdValues,
     samplingRate: Fs,
     frequencyResolution: df,
-    peakFrequency: peakFreq,
+    peakFrequency: Number(peakFreq.toFixed(6)),
     peakPsdValue: peakVal,
+    bandwidth,
     psdArea,
     areaError,
     relativeAreaError,
-    rUnits: 'V²',
-    psdUnits: 'V²/Hz',
+    rUnits: isEnergySignal ? (isDiscrete ? 'V²' : 'V²·s') : 'V²',
+    psdUnits: isEnergySignal ? (isDiscrete ? 'V²/cyc' : 'V²·s/Hz') : (isDiscrete ? 'V²/cyc' : 'V²/Hz'),
   };
 }
 
