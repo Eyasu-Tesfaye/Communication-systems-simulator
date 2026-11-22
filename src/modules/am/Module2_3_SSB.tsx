@@ -1,94 +1,60 @@
 /**
- * MODULE 2.3 — SINGLE SIDEBAND (SSB) MODULATION & DEMODULATION
- * Independent, interactive Signal Lab simulator covering:
- * 1. SSB Introduction & AM / DSB-SC / SSB visual comparison
- * 2. Time-Domain SSB Modulation (Single-Tone & General Hilbert Transform)
- * 3. Frequency-Domain FFT Spectrum Analysis (USB, LSB, Carrier Suppression, BW)
- * 4. Coherent Product Demodulation & Original-vs-Recovered Error Metrics
- * 5. Bandwidth, Power Efficiency & Mathematical Reference
+ * MODULE 2.3 — SINGLE SIDEBAND SUPPRESSED CARRIER (SSB-SC)
+ * Three-Stage Interactive Signal Lab:
+ * - Module Heading with Prev/Next module links
+ * - Mode Selector: 01. Signal Oscilloscope / 02. Audio Sound Lab
+ * - SSB-SC Signal Workbench with 3-row Playback Toolbar & Stage-Scoped Signal Tabs
+ * - Guided 3-Stage Learning Flow: 01 Message Signal → 02 SSB Modulation → 03 SSB Demodulation → Completion
  */
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronDown,
-  BookOpen,
-  SlidersHorizontal,
-  Sparkles,
+  Check,
+  CheckCircle2,
+  Play,
+  Pause,
   RotateCcw,
-  Radio,
-  Waves,
+  Grid,
+  Maximize2,
+  Minimize2,
   Activity,
-  GitMerge,
-  Scale,
+  AudioLines,
 } from 'lucide-react';
-import { AM_MODULES, AMSubTopic } from '../../data/modules';
 import { ModuleGlyph } from '../../components/ModuleGlyphs';
-import { SimulationToolbar, PlaybackState } from '../../components/SimulationToolbar';
 import {
   SsbParams,
   DEFAULT_SSB_PARAMS,
-  SSB_DURATION,
+  generateSsbSimulation,
   MessageShape,
   SidebandMode,
-  generateSsbSimulation,
 } from './ssb/ssbMathEngine';
 import {
-  SsbIntroSection,
-  SsbTimeDomainSection,
-  SsbFrequencyDomainSection,
-  SsbDemodulationSection,
-  SsbComparisonTheorySection,
-} from './ssb/SsbSections';
+  StageNumber,
+  SsbStage01Message,
+  SsbStage02Modulation,
+  SsbStage03Demodulation,
+  SsbCompletionView,
+} from './ssb/SsbStageViews';
+import { SsbAudioLab } from './ssb/SsbAudioLab';
 
-type SsbSectionId = 'intro' | 'time' | 'frequency' | 'demodulation' | 'comparison';
+type LabModeTab = 'oscilloscope' | 'audio';
+type PlaybackState = 'playing' | 'paused' | 'reset';
 
-interface SectionMeta {
-  id: SsbSectionId;
-  shortLabel: string;
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
+interface StageMeta {
+  num: StageNumber;
+  code: string;
+  label: string;
 }
 
-const SECTIONS: SectionMeta[] = [
-  {
-    id: 'intro',
-    shortLabel: '01 · Introduction & Comparison',
-    title: '01. SSB Introduction & Visual Comparison',
-    subtitle: 'Modulation basics, why SSB sends one sideband, and AM vs. DSB-SC vs. SSB spectra',
-    icon: <Radio className="w-3.5 h-3.5 text-[#C85A32]" />,
-  },
-  {
-    id: 'time',
-    shortLabel: '02 · Time-Domain Modulation',
-    title: '02. Time-Domain SSB Modulation (USB & LSB)',
-    subtitle: 'Message m(t), carrier c(t), Hilbert m̂(t), and single-tone vs. general waveforms',
-    icon: <Waves className="w-3.5 h-3.5 text-[#C85A32]" />,
-  },
-  {
-    id: 'frequency',
-    shortLabel: '03 · Frequency-Domain Analysis',
-    title: '03. Frequency-Domain Spectrum Analysis',
-    subtitle: 'FFT magnitude spectra of message, carrier, USB-only, LSB-only, and bandwidth B',
-    icon: <Activity className="w-3.5 h-3.5 text-[#C85A32]" />,
-  },
-  {
-    id: 'demodulation',
-    shortLabel: '04 · Coherent Demodulation',
-    title: '04. SSB Demodulation & Recovery Comparison',
-    subtitle: 'Product detector, LO Δf / Δφ error, LPF recovery, and original-vs-recovered RMSE',
-    icon: <GitMerge className="w-3.5 h-3.5 text-[#C85A32]" />,
-  },
-  {
-    id: 'comparison',
-    shortLabel: '05 · Bandwidth, Power & Theory',
-    title: '05. Bandwidth, Power Efficiency & Theory',
-    subtitle: 'Quantitative comparison table (AM / DSB-SC / SSB), assumptions, and Hilbert derivations',
-    icon: <Scale className="w-3.5 h-3.5 text-[#C85A32]" />,
-  },
+const STAGES: StageMeta[] = [
+  { num: 1, code: '01', label: 'Message Signal' },
+  { num: 2, code: '02', label: 'SSB Modulation' },
+  { num: 3, code: '03', label: 'SSB Demodulation' },
 ];
+
+const SPEED_OPTIONS = ['0.5×', '1×', '2×', '4×'] as const;
 
 interface Module2_3_SSBProps {
   onNavigateHome: () => void;
@@ -103,22 +69,23 @@ function parseSpeedMultiplier(speed: string): number {
 export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
   onNavigateModule,
 }) => {
-  const subTopic: AMSubTopic = AM_MODULES[2]; // Module 2.3 SSB
+  // Laboratory Mode Selector (01. Signal Oscilloscope vs 02. Audio Sound Lab)
+  const [activeLabTab, setActiveLabTab] = useState<LabModeTab>('oscilloscope');
 
-  // Navigation & View State
-  const [activeSection, setActiveSection] = useState<SsbSectionId>('time');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isGridVisible, setIsGridVisible] = useState(true);
+  // Guided 3-Stage Navigation State
+  const [currentStage, setCurrentStage] = useState<StageNumber>(1);
+  const [highestStageReached, setHighestStageReached] = useState<StageNumber>(1);
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Simulation Parameters & Playback
+  // Persistent Simulation Parameters & Playback State (preserved across stage transitions)
   const [params, setParams] = useState<SsbParams>(DEFAULT_SSB_PARAMS);
-  const [tWindow, setTWindow] = useState<number>(1.0);
+  const [tWindow] = useState<number>(1.0);
   const [playbackState, setPlaybackState] = useState<PlaybackState>('paused');
   const [speed, setSpeed] = useState<string>('1×');
   const [simTime, setSimTime] = useState<number>(0.25);
+  const [isGridVisible, setIsGridVisible] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
 
@@ -126,42 +93,48 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
     setParams((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  // Recompute full SSB simulation mathematically whenever parameters change
-  const simData = useMemo(() => generateSsbSimulation(params), [params]);
+  // Compute adaptive LPF cutoff so Stage 03 recovers both Cosine and Two-Tone cleanly
+  const simParams = useMemo<SsbParams>(() => {
+    const bw =
+      params.messageShape === 'two_tone'
+        ? 2 * params.messageFreq
+        : params.messageFreq;
+    const autoCutoff = Math.min(
+      Math.max(bw + 3.5, 8.0),
+      Math.max(8.0, params.carrierFreq - 1.5)
+    );
+    return {
+      ...params,
+      lpfCutoff: autoCutoff,
+    };
+  }, [params]);
 
-  const currentSectionMeta =
-    SECTIONS.find((s) => s.id === activeSection) ?? SECTIONS[1];
+  const simData = useMemo(() => generateSsbSimulation(simParams), [simParams]);
 
-  // Close dropdown on outside click or Escape, and support Escape to exit fullscreen
+  const isFreqSynced = Math.abs(params.loFreqOffset) < 0.05;
+  const isPhaseSynced = Math.abs(params.loPhaseDeg) < 2;
+  const isSynced = isFreqSynced && isPhaseSynced;
+
+  const technicalSectionLabel = isSynced
+    ? `Synchronous Phase Lock (θ = ${params.loPhaseDeg}°)`
+    : !isFreqSynced && !isPhaseSynced
+    ? `LO Detune (Δf = ${params.loFreqOffset >= 0 ? '+' : ''}${params.loFreqOffset.toFixed(1)} Hz, θ = ${params.loPhaseDeg}°)`
+    : !isFreqSynced
+    ? `LO Frequency Offset (Δf = ${params.loFreqOffset >= 0 ? '+' : ''}${params.loFreqOffset.toFixed(1)} Hz)`
+    : `LO Phase Offset (θ = ${params.loPhaseDeg}°)`;
+
+  // Escape exits fullscreen
   useEffect(() => {
-    const handlePointerDown = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isDropdownOpen) {
-          setIsDropdownOpen(false);
-        } else if (isFullscreen) {
-          setIsFullscreen(false);
-        }
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
       }
     };
-
-    document.addEventListener('mousedown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isDropdownOpen, isFullscreen]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
-  // Lock body scroll in fullscreen mode
+  // Lock body scroll in fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
     const prevOverflow = document.body.style.overflow;
@@ -171,9 +144,9 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
     };
   }, [isFullscreen]);
 
-  // Synchronized real-time animation loop for moving cursor across time-domain graphs
+  // Synchronized real-time animation loop
   useEffect(() => {
-    if (playbackState !== 'playing') {
+    if (playbackState !== 'playing' || activeLabTab !== 'oscilloscope') {
       lastFrameTimeRef.current = null;
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
@@ -188,7 +161,7 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
       if (lastFrameTimeRef.current !== null) {
         const dtSec = Math.min(0.08, (now - lastFrameTimeRef.current) / 1000);
         setSimTime((prev) => {
-          const next = prev + dtSec * mult * 0.25; // Smooth educational sweep speed
+          const next = prev + dtSec * mult * 0.25;
           return next > tWindow ? next % tWindow : next;
         });
       }
@@ -204,8 +177,9 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
       }
       lastFrameTimeRef.current = null;
     };
-  }, [playbackState, speed, tWindow]);
+  }, [playbackState, speed, tWindow, activeLabTab]);
 
+  // Playback handlers
   const handlePlay = useCallback(() => {
     setPlaybackState('playing');
   }, []);
@@ -214,22 +188,9 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
     setPlaybackState('paused');
   }, []);
 
-  const handleReset = useCallback(() => {
+  const handleResetPlayback = useCallback(() => {
     setPlaybackState('reset');
     setSimTime(0);
-  }, []);
-
-  const handleResetAllParams = useCallback(() => {
-    setParams(DEFAULT_SSB_PARAMS);
-    setTWindow(1.0);
-    setSimTime(0.25);
-    setPlaybackState('paused');
-  }, []);
-
-  const handleGenerateSignal = useCallback(() => {
-    setParams((prev) => ({ ...prev, seed: prev.seed + 1 }));
-    setSimTime(0);
-    setPlaybackState('playing');
   }, []);
 
   const handleSeekTime = useCallback(
@@ -239,578 +200,563 @@ export const Module2_3_SSB: React.FC<Module2_3_SSBProps> = ({
     [tWindow]
   );
 
-  // Reusable Section Dropdown Selector (attachRef ensures only active instance binds outside-click ref)
-  const renderSectionDropdown = (attachRef: boolean) => (
-    <div ref={attachRef ? dropdownRef : undefined} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsDropdownOpen((v) => !v)}
-        aria-expanded={isDropdownOpen}
-        aria-haspopup="listbox"
-        className="w-full sm:w-auto min-w-[270px] flex items-center justify-between gap-3 px-3.5 py-2 bg-white border border-[#E6E4DD] hover:border-[#C85A32]/50 rounded-md text-xs font-mono font-bold text-[#1A1917] shadow-2xs transition-colors cursor-pointer"
-      >
-        <span className="flex items-center gap-2 truncate">
-          {currentSectionMeta.icon}
-          <span className="truncate">{currentSectionMeta.title}</span>
-        </span>
-        <ChevronDown
-          className={`w-4 h-4 text-[#75736E] shrink-0 transition-transform ${
-            isDropdownOpen ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+  // Stage-specific parameter reset (triggered by Stage Controls Reset button)
+  const handleResetCurrentStage = useCallback(() => {
+    if (currentStage === 1) {
+      updateParams({
+        messageShape: DEFAULT_SSB_PARAMS.messageShape,
+        messageFreq: DEFAULT_SSB_PARAMS.messageFreq,
+        messageAmp: DEFAULT_SSB_PARAMS.messageAmp,
+      });
+    } else if (currentStage === 2) {
+      updateParams({
+        sideband: DEFAULT_SSB_PARAMS.sideband,
+        carrierFreq: DEFAULT_SSB_PARAMS.carrierFreq,
+      });
+    } else {
+      updateParams({
+        loFreqOffset: DEFAULT_SSB_PARAMS.loFreqOffset,
+        loPhaseDeg: DEFAULT_SSB_PARAMS.loPhaseDeg,
+      });
+    }
+  }, [currentStage, updateParams]);
 
-      {isDropdownOpen && (
-        <div
-          role="listbox"
-          className="absolute left-0 mt-1.5 w-full sm:w-[390px] bg-white border border-[#E6E4DD] rounded-lg shadow-lg py-1.5 z-50"
-        >
-          {SECTIONS.map((sec) => {
-            const isSelected = sec.id === activeSection;
+  // Stage navigation handlers (clamped strictly to [1, 3])
+  const handleNextStage = useCallback(() => {
+    setCurrentStage((prev) => {
+      if (prev === 1) {
+        setHighestStageReached((h) => (h < 2 ? 2 : h));
+        return 2;
+      }
+      if (prev === 2) {
+        setHighestStageReached(3);
+        return 3;
+      }
+      return prev;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handlePreviousStage = useCallback(() => {
+    setCurrentStage((prev) => {
+      if (prev === 3) return 2;
+      if (prev === 2) return 1;
+      return prev;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleCompleteLab = useCallback(() => {
+    if (currentStage !== 3) return;
+    setIsCompleted(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStage]);
+
+  const handleRestartLab = useCallback(() => {
+    setIsCompleted(false);
+    setCurrentStage(1);
+    setHighestStageReached(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Stage-appropriate live parameters summary directly under SSB-SC SIGNAL WORKBENCH title
+  const workbenchLiveSummary =
+    currentStage === 1
+      ? `fm = ${params.messageFreq.toFixed(1)} Hz · Am = ${params.messageAmp.toFixed(1)} V · ${params.messageShape === 'single_tone' ? 'Cosine' : 'Two-Tone'}`
+      : currentStage === 2
+      ? `fc = ${params.carrierFreq.toFixed(0)} Hz · fm = ${params.messageFreq.toFixed(1)} Hz · ${params.sideband.toUpperCase()} · θ = ${params.loPhaseDeg}°`
+      : `fc = ${params.carrierFreq.toFixed(0)} Hz · fLO = ${simData.loFreq.toFixed(1)} Hz · θ = ${params.loPhaseDeg}°`;
+
+  // Stage-relevant signal selection tabs below the playback toolbar
+  const renderWorkbenchSignalTabs = () => {
+    if (currentStage === 1) {
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E6E4DD]">
+          {(
+            [
+              { id: 'single_tone', label: '1. m(t) Cosine' },
+              { id: 'two_tone', label: '2. m(t) Two-Tone' },
+            ] as { id: MessageShape; label: string }[]
+          ).map((tab) => {
+            const active = params.messageShape === tab.id;
             return (
               <button
-                key={sec.id}
+                key={tab.id}
                 type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => {
-                  setActiveSection(sec.id);
-                  setIsDropdownOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#FBF4F0] text-[#C85A32]'
-                    : 'text-[#1A1917] hover:bg-[#FAF9F6]'
+                onClick={() => updateParams({ messageShape: tab.id })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  active
+                    ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                    : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917] hover:bg-white'
                 }`}
               >
-                <span className="mt-0.5 shrink-0">{sec.icon}</span>
-                <div className="min-w-0">
-                  <div className="text-xs font-mono font-bold truncate">
-                    {sec.title}
-                  </div>
-                  <div className="text-[11px] text-[#75736E] leading-snug mt-0.5">
-                    {sec.subtitle}
-                  </div>
-                </div>
+                {tab.label}
               </button>
             );
           })}
         </div>
-      )}
+      );
+    }
+
+    if (currentStage === 2) {
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E6E4DD]">
+          {(
+            [
+              { id: 'usb', label: '1. s(t) USB' },
+              { id: 'lsb', label: '2. s(t) LSB' },
+            ] as { id: SidebandMode; label: string }[]
+          ).map((tab) => {
+            const active = params.sideband === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => updateParams({ sideband: tab.id })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  active
+                    ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                    : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917] hover:bg-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E6E4DD]">
+        <button
+          type="button"
+          onClick={() => updateParams({ loFreqOffset: 0, loPhaseDeg: 0 })}
+          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            isSynced
+              ? 'bg-[#1A1917] text-white border-[#1A1917]'
+              : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917] hover:bg-white'
+          }`}
+        >
+          1. Recovered m̂(t) (θ = 0°)
+        </button>
+        <button
+          type="button"
+          onClick={() => updateParams({ loFreqOffset: 0, loPhaseDeg: 90 })}
+          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            isFreqSynced && params.loPhaseDeg === 90
+              ? 'bg-[#1A1917] text-white border-[#1A1917]'
+              : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917] hover:bg-white'
+          }`}
+        >
+          2. Phase Mismatch (θ = 90°)
+        </button>
+        <button
+          type="button"
+          onClick={() => updateParams({ loFreqOffset: 1.5, loPhaseDeg: 0 })}
+          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            Math.abs(params.loFreqOffset - 1.5) < 0.05 && isPhaseSynced
+              ? 'bg-[#1A1917] text-white border-[#1A1917]'
+              : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:text-[#1A1917] hover:bg-white'
+          }`}
+        >
+          3. Frequency Offset (+1.5 Hz)
+        </button>
+      </div>
+    );
+  };
+
+  // Main Simulation Workbench Card (Section 1.D)
+  const renderSignalWorkbench = (inFullscreen: boolean) => (
+    <section
+      className="bg-white rounded-xl border border-[#E6E4DD] p-4 sm:p-5 shadow-2xs space-y-3"
+      aria-label="SSB-SC Signal Workbench"
+    >
+      {/* Workbench Title + Live Parameters Line Directly Below Title */}
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 shrink-0">
+          <ModuleGlyph id="ssb" className="w-5 h-5" accent={true} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-[#1A1917]">
+            SSB-SC SIGNAL WORKBENCH
+          </h2>
+          <p className="text-xs font-mono text-[#585651] tabular-nums mt-0.5">
+            {workbenchLiveSummary}
+          </p>
+        </div>
+      </div>
+
+      {/* 3-Row Playback Toolbar inside Light Warm-Grey Rectangular Panel */}
+      <div className="bg-[#FAF9F6] border border-[#E6E4DD] rounded-lg p-3 space-y-2.5">
+        {/* Row 1: Play / Resume, Pause, Reset */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePlay}
+            disabled={playbackState === 'playing'}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+              playbackState === 'playing'
+                ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                : 'bg-white text-[#1A1917] border-[#E6E4DD] hover:border-[#1A1917]/40'
+            }`}
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>{playbackState === 'paused' && simTime > 0 ? 'Resume' : 'Play'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePause}
+            disabled={playbackState !== 'playing'}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+              playbackState === 'paused'
+                ? 'bg-[#EAE7DF] text-[#1A1917] border-[#D6D3CB]'
+                : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+            }`}
+          >
+            <Pause className="w-3.5 h-3.5" />
+            <span>Pause</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetPlayback}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E6E4DD] bg-white hover:border-[#1A1917]/40 text-xs font-mono font-semibold text-[#585651] hover:text-[#1A1917] transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset</span>
+          </button>
+        </div>
+
+        {/* Row 2: SPEED label + 0.5×, 1×, 2×, 4× */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#75736E] mr-1">
+            SPEED
+          </span>
+          {SPEED_OPTIONS.map((opt) => {
+            const active = speed === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setSpeed(opt)}
+                className={`px-2.5 py-1 rounded-md border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-[#1A1917] text-white border-[#1A1917]'
+                    : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+                }`}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Row 3: Grid toggle + Fullscreen button */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsGridVisible((g) => !g)}
+            aria-pressed={isGridVisible}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+              isGridVisible
+                ? 'bg-white text-[#1A1917] border-[#1A1917]/30'
+                : 'bg-[#FAF9F6] text-[#75736E] border-[#E6E4DD] hover:text-[#1A1917]'
+            }`}
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span>Grid</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(!inFullscreen)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E6E4DD] bg-white hover:border-[#1A1917]/40 text-xs font-mono font-semibold text-[#585651] hover:text-[#1A1917] transition-colors cursor-pointer"
+          >
+            {inFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span>Exit Fullscreen</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Fullscreen</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Stage-Scoped Signal Selection Tabs */}
+      {renderWorkbenchSignalTabs()}
+    </section>
+  );
+
+  // Connected 3-Stage Learning Progress Indicator
+  const renderStageProgress = () => (
+    <div className="bg-white rounded-xl border border-[#E6E4DD] p-3.5 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="text-xs font-mono font-bold tracking-wider text-[#C85A32] uppercase shrink-0">
+        {isCompleted ? 'STAGE 03 OF 03 · COMPLETE' : `STAGE 0${currentStage} OF 03`}
+      </div>
+
+      <nav
+        aria-label="Three-Stage SSB Learning Progress"
+        className="flex flex-wrap items-center gap-1.5 sm:gap-2"
+      >
+        {STAGES.map((stage, idx) => {
+          const isCurrent = !isCompleted && currentStage === stage.num;
+          const isDone = isCompleted || currentStage > stage.num;
+          const isReachable = !isCompleted && stage.num <= highestStageReached;
+
+          return (
+            <React.Fragment key={stage.num}>
+              <button
+                type="button"
+                disabled={!isReachable}
+                onClick={() => {
+                  if (isReachable) setCurrentStage(stage.num);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors whitespace-nowrap ${
+                  isCurrent
+                    ? 'bg-[#1A1917] border-[#1A1917] text-white font-bold'
+                    : isDone
+                    ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#059669] font-semibold cursor-pointer hover:bg-[#10B981]/15'
+                    : isReachable
+                    ? 'bg-white border-[#E6E4DD] text-[#1A1917] font-semibold cursor-pointer hover:bg-[#FAF9F6]'
+                    : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#8A8882] cursor-not-allowed'
+                }`}
+              >
+                {isDone && <Check className="w-3 h-3 shrink-0" />}
+                <span>
+                  {stage.code} {stage.label}
+                </span>
+              </button>
+
+              {idx < STAGES.length - 1 && (
+                <ArrowRight
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 text-[#A8A69E] shrink-0"
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </nav>
     </div>
   );
 
-  // Reusable Left Control Panel (used in both normal sticky layout & fullscreen split mode)
-  const renderControlPanel = () => (
-    <aside className="bg-white rounded-lg border border-[#E6E4DD] p-4 shadow-2xs space-y-4">
-      <div className="flex items-center justify-between pb-2.5 border-b border-[#E6E4DD]">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-[#C85A32]" />
-          <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-[#1A1917]">
-            SSB Signal Controls
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={handleResetAllParams}
-          className="text-[11px] font-mono text-[#75736E] hover:text-[#C85A32] flex items-center gap-1 cursor-pointer"
-          title="Restore default SSB parameters"
-        >
-          <RotateCcw className="w-3 h-3" />
-          <span>Defaults</span>
-        </button>
-      </div>
+  // Active Stage Body
+  const renderActiveStage = () => {
+    if (isCompleted) {
+      return <SsbCompletionView onRestartLab={handleRestartLab} />;
+    }
 
-      {/* Primary Action: Generate Signal */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={handleGenerateSignal}
-          className="col-span-2 py-2 px-3 rounded-md bg-[#C85A32] hover:bg-[#B24D28] text-white text-xs font-mono font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Generate Signal &amp; Play</span>
-        </button>
-      </div>
-
-      {/* Sideband Selection: USB vs LSB */}
-      <div className="space-y-1.5">
-        <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-[#585651]">
-          Sideband Selection
-        </label>
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#FAF9F6] border border-[#E6E4DD] rounded-md">
-          {(['usb', 'lsb'] as SidebandMode[]).map((mode) => {
-            const active = params.sideband === mode;
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => updateParams({ sideband: mode })}
-                className={`py-1.5 px-2 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
-                  active
-                    ? mode === 'usb'
-                      ? 'bg-[#C85A32] text-white shadow-2xs'
-                      : 'bg-[#2E6F7E] text-white shadow-2xs'
-                    : 'text-[#585651] hover:text-[#1A1917] hover:bg-white'
-                }`}
-              >
-                {mode === 'usb' ? 'USB (fc + fm)' : 'LSB (fc − fm)'}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Message Signal Controls */}
-      <div className="pt-3 border-t border-[#E6E4DD] space-y-3">
-        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#1A1917]">
-          Message Signal m(t)
-        </div>
-
-        {/* Message Waveform Type */}
-        <div className="grid grid-cols-3 gap-1">
-          {(
-            [
-              { id: 'single_tone', label: '1-Tone' },
-              { id: 'two_tone', label: '2-Tone' },
-              { id: 'bandlimited_pulse', label: 'Multi' },
-            ] as { id: MessageShape; label: string }[]
-          ).map((shape) => (
-            <button
-              key={shape.id}
-              type="button"
-              onClick={() => updateParams({ messageShape: shape.id })}
-              className={`py-1 px-1.5 rounded text-[11px] font-mono font-semibold border transition-colors cursor-pointer ${
-                params.messageShape === shape.id
-                  ? 'bg-[#FBF4F0] border-[#C85A32] text-[#C85A32]'
-                  : 'bg-[#FAF9F6] border-[#E6E4DD] text-[#585651] hover:bg-white'
-              }`}
-            >
-              {shape.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Message Amplitude Am */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">Amplitude A_m</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.messageAmp.toFixed(1)} V
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0.5}
-            max={2.5}
-            step={0.1}
-            value={params.messageAmp}
-            onChange={(e) =>
-              updateParams({ messageAmp: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-
-        {/* Message Frequency fm */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">Frequency f_m</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.messageFreq.toFixed(1)} Hz
-            </span>
-          </div>
-          <input
-            type="range"
-            min={1.0}
-            max={5.0}
-            step={0.5}
-            value={params.messageFreq}
-            onChange={(e) =>
-              updateParams({ messageFreq: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Carrier Signal Controls */}
-      <div className="pt-3 border-t border-[#E6E4DD] space-y-3">
-        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#1A1917]">
-          Carrier Signal c(t)
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">Carrier Amp A_c</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.carrierAmp.toFixed(1)} V
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0.5}
-            max={3.0}
-            step={0.1}
-            value={params.carrierAmp}
-            onChange={(e) =>
-              updateParams({ carrierAmp: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">Carrier Freq f_c</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.carrierFreq.toFixed(1)} Hz
-            </span>
-          </div>
-          <input
-            type="range"
-            min={16.0}
-            max={36.0}
-            step={1.0}
-            value={params.carrierFreq}
-            onChange={(e) =>
-              updateParams({ carrierFreq: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Coherent Demodulation Controls */}
-      <div className="pt-3 border-t border-[#E6E4DD] space-y-3">
-        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#1A1917]">
-          Coherent Receiver / LPF
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">LO Freq Offset Δf</span>
-            <span
-              className={`font-bold tabular-nums ${
-                Math.abs(params.loFreqOffset) < 0.05
-                  ? 'text-[#059669]'
-                  : 'text-[#C85A32]'
-              }`}
-            >
-              {params.loFreqOffset >= 0 ? '+' : ''}
-              {params.loFreqOffset.toFixed(1)} Hz
-            </span>
-          </div>
-          <input
-            type="range"
-            min={-4.0}
-            max={4.0}
-            step={0.5}
-            value={params.loFreqOffset}
-            onChange={(e) =>
-              updateParams({ loFreqOffset: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">LO Phase Error Δφ</span>
-            <span
-              className={`font-bold tabular-nums ${
-                Math.abs(params.loPhaseDeg) < 2
-                  ? 'text-[#059669]'
-                  : 'text-[#C85A32]'
-              }`}
-            >
-              {params.loPhaseDeg}°
-            </span>
-          </div>
-          <input
-            type="range"
-            min={-180}
-            max={180}
-            step={5}
-            value={params.loPhaseDeg}
-            onChange={(e) =>
-              updateParams({ loPhaseDeg: parseInt(e.target.value, 10) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">LPF Cutoff f_cut</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.lpfCutoff.toFixed(1)} Hz
-            </span>
-          </div>
-          <input
-            type="range"
-            min={2.0}
-            max={40.0}
-            step={0.5}
-            value={params.lpfCutoff}
-            onChange={(e) =>
-              updateParams({ lpfCutoff: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Time Window Zoom & AM Reference Index */}
-      <div className="pt-3 border-t border-[#E6E4DD] space-y-3">
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[11px] font-mono font-bold uppercase text-[#585651]">
-            <span>Time Window</span>
-            <span className="text-[#1A1917]">0 – {tWindow.toFixed(1)} s</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1">
-            {[0.5, 1.0, SSB_DURATION].map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => {
-                  setTWindow(w);
-                  setSimTime((prev) => Math.min(prev, w));
-                }}
-                className={`py-1 rounded text-[11px] font-mono font-semibold border cursor-pointer transition-colors ${
-                  Math.abs(tWindow - w) < 0.01
-                    ? 'bg-[#1A1917] text-white border-[#1A1917]'
-                    : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD] hover:bg-white'
-                }`}
-              >
-                {w === SSB_DURATION ? '2.0s Full' : `${w.toFixed(1)}s`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono">
-            <span className="text-[#585651]">AM Ref Index μ</span>
-            <span className="font-bold text-[#1A1917] tabular-nums">
-              {params.amModIndex.toFixed(2)}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0.2}
-            max={1.0}
-            step={0.05}
-            value={params.amModIndex}
-            onChange={(e) =>
-              updateParams({ amModIndex: parseFloat(e.target.value) })
-            }
-            className="w-full accent-[#C85A32] cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Compact Live Telemetry Summary */}
-      <div className="p-3 bg-[#FAF9F6] rounded-md border border-[#E6E4DD] space-y-1.5 text-[11px] font-mono">
-        <div className="font-bold text-[#1A1917] uppercase tracking-wider text-[10px] pb-1 border-b border-[#E6E4DD]">
-          Live Signal Readout
-        </div>
-        <div className="flex justify-between">
-          <span className="text-[#75736E]">Active Band:</span>
-          <span className="font-bold text-[#C85A32]">
-            {params.sideband === 'usb'
-              ? `${simData.usbFreqRange[0].toFixed(1)}–${simData.usbFreqRange[1].toFixed(1)} Hz`
-              : `${simData.lsbFreqRange[0].toFixed(1)}–${simData.lsbFreqRange[1].toFixed(1)} Hz`}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-[#75736E]">Occupied BW:</span>
-          <span className="font-bold text-[#059669]">
-            {simData.messageBandwidth.toFixed(1)} Hz (50% saved)
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-[#75736E]">Demod RMSE:</span>
-          <span
-            className={`font-bold tabular-nums ${
-              simData.rmse < 0.05 ? 'text-[#059669]' : 'text-[#C85A32]'
-            }`}
-          >
-            {simData.rmse.toFixed(4)} V ({simData.normalizedRmsePct.toFixed(1)}%)
-          </span>
-        </div>
-      </div>
-    </aside>
-  );
-
-  // Active Section Visualization Body
-  const renderActiveSection = () => {
-    const props = {
+    const stageProps = {
       sim: simData,
       simTime,
       onSeekTime: handleSeekTime,
       tWindow,
       isGridVisible,
       onUpdateParams: updateParams,
+      onResetStage: handleResetCurrentStage,
     };
 
-    switch (activeSection) {
-      case 'intro':
-        return <SsbIntroSection {...props} />;
-      case 'time':
-        return <SsbTimeDomainSection {...props} />;
-      case 'frequency':
-        return <SsbFrequencyDomainSection {...props} />;
-      case 'demodulation':
-        return <SsbDemodulationSection {...props} />;
-      case 'comparison':
-        return <SsbComparisonTheorySection {...props} />;
+    switch (currentStage) {
+      case 1:
+        return <SsbStage01Message {...stageProps} />;
+      case 2:
+        return <SsbStage02Modulation {...stageProps} />;
+      case 3:
+        return <SsbStage03Demodulation {...stageProps} />;
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* 1. Module Header Bar (Consistent with Signal Lab AM Track) */}
-      <div className="pb-5 border-b border-[#E6E4DD] flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/25">
-              MODULE 2.3
-            </span>
-            <span className="text-xs text-[#75736E] font-medium font-mono">
-              {subTopic.tag}
-            </span>
-          </div>
+  // Bottom Stage Navigation Bar
+  const renderStageFooter = () => {
+    if (isCompleted) return null;
 
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917] flex items-center gap-2.5">
-            <ModuleGlyph id="ssb" className="w-6 h-6 shrink-0" accent={true} />
-            <span>{subTopic.name}</span>
-          </h1>
-          <p className="mt-1.5 text-sm text-[#585651] max-w-3xl leading-relaxed">
-            Interactive Single Sideband (SSB-SC) modulation, Hilbert transform synthesis, FFT spectral analysis, and coherent product demodulation laboratory.
+    if (currentStage === 1) {
+      return (
+        <div className="bg-white rounded-xl border border-[#E6E4DD] p-4 shadow-2xs">
+          <button
+            type="button"
+            onClick={handleNextStage}
+            className="w-full py-3 px-5 rounded-lg bg-[#C85A32] hover:bg-[#B54E28] text-white text-xs sm:text-sm font-mono font-bold transition-colors inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+          >
+            <span>Next Stage 02 →</span>
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-xl border border-[#E6E4DD] p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={handlePreviousStage}
+          className="px-4 py-2.5 rounded-lg border border-[#E6E4DD] bg-white hover:bg-[#FAF9F6] text-xs sm:text-sm font-mono font-semibold text-[#1A1917] transition-colors inline-flex items-center gap-2 cursor-pointer"
+        >
+          <span>← Previous Stage</span>
+        </button>
+
+        {currentStage === 2 ? (
+          <button
+            type="button"
+            onClick={handleNextStage}
+            className="px-5 py-2.5 rounded-lg bg-[#C85A32] hover:bg-[#B54E28] text-white text-xs sm:text-sm font-mono font-bold transition-colors inline-flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <span>Next Stage 03 →</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleCompleteLab}
+            className="px-5 py-2.5 rounded-lg bg-[#059669] hover:bg-[#047857] text-white text-xs sm:text-sm font-mono font-bold transition-colors inline-flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Complete Lab</span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-5 overflow-x-hidden">
+      {/* 1.B Module Heading */}
+      <header className="pb-4 border-b border-[#E6E4DD] space-y-3">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-[#75736E]">
+            Suppressed Carrier &amp; Coherent Recovery
           </p>
+          <p className="text-xs font-mono font-semibold text-[#C85A32]">
+            {technicalSectionLabel}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917] leading-tight">
+            Single Sideband Suppressed Carrier (SSB-SC)
+          </h1>
         </div>
 
-        {/* Previous / Next AM Sub-Module Switcher */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => onNavigateModule('/am/dsb-sc')}
-            className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-medium text-[#585651] hover:text-[#1A1917] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Previous: DSB-SC (2.2)"
+            className="px-3 py-1.5 rounded-md border border-[#E6E4DD] bg-white hover:bg-[#FAF9F6] text-xs font-mono font-semibold text-[#484642] hover:text-[#1A1917] transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
           >
-            <ArrowLeft className="w-3 h-3" />
-            <span>DSB-SC (2.2)</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Prev: DSB-SC (02)</span>
           </button>
+
           <button
             type="button"
             onClick={() => onNavigateModule('/am/vsb')}
-            className="px-3 py-1.5 border border-[#E6E4DD] hover:bg-[#FAF9F6] text-xs font-semibold text-[#1A1917] hover:border-[#C85A32]/40 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Next: VSB (2.4)"
+            className="px-3 py-1.5 rounded-md border border-[#E6E4DD] bg-white hover:bg-[#FAF9F6] text-xs font-mono font-semibold text-[#484642] hover:text-[#1A1917] transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
           >
-            <span>Next: VSB (2.4)</span>
-            <ArrowRight className="w-3 h-3" />
+            <span>Next: Module (04)</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 2. Section Dropdown Navigation & Quick Theory Switch */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FAF9F6] p-3 rounded-lg border border-[#E6E4DD]">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#75736E]">
-            Analysis Section:
-          </span>
-          {renderSectionDropdown(!isFullscreen)}
-        </div>
+      {/* 1.C Laboratory Mode Selector (Wide 2-Equal-Width Rectangular Tabs) */}
+      <div
+        role="tablist"
+        aria-label="SSB-SC Laboratory Mode"
+        className="grid grid-cols-2 gap-1.5 bg-[#F6F4EE] border border-[#E6E4DD] rounded-xl p-1"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeLabTab === 'oscilloscope'}
+          onClick={() => setActiveLabTab('oscilloscope')}
+          className={`py-2.5 px-3 rounded-lg text-xs sm:text-sm font-mono flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+            activeLabTab === 'oscilloscope'
+              ? 'bg-white text-[#1A1917] font-bold border border-[#E6E4DD] shadow-2xs'
+              : 'bg-transparent text-[#65635E] font-medium hover:text-[#1A1917]'
+          }`}
+        >
+          <Activity className="w-4 h-4 text-[#C85A32] shrink-0" />
+          <span className="truncate">01. Signal Oscilloscope</span>
+        </button>
 
         <button
           type="button"
-          onClick={() =>
-            setActiveSection((prev) =>
-              prev === 'comparison' ? 'time' : 'comparison'
-            )
-          }
-          className={`px-3 py-1.5 rounded-md text-xs font-mono font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer ${
-            activeSection === 'comparison'
-              ? 'bg-[#C85A32] text-white border-[#C85A32]'
-              : 'bg-white text-[#585651] border-[#E6E4DD] hover:text-[#1A1917]'
+          role="tab"
+          aria-selected={activeLabTab === 'audio'}
+          onClick={() => {
+            setPlaybackState('paused');
+            setIsFullscreen(false);
+            setActiveLabTab('audio');
+          }}
+          className={`py-2.5 px-3 rounded-lg text-xs sm:text-sm font-mono flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+            activeLabTab === 'audio'
+              ? 'bg-white text-[#1A1917] font-bold border border-[#E6E4DD] shadow-2xs'
+              : 'bg-transparent text-[#65635E] font-medium hover:text-[#1A1917]'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>
-            {activeSection === 'comparison'
-              ? 'Back to Waveforms'
-              : 'BW, Power & Theory'}
-          </span>
+          <AudioLines className="w-4 h-4 text-[#C85A32] shrink-0" />
+          <span className="truncate">02. Audio Sound Lab</span>
         </button>
       </div>
 
-      {/* 3. Main Side-by-Side Interactive Simulator (Sticky Controls + Visualization Stage) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        <div className="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-4">
-          {renderControlPanel()}
+      {/* Mode Content */}
+      {activeLabTab === 'oscilloscope' ? (
+        <div className="space-y-4">
+          {/* Three-Stage Learning Progress */}
+          {renderStageProgress()}
+
+          {/* 1.D Main Simulation Workbench (hidden on completion screen) */}
+          {!isCompleted && renderSignalWorkbench(false)}
+
+          {/* Active Stage Content */}
+          {renderActiveStage()}
+
+          {/* Bottom Stage Navigation */}
+          {renderStageFooter()}
         </div>
+      ) : (
+        <SsbAudioLab
+          sideband={params.sideband}
+          onChangeSideband={(mode) => updateParams({ sideband: mode })}
+          loPhaseDeg={params.loPhaseDeg}
+        />
+      )}
 
-        <div className="lg:col-span-8 xl:col-span-9 space-y-4">
-          <SimulationToolbar
-            playbackState={playbackState}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onReset={handleReset}
-            speed={speed}
-            onSpeedChange={setSpeed}
-            isGridVisible={isGridVisible}
-            onToggleGrid={() => setIsGridVisible((g) => !g)}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={() => setIsFullscreen((f) => !f)}
-            isLiveSimulationReady={true}
-          />
-
-          {renderActiveSection()}
-        </div>
-      </div>
-
-      {/* 4. Fullscreen Split-Pane Workspace Modal */}
-      {isFullscreen && (
+      {/* Fullscreen Oscilloscope Workspace */}
+      {isFullscreen && activeLabTab === 'oscilloscope' && (
         <div
           className="fixed inset-0 z-50 bg-[#FAF9F6] flex flex-col overflow-hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="SSB Modulation Simulator Fullscreen Workspace"
+          aria-label="SSB-SC Fullscreen Laboratory"
         >
-          {/* Fullscreen Top Header */}
-          <div className="px-4 py-2.5 bg-white border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/25">
-                MODULE 2.3 · SSB
+          <div className="px-4 py-3 bg-white border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32]">
+                SSB-SC SIGNAL LAB
               </span>
-              {renderSectionDropdown(true)}
+              <span className="text-xs font-mono text-[#75736E]">
+                {isCompleted ? 'COMPLETE' : `STAGE 0${currentStage} OF 03`}
+              </span>
             </div>
 
-            <SimulationToolbar
-              playbackState={playbackState}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onReset={handleReset}
-              speed={speed}
-              onSpeedChange={setSpeed}
-              isGridVisible={isGridVisible}
-              onToggleGrid={() => setIsGridVisible((g) => !g)}
-              isFullscreen={true}
-              onToggleFullscreen={() => setIsFullscreen(false)}
-              isLiveSimulationReady={true}
-            />
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-[#1A1917] text-white cursor-pointer"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Exit Fullscreen</span>
+            </button>
           </div>
 
-          {/* Fullscreen Split Body */}
-          <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-full">
-              <div className="lg:col-span-4 xl:col-span-3 lg:h-full lg:overflow-y-auto pr-0.5">
-                {renderControlPanel()}
-              </div>
-              <div className="lg:col-span-8 xl:col-span-9 lg:h-full lg:overflow-y-auto pr-0.5 space-y-4">
-                {renderActiveSection()}
-              </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="max-w-6xl mx-auto space-y-4">
+              {!isCompleted && renderSignalWorkbench(true)}
+              {renderActiveStage()}
+              {renderStageFooter()}
             </div>
           </div>
         </div>

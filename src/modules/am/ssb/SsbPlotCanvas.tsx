@@ -1,10 +1,17 @@
 /**
- * Reusable High-Precision Time-Domain & Frequency-Domain SVG Plots
- * Matches the Signal Lab warm editorial palette & typography.
+ * Oscilloscope-Style Time-Domain & Frequency-Domain SVG Plots for SSB Signal Lab
+ * - White plotting area with light-grey outer border & grid lines
+ * - Blue signal waveforms (#0284C7) and distinguishable reference traces
+ * - Optional orange circular markers (#C85A32) for zero crossings
+ * - Compact legend on the left and numerical measurements on the right below the graph
  */
 
 import React, { useRef, useMemo, useCallback } from 'react';
 import { SpectrumPoint, SSB_DURATION, sampleAtTime } from './ssbMathEngine';
+
+export interface ZeroCrossingPoint {
+  t: number;
+}
 
 interface SsbTimePlotProps {
   title: string;
@@ -16,14 +23,17 @@ interface SsbTimePlotProps {
   secondaryValues?: number[];
   secondaryLabel?: string;
   secondaryColor?: string;
+  secondaryDashed?: boolean;
   simTime: number;
   onSeekTime: (t: number) => void;
-  tWindow?: number; // Display window in seconds (e.g. 0.5s zoomed or 2.0s full)
+  tWindow?: number;
   isGridVisible: boolean;
   heightClass?: string;
   yUnit?: string;
   badgeText?: string;
   badgeVariant?: 'accent' | 'emerald' | 'neutral';
+  showZeroCrossings?: boolean;
+  rightMeasurementText?: string;
 }
 
 export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
@@ -32,25 +42,28 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
   timeSteps,
   values,
   primaryLabel,
-  primaryColor = '#C85A32',
+  primaryColor = '#0284C7',
   secondaryValues,
   secondaryLabel,
-  secondaryColor = '#2E6F7E',
+  secondaryColor = '#475569',
+  secondaryDashed = true,
   simTime,
   onSeekTime,
   tWindow = SSB_DURATION,
   isGridVisible,
-  heightClass = 'h-[195px]',
+  heightClass = 'h-[260px]',
   yUnit = 'V',
   badgeText,
   badgeVariant = 'neutral',
+  showZeroCrossings = false,
+  rightMeasurementText,
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingRef = useRef(false);
 
   const SVG_W = 760;
-  const SVG_H = 210;
-  const PAD_L = 56;
+  const SVG_H = 240;
+  const PAD_L = 54;
   const PAD_R = 20;
   const PAD_T = 36;
   const PAD_B = 34;
@@ -83,7 +96,8 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
   }, [values, secondaryValues]);
 
   const mapX = useCallback(
-    (t: number) => PAD_L + (Math.max(0, Math.min(displayTMax, t)) / displayTMax) * plotW,
+    (t: number) =>
+      PAD_L + (Math.max(0, Math.min(displayTMax, t)) / displayTMax) * plotW,
     [displayTMax, plotW]
   );
 
@@ -118,10 +132,34 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
     [buildPath, secondaryValues]
   );
 
+  // Detect zero crossings in display window for orange dot markers
+  const zeroCrossings = useMemo<ZeroCrossingPoint[]>(() => {
+    if (!showZeroCrossings) return [];
+    const pts: ZeroCrossingPoint[] = [];
+    for (let k = 1; k < timeSteps.length; k++) {
+      const tPrev = timeSteps[k - 1];
+      const tCurr = timeSteps[k];
+      if (tCurr > displayTMax + 1e-6) break;
+      const vPrev = values[k - 1];
+      const vCurr = values[k];
+      if ((vPrev > 0 && vCurr <= 0) || (vPrev < 0 && vCurr >= 0)) {
+        const denom = Math.abs(vCurr - vPrev);
+        const frac = denom > 1e-9 ? Math.abs(vPrev) / denom : 0.5;
+        const tCross = tPrev + frac * (tCurr - tPrev);
+        if (tCross > 0.005 && tCross < displayTMax - 0.005) {
+          pts.push({ t: tCross });
+        }
+      }
+    }
+    return pts;
+  }, [showZeroCrossings, timeSteps, values, displayTMax]);
+
   const cursorTime = Math.min(displayTMax, simTime % (displayTMax + 1e-9));
   const cursorX = mapX(cursorTime);
   const currentPrimaryVal = sampleAtTime(values, cursorTime);
-  const currentSecondaryVal = secondaryValues ? sampleAtTime(secondaryValues, cursorTime) : null;
+  const currentSecondaryVal = secondaryValues
+    ? sampleAtTime(secondaryValues, cursorTime)
+    : null;
 
   const scrubAtClientX = useCallback(
     (clientX: number) => {
@@ -150,44 +188,47 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
       ? 'bg-[#10B981]/10 text-[#059669] border-[#10B981]/30'
       : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD]';
 
-  // Clamp top readout pill inside plot bounds
+  const pShort = primaryLabel.split(' ')[0];
+  const sShort = secondaryLabel ? secondaryLabel.split(' ')[0] : '';
   const PILL_W = secondaryValues ? 250 : 178;
-  const pillX = Math.max(PAD_L + PILL_W / 2, Math.min(SVG_W - PAD_R - PILL_W / 2, cursorX));
+  const pillX = Math.max(
+    PAD_L + PILL_W / 2,
+    Math.min(SVG_W - PAD_R - PILL_W / 2, cursorX)
+  );
 
   return (
-    <div className="bg-white rounded-lg border border-[#E6E4DD] p-3.5 shadow-2xs space-y-2.5">
+    <div className="bg-white rounded-xl border border-[#E6E4DD] p-4 shadow-2xs space-y-2.5">
       {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E6E4DD]">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xs font-mono font-bold text-[#1A1917]">{title}</h3>
+          <h3 className="text-xs font-mono font-bold text-[#1A1917] uppercase tracking-wide">
+            {title}
+          </h3>
           {badgeText && (
-            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeStyle}`}>
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeStyle}`}
+            >
               {badgeText}
             </span>
           )}
           {subtitle && (
-            <span className="text-[11px] font-mono text-[#75736E] hidden sm:inline">{subtitle}</span>
+            <span className="text-[11px] font-mono text-[#75736E] hidden sm:inline">
+              {subtitle}
+            </span>
           )}
         </div>
 
-        {/* Live Legend & Readout */}
         <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono tabular-nums">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 rounded-full" style={{ backgroundColor: primaryColor }} />
-            <span className="text-[#585651]">{primaryLabel}:</span>
+          <span>
+            <span className="text-[#75736E]">{pShort}: </span>
             <strong className="text-[#1A1917]">
               {currentPrimaryVal >= 0 ? '+' : ''}
               {currentPrimaryVal.toFixed(2)} {yUnit}
             </strong>
           </span>
-
-          {secondaryValues && secondaryLabel && currentSecondaryVal !== null && (
-            <span className="flex items-center gap-1.5">
-              <span
-                className="w-3 h-0.5 border-b-2 border-dashed"
-                style={{ borderColor: secondaryColor }}
-              />
-              <span className="text-[#585651]">{secondaryLabel}:</span>
+          {secondaryValues && currentSecondaryVal !== null && (
+            <span>
+              <span className="text-[#75736E]">{sShort}: </span>
               <strong className="text-[#1A1917]">
                 {currentSecondaryVal >= 0 ? '+' : ''}
                 {currentSecondaryVal.toFixed(2)} {yUnit}
@@ -197,8 +238,10 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
         </div>
       </div>
 
-      {/* SVG Plot */}
-      <div className={`relative w-full ${heightClass} bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden`}>
+      {/* White Plotting Area */}
+      <div
+        className={`relative w-full ${heightClass} bg-white rounded-lg border border-[#E6E4DD] overflow-hidden`}
+      >
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -220,7 +263,7 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
           role="img"
           aria-label={title}
         >
-          {/* Grid */}
+          {/* Light-grey Horizontal & Vertical Grid Lines */}
           {isGridVisible &&
             [-yMax, -yMax / 2, 0, yMax / 2, yMax].map((v, i) => (
               <line
@@ -229,8 +272,8 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
                 y1={mapY(v)}
                 x2={SVG_W - PAD_R}
                 y2={mapY(v)}
-                stroke={Math.abs(v) < 1e-6 ? '#8A8882' : '#E6E4DD'}
-                strokeWidth={Math.abs(v) < 1e-6 ? '1.3' : '0.9'}
+                stroke={Math.abs(v) < 1e-6 ? '#94A3B8' : '#E6E4DD'}
+                strokeWidth={Math.abs(v) < 1e-6 ? '1.2' : '0.85'}
                 strokeDasharray={Math.abs(v) < 1e-6 ? undefined : '3 3'}
               />
             ))}
@@ -244,43 +287,63 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
                 x2={mapX(t)}
                 y2={SVG_H - PAD_B}
                 stroke="#E6E4DD"
-                strokeWidth="0.9"
+                strokeWidth="0.85"
               />
             ))}
 
-          {/* Plot Border */}
-          <rect
-            x={PAD_L}
-            y={PAD_T}
-            width={plotW}
-            height={plotH}
-            fill="none"
-            stroke="#DCD8CE"
+          {/* Horizontal & Vertical Axes */}
+          <line
+            x1={PAD_L}
+            y1={PAD_T}
+            x2={PAD_L}
+            y2={SVG_H - PAD_B}
+            stroke="#64748B"
+            strokeWidth="1.2"
+          />
+          <line
+            x1={PAD_L}
+            y1={SVG_H - PAD_B}
+            x2={SVG_W - PAD_R}
+            y2={SVG_H - PAD_B}
+            stroke="#64748B"
             strokeWidth="1.2"
           />
 
-          {/* Primary Waveform */}
-          <path
-            d={primaryPath}
-            fill="none"
-            stroke={primaryColor}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Optional Secondary Waveform (Dashed) */}
+          {/* Secondary Reference Waveform */}
           {secondaryValues && (
             <path
               d={secondaryPath}
               fill="none"
               stroke={secondaryColor}
-              strokeWidth="2"
-              strokeDasharray="5 3"
+              strokeWidth="1.8"
+              strokeDasharray={secondaryDashed ? '5 3' : undefined}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           )}
+
+          {/* Primary Waveform (Continuous Blue Curve) */}
+          <path
+            d={primaryPath}
+            fill="none"
+            stroke={primaryColor}
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Small Orange Circular Zero-Crossing Markers */}
+          {zeroCrossings.map((pt, idx) => (
+            <circle
+              key={`zc-${idx}`}
+              cx={mapX(pt.t)}
+              cy={centerY}
+              r="3.4"
+              fill="#C85A32"
+              stroke="#FFFFFF"
+              strokeWidth="1.2"
+            />
+          ))}
 
           {/* Synchronized Vertical Time Cursor */}
           <line
@@ -289,7 +352,7 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
             x2={cursorX}
             y2={SVG_H - PAD_B}
             stroke="#C85A32"
-            strokeWidth="1.7"
+            strokeWidth="1.4"
           />
           <circle
             cx={cursorX}
@@ -297,24 +360,24 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
             r="4.2"
             fill={primaryColor}
             stroke="#FFFFFF"
-            strokeWidth="1.6"
+            strokeWidth="1.5"
           />
           {secondaryValues && currentSecondaryVal !== null && (
             <circle
               cx={cursorX}
               cy={mapY(currentSecondaryVal)}
-              r="4.2"
+              r="4.0"
               fill={secondaryColor}
               stroke="#FFFFFF"
-              strokeWidth="1.6"
+              strokeWidth="1.5"
             />
           )}
 
-          {/* Non-Overlapping Top Cursor Pill */}
+          {/* Cursor Time Readout */}
           <g>
             <rect
               x={pillX - PILL_W / 2}
-              y={7}
+              y={6}
               width={PILL_W}
               height={20}
               rx="4"
@@ -322,17 +385,17 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
             />
             <text
               x={pillX}
-              y={20.5}
+              y={19.5}
               textAnchor="middle"
               className="text-[9.5px] font-mono font-bold fill-white"
             >
               {secondaryValues && currentSecondaryVal !== null
-                ? `t=${cursorTime.toFixed(2)}s · Orig=${currentPrimaryVal.toFixed(2)}V · Rec=${currentSecondaryVal.toFixed(2)}V`
+                ? `t=${cursorTime.toFixed(2)}s · ${pShort}=${currentPrimaryVal.toFixed(2)}V · ${sShort}=${currentSecondaryVal.toFixed(2)}V`
                 : `t=${cursorTime.toFixed(2)}s · ${currentPrimaryVal >= 0 ? '+' : ''}${currentPrimaryVal.toFixed(2)} ${yUnit}`}
             </text>
           </g>
 
-          {/* Y Ticks */}
+          {/* Voltage Y-Axis Ticks */}
           {[-yMax, 0, yMax].map((v) => (
             <text
               key={`yt-${v}`}
@@ -345,7 +408,7 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
             </text>
           ))}
 
-          {/* X Ticks */}
+          {/* Time X-Axis Ticks */}
           {ticks.map((t) => (
             <text
               key={`xt-${t}`}
@@ -358,25 +421,63 @@ export const SsbTimePlot: React.FC<SsbTimePlotProps> = ({
             </text>
           ))}
 
-          {/* Axis Labels */}
+          {/* Monospaced Axis Labels */}
           <text
             x={14}
             y={centerY}
             textAnchor="middle"
             transform={`rotate(-90, 14, ${centerY})`}
-            className="text-[10px] font-mono font-bold fill-[#1A1917]"
+            className="text-[10px] font-mono font-bold fill-[#585651]"
           >
-            Amplitude [{yUnit}]
+            Voltage [{yUnit}]
           </text>
           <text
             x={SVG_W - PAD_R}
             y={SVG_H - 4}
             textAnchor="end"
-            className="text-[10px] font-mono font-bold fill-[#1A1917]"
+            className="text-[10px] font-mono font-bold fill-[#585651]"
           >
             Time t [s] →
           </text>
         </svg>
+      </div>
+
+      {/* Bottom Legend (Left) & Numerical Measurements (Right) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[11px] font-mono text-[#585651]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-[#1A1917]">
+            <span
+              className="w-3.5 h-0.5 rounded-full inline-block"
+              style={{ backgroundColor: primaryColor }}
+            />
+            <span>{primaryLabel}</span>
+          </span>
+
+          {secondaryValues && secondaryLabel && (
+            <span className="inline-flex items-center gap-1.5 text-[#585651]">
+              <span
+                className={`w-3.5 h-0 border-b-2 inline-block ${
+                  secondaryDashed ? 'border-dashed' : 'border-solid'
+                }`}
+                style={{ borderColor: secondaryColor }}
+              />
+              <span>{secondaryLabel}</span>
+            </span>
+          )}
+
+          {showZeroCrossings && zeroCrossings.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[#C85A32]">
+              <span className="w-2 h-2 rounded-full bg-[#C85A32] inline-block" />
+              <span>Zero Crossings ({zeroCrossings.length})</span>
+            </span>
+          )}
+        </div>
+
+        {rightMeasurementText && (
+          <div className="font-semibold text-[#1A1917] tabular-nums">
+            {rightMeasurementText}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -409,6 +510,8 @@ interface SsbSpectrumPlotProps {
   heightClass?: string;
   badgeText?: string;
   badgeVariant?: 'accent' | 'emerald' | 'neutral';
+  leftLegendText?: string;
+  rightMeasurementText?: string;
 }
 
 export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
@@ -416,18 +519,20 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
   subtitle,
   spectrum,
   maxFreqHz,
-  barColor = '#C85A32',
+  barColor = '#0284C7',
   markers = [],
   shadedBand,
   cutoffFreq,
   isGridVisible,
-  heightClass = 'h-[205px]',
+  heightClass = 'h-[185px]',
   badgeText,
   badgeVariant = 'neutral',
+  leftLegendText,
+  rightMeasurementText,
 }) => {
   const SVG_W = 760;
   const SVG_H = 215;
-  const PAD_L = 56;
+  const PAD_L = 54;
   const PAD_R = 24;
   const PAD_T = 34;
   const PAD_B = 36;
@@ -444,8 +549,10 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
     return Math.ceil(m * 1.25 * 2) / 2;
   }, [spectrum, maxFreqHz]);
 
-  const mapX = (f: number) => PAD_L + (Math.max(0, Math.min(maxFreqHz, f)) / maxFreqHz) * plotW;
-  const mapY = (mag: number) => PAD_T + plotH - (Math.min(yMax, Math.max(0, mag)) / yMax) * plotH;
+  const mapX = (f: number) =>
+    PAD_L + (Math.max(0, Math.min(maxFreqHz, f)) / maxFreqHz) * plotW;
+  const mapY = (mag: number) =>
+    PAD_T + plotH - (Math.min(yMax, Math.max(0, mag)) / yMax) * plotH;
 
   const freqTicks = useMemo(() => {
     const step = maxFreqHz <= 40 ? 5 : 10;
@@ -461,7 +568,6 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
       ? 'bg-[#10B981]/10 text-[#059669] border-[#10B981]/30'
       : 'bg-[#FAF9F6] text-[#585651] border-[#E6E4DD]';
 
-  // Peak tone readout
   const peakPoint = useMemo(() => {
     let best = { freq: 0, mag: 0 };
     for (const pt of spectrum) {
@@ -471,26 +577,40 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
   }, [spectrum, maxFreqHz]);
 
   return (
-    <div className="bg-white rounded-lg border border-[#E6E4DD] p-3.5 shadow-2xs space-y-2.5">
+    <div className="bg-white rounded-xl border border-[#E6E4DD] p-4 shadow-2xs space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E6E4DD]">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xs font-mono font-bold text-[#1A1917]">{title}</h3>
+          <h3 className="text-xs font-mono font-bold text-[#1A1917] uppercase tracking-wide">
+            {title}
+          </h3>
           {badgeText && (
-            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeStyle}`}>
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeStyle}`}
+            >
               {badgeText}
             </span>
           )}
-          {subtitle && <span className="text-[11px] font-mono text-[#75736E]">{subtitle}</span>}
+          {subtitle && (
+            <span className="text-[11px] font-mono text-[#75736E]">{subtitle}</span>
+          )}
         </div>
         <div className="text-[11px] font-mono text-[#585651] tabular-nums">
           Peak: <strong className="text-[#1A1917]">{peakPoint.mag.toFixed(2)} V</strong> @{' '}
-          <strong className="text-[#C85A32]">{peakPoint.freq.toFixed(1)} Hz</strong>
+          <strong className="text-[#0284C7]">{peakPoint.freq.toFixed(1)} Hz</strong>
         </div>
       </div>
 
-      <div className={`relative w-full ${heightClass} bg-[#FAF9F6] rounded-md border border-[#E6E4DD] overflow-hidden`}>
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full select-none" role="img" aria-label={title}>
-          {/* Grid */}
+      {/* White Plotting Area */}
+      <div
+        className={`relative w-full ${heightClass} bg-white rounded-lg border border-[#E6E4DD] overflow-hidden`}
+      >
+        <svg
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full h-full select-none"
+          role="img"
+          aria-label={title}
+        >
           {isGridVisible &&
             [0, yMax * 0.5, yMax].map((v, i) => (
               <line
@@ -500,7 +620,7 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                 x2={SVG_W - PAD_R}
                 y2={mapY(v)}
                 stroke="#E6E4DD"
-                strokeWidth="0.9"
+                strokeWidth="0.85"
                 strokeDasharray="3 3"
               />
             ))}
@@ -514,11 +634,11 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                 x2={mapX(f)}
                 y2={PAD_T + plotH}
                 stroke="#E6E4DD"
-                strokeWidth="0.9"
+                strokeWidth="0.85"
               />
             ))}
 
-          {/* Shaded Bandwidth Zone */}
+          {/* Shaded Active Sideband Zone */}
           {shadedBand && shadedBand.fEnd > shadedBand.fStart && (
             <g>
               <rect
@@ -527,7 +647,7 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                 width={Math.max(4, mapX(shadedBand.fEnd) - mapX(shadedBand.fStart))}
                 height={plotH}
                 fill={shadedBand.color}
-                fillOpacity="0.1"
+                fillOpacity="0.09"
               />
               <text
                 x={(mapX(shadedBand.fStart) + mapX(shadedBand.fEnd)) / 2}
@@ -541,7 +661,6 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
             </g>
           )}
 
-          {/* Optional LPF Cutoff Marker */}
           {cutoffFreq !== undefined && cutoffFreq <= maxFreqHz && (
             <g>
               <line
@@ -550,23 +669,17 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                 x2={mapX(cutoffFreq)}
                 y2={PAD_T + plotH}
                 stroke="#059669"
-                strokeWidth="1.8"
+                strokeWidth="1.6"
                 strokeDasharray="5 3"
               />
-              <text
-                x={Math.min(SVG_W - PAD_R - 4, mapX(cutoffFreq) + 4)}
-                y={PAD_T + 26}
-                className="text-[9.5px] font-mono font-bold fill-[#059669]"
-              >
-                LPF f_cut = {cutoffFreq.toFixed(1)}Hz
-              </text>
             </g>
           )}
 
-          {/* Reference Frequency Markers (fc, fc-fm, fc+fm) */}
+          {/* Selected Sideband Frequency Markers */}
           {markers.map((m, idx) => {
             if (m.freq < 0 || m.freq > maxFreqHz) return null;
             const x = mapX(m.freq);
+            const labelX = Math.max(PAD_L + 40, Math.min(SVG_W - PAD_R - 40, x));
             return (
               <g key={`mk-${idx}`}>
                 <line
@@ -580,7 +693,7 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                   opacity="0.7"
                 />
                 <text
-                  x={x}
+                  x={labelX}
                   y={PAD_T - 8}
                   textAnchor="middle"
                   className="text-[9.5px] font-mono font-bold"
@@ -593,10 +706,24 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
           })}
 
           {/* Axes */}
-          <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={PAD_T + plotH} stroke="#1A1917" strokeWidth="1.3" />
-          <line x1={PAD_L} y1={PAD_T + plotH} x2={SVG_W - PAD_R} y2={PAD_T + plotH} stroke="#1A1917" strokeWidth="1.3" />
+          <line
+            x1={PAD_L}
+            y1={PAD_T}
+            x2={PAD_L}
+            y2={PAD_T + plotH}
+            stroke="#64748B"
+            strokeWidth="1.2"
+          />
+          <line
+            x1={PAD_L}
+            y1={PAD_T + plotH}
+            x2={SVG_W - PAD_R}
+            y2={PAD_T + plotH}
+            stroke="#64748B"
+            strokeWidth="1.2"
+          />
 
-          {/* Spectral Stems & Bars */}
+          {/* Spectral Magnitude Stems */}
           {spectrum.map((pt) => {
             if (pt.freq > maxFreqHz || pt.mag < 0.01) return null;
             const x = mapX(pt.freq);
@@ -610,10 +737,17 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
                   x2={x}
                   y2={yTop}
                   stroke={barColor}
-                  strokeWidth="3.2"
+                  strokeWidth="3.5"
                   strokeLinecap="round"
                 />
-                <circle cx={x} cy={yTop} r="3.6" fill={barColor} stroke="#FFFFFF" strokeWidth="1.2" />
+                <circle
+                  cx={x}
+                  cy={yTop}
+                  r="4"
+                  fill="#C85A32"
+                  stroke="#FFFFFF"
+                  strokeWidth="1.3"
+                />
               </g>
             );
           })}
@@ -644,13 +778,12 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
             </text>
           ))}
 
-          {/* Axis Titles */}
           <text
             x={14}
             y={PAD_T + plotH / 2}
             textAnchor="middle"
             transform={`rotate(-90, 14, ${PAD_T + plotH / 2})`}
-            className="text-[10px] font-mono font-bold fill-[#1A1917]"
+            className="text-[10px] font-mono font-bold fill-[#585651]"
           >
             Magnitude [V]
           </text>
@@ -658,12 +791,21 @@ export const SsbSpectrumPlot: React.FC<SsbSpectrumPlotProps> = ({
             x={SVG_W - PAD_R}
             y={SVG_H - 4}
             textAnchor="end"
-            className="text-[10px] font-mono font-bold fill-[#1A1917]"
+            className="text-[10px] font-mono font-bold fill-[#585651]"
           >
             Frequency f [Hz] →
           </text>
         </svg>
       </div>
+
+      {(leftLegendText || rightMeasurementText) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[11px] font-mono text-[#585651]">
+          <span className="font-semibold text-[#1A1917]">{leftLegendText}</span>
+          <span className="font-semibold text-[#0284C7] tabular-nums">
+            {rightMeasurementText}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

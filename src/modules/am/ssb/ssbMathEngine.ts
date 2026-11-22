@@ -34,7 +34,7 @@ export const DEFAULT_SSB_PARAMS: SsbParams = {
   messageAmp: 1.5,
   messageFreq: 2.0,
   carrierAmp: 2.0,
-  carrierFreq: 18.0,
+  carrierFreq: 24.0,
   sideband: 'usb',
   loFreqOffset: 0.0,
   loPhaseDeg: 0,
@@ -162,12 +162,12 @@ export function computeSingleSidedSpectrum(
   return points;
 }
 
-// Zero-phase 6th-order Butterworth frequency-domain Low-Pass Filter
+// Zero-phase 8th-order Butterworth frequency-domain Low-Pass Filter
 export function applyLowPassFilter(signal: number[], cutoffHz: number): number[] {
   const n = signal.length;
   const spec = fft(signal.map((x) => ({ re: x, im: 0 })));
   const safeCut = Math.max(0.25, cutoffHz);
-  const order = 6;
+  const order = 8;
 
   for (let k = 0; k < n; k++) {
     const binFreq = k <= n >> 1 ? k * SSB_DF : (k - n) * SSB_DF;
