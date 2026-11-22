@@ -24,6 +24,7 @@ import { AM_MODULES, AMSubTopic } from '../../data/modules';
 import { ModuleGlyph } from '../../components/ModuleGlyphs';
 import { MathView } from '../../components/MathView';
 import { SimulationToolbar, PlaybackState } from '../../components/SimulationToolbar';
+import { DraggableFullscreenControls } from '../../components/DraggableFullscreenControls';
 import {
   BasebandWaveform,
   DsbScParams,
@@ -1545,9 +1546,12 @@ export const Module2_2_DSBSC: React.FC<Module2_2_DSBSCProps> = ({
     </div>
   );
 
-  // Fullscreen Sticky Bottom Horizontal Controls Bar (Laid on the bottom in a line like Module2_Fourier)
+  // Fullscreen Sticky Bottom Horizontal Controls Bar (Draggable Anywhere)
   const renderFullscreenBottomControls = () => (
-    <div className="sticky bottom-0 shrink-0 bg-white border border-[#E6E4DD] rounded-lg px-3.5 py-2.5 shadow-md z-30">
+    <DraggableFullscreenControls
+      variant="docked"
+      className="bg-white border border-[#E6E4DD] rounded-lg px-3.5 py-2.5 shadow-md"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: Quick Presets (Coherent Lock & Quadrature Null Only) */}
         <div className="flex items-center gap-1.5">
@@ -1856,7 +1860,7 @@ export const Module2_2_DSBSC: React.FC<Module2_2_DSBSCProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </DraggableFullscreenControls>
   );
 
   // Shared Oscilloscope & Spectrum View (Compact normal mode vs full-height fullscreen canvas)

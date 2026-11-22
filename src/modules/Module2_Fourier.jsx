@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { MathView } from '../components/MathView';
 import { SimulationToolbar } from '../components/SimulationToolbar';
+import { DraggableFullscreenControls } from '../components/DraggableFullscreenControls';
 import { EpicycleVisualizer } from './fourier/EpicycleVisualizer';
 import { FourierTransformVisualizer } from './fourier/FourierTransformVisualizer';
 
@@ -1873,8 +1874,11 @@ export default function Module2_Fourier({
                 </div>
               </div>
 
-              {/* Sticky Docked Bottom Controls for 2D Mode */}
-              <div className="sticky bottom-0 shrink-0 bg-white border border-[#E6E4DD] rounded-lg p-3 shadow-md z-30">
+              {/* Sticky Docked Bottom Controls for 2D Mode (Draggable Anywhere) */}
+              <DraggableFullscreenControls
+                variant="docked"
+                className="bg-white border border-[#E6E4DD] rounded-lg p-3 shadow-md"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   {/* Waveform Selector */}
                   <div className="flex items-center gap-1">
@@ -1946,7 +1950,7 @@ export default function Module2_Fourier({
                     />
                   </div>
                 </div>
-              </div>
+              </DraggableFullscreenControls>
             </>
           )}
         </div>

@@ -42,6 +42,7 @@ import {
   generateTrefoilPreset,
   generateFourierGlyphPreset,
 } from './fourierMath';
+import { DraggableFullscreenControls } from '../../components/DraggableFullscreenControls';
 
 export type EpicycleMode = 'signal' | 'shape';
 export type SignalPreset = 'square' | 'sawtooth' | 'triangle';
@@ -766,8 +767,11 @@ export const EpicycleVisualizer: React.FC<EpicycleVisualizerProps> = ({
           )}
         </div>
 
-        {/* Sticky Docked Bottom Controls Bar */}
-        <div className="sticky bottom-0 shrink-0 bg-white border border-[#E6E4DD] rounded-lg p-2.5 sm:p-3 shadow-md z-30 mt-2">
+        {/* Sticky Docked Bottom Controls Bar (Draggable Anywhere) */}
+        <DraggableFullscreenControls
+          variant="docked"
+          className="bg-white border border-[#E6E4DD] rounded-lg p-2.5 sm:p-3 shadow-md mt-2"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* 1. Target Selector Dropdown */}
             <div className="relative" ref={dropdownRef}>
@@ -991,7 +995,7 @@ export const EpicycleVisualizer: React.FC<EpicycleVisualizerProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </DraggableFullscreenControls>
       </div>
     );
   }

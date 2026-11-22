@@ -26,6 +26,7 @@ import {
   DsbScAudioParams,
   decodeUploadedAudioFile,
 } from './dsbscAudioEngine';
+import { DraggableFullscreenControls } from '../../components/DraggableFullscreenControls';
 
 const DEFAULT_AUDIO_PARAMS: DsbScAudioParams = {
   sourceType: 'melody',
@@ -882,8 +883,11 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
           {renderAudioCanvasCard(true)}
         </div>
 
-        {/* Fullscreen Sticky Bottom Horizontal Controls Bar */}
-        <div className="sticky bottom-0 shrink-0 bg-white border border-[#E6E4DD] rounded-lg px-3.5 py-2.5 shadow-md z-30">
+        {/* Fullscreen Sticky Bottom Horizontal Controls Bar (Draggable Anywhere) */}
+        <DraggableFullscreenControls
+          variant="docked"
+          className="bg-white border border-[#E6E4DD] rounded-lg px-3.5 py-2.5 shadow-md"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Left: Source Picker + Upload */}
             <div className="flex flex-wrap items-center gap-1">
@@ -1069,7 +1073,7 @@ export const DsbScAudioLab: React.FC<DsbScAudioLabProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </DraggableFullscreenControls>
       </div>
     );
   }

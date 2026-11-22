@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { MathView } from '../components/MathView';
 import { SimulationToolbar } from '../components/SimulationToolbar';
+import { DraggableFullscreenControls } from '../components/DraggableFullscreenControls';
 
 export default function Module6_EulerSignals({
   onNavigateHome,
@@ -3090,8 +3091,11 @@ export default function Module6_EulerSignals({
           <div className="relative flex-1 min-h-0 w-full overflow-hidden">
             {renderVisualizationCanvas(true)}
 
-            {/* Floating Sticky Overlay Controls Bar: Major Controls Always Visible, Secondary on Maximize */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 w-[min(96%,1060px)] bg-white/90 backdrop-blur-md border border-[#E6E4DD] rounded-lg shadow-lg px-3.5 py-2 transition-all">
+            {/* Floating Sticky Overlay Controls Bar (Draggable Anywhere): Major Controls Always Visible, Secondary on Maximize */}
+            <DraggableFullscreenControls
+              variant="overlay"
+              className="w-[min(96%,1060px)] bg-white/90 backdrop-blur-md border border-[#E6E4DD] rounded-lg shadow-lg px-3.5 py-2"
+            >
               {/* Compact Bar Header with Live Readout + Maximize/Minimize Toggle */}
               <div className="flex items-center justify-between gap-3 pb-1.5 mb-1.5 border-b border-[#E6E4DD]">
                 <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums text-[#585651] overflow-x-auto whitespace-nowrap">
@@ -3164,7 +3168,7 @@ export default function Module6_EulerSignals({
                   </div>
                 </div>
               )}
-            </div>
+            </DraggableFullscreenControls>
           </div>
         </div>
       )}
