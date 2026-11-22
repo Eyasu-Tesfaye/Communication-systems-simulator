@@ -50,6 +50,10 @@ export interface SpectralLine {
   label: string;         // e.g. "+fc", "+fc+1fm", "-fc", "-fc-1fm"
   side: 'positive' | 'negative';
   isInsideCarson: boolean;
+  customColor?: string;
+  opacity?: number;
+  customLabel?: string;
+  suppressLabel?: boolean;
 }
 
 export interface CarsonBandwidthResult {

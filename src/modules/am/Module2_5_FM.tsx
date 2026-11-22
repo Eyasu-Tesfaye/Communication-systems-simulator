@@ -18,24 +18,20 @@ export const Module2_5_FM: React.FC<Module2_5_FMProps> = ({
   const nextMod = AM_MODULES[5]; // Module 2.6 AM / PM
 
   return (
-    <div className="space-y-6">
-      <div className="py-2">
-        {/* Module Header Bar */}
-        <div className="pb-6 border-b border-[#E6E4DD] flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/25">
-                MODULE 2.5
-              </span>
-              <span className="text-xs text-[#75736E] font-medium font-mono">{currentSubTopic.tag}</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1917]">
+    <div className="space-y-4">
+      <div className="py-1">
+        {/* Compact Single-Line FM Module Header */}
+        <div className="pb-3 border-b border-[#E6E4DD] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+            <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/25 shrink-0">
+              MODULE 2.5
+            </span>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1A1917] truncate">
               {currentSubTopic.name}
             </h1>
-            <p className="mt-2 text-sm sm:text-base text-[#585651] max-w-3xl leading-relaxed">
-              {currentSubTopic.description}
-            </p>
+            <span className="hidden md:inline text-xs text-[#75736E] font-medium font-mono">
+              · {currentSubTopic.tag}
+            </span>
           </div>
 
           {/* Quick switcher to prev/next module */}
@@ -66,7 +62,7 @@ export const Module2_5_FM: React.FC<Module2_5_FMProps> = ({
         </div>
 
         {/* Uploaded FM Simulation Workspace */}
-        <div className="mt-6 rounded-lg border border-[#E6E4DD] overflow-hidden shadow-xs [&>div]:!w-full [&>div]:!h-[820px] lg:[&>div]:!h-[760px]">
+        <div className="mt-3 rounded-lg border border-[#E6E4DD] overflow-hidden shadow-xs [&>div]:!w-full [&>div]:!h-[820px] lg:[&>div]:!h-[760px]">
           <FmModulationModule
             onNavigateHome={onNavigateHome}
             onNavigateModule={onNavigateModule}

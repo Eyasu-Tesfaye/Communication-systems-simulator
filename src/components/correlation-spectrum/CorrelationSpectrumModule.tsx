@@ -50,56 +50,19 @@ export const CorrelationSpectrumModule: React.FC<CorrelationSpectrumModuleProps>
 
   return (
     <div className="bg-white text-[#1A1917] flex flex-col">
-      {/* Compact Breadcrumb & Return Action */}
-      <div className="border-b border-[#E6E4DD] bg-[#FAF9F6] rounded-t-lg px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-mono text-[#75736E]">
-          {onNavigateHome ? (
-            <>
-              <button
-                type="button"
-                onClick={onNavigateHome}
-                className="hover:text-[#1A1917] transition-colors cursor-pointer"
-              >
-                SIGNAL LAB
-              </button>
-              <span aria-hidden="true">/</span>
-              <button
-                type="button"
-                onClick={onNavigateHome}
-                className="hover:text-[#1A1917] transition-colors cursor-pointer"
-              >
-                WORKSPACE
-              </button>
-              <span aria-hidden="true">/</span>
-            </>
-          ) : (
-            <>
-              <span>SIGNAL LAB</span>
-              <span aria-hidden="true">/</span>
-              <span>WORKSPACE</span>
-              <span aria-hidden="true">/</span>
-            </>
-          )}
-          <span className="text-[#C85A32] font-semibold">
-            {module.index} {module.name}
-          </span>
-        </div>
-
-        {onNavigateHome && (
-          <button
-            type="button"
-            onClick={onNavigateHome}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1A1917] hover:text-[#C85A32] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to workspace</span>
-          </button>
-        )}
-      </div>
-
       {/* Module Header + Experiment Mode Switcher */}
-      <div className="py-3.5 mb-4 border-b border-[#E6E4DD] flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="pb-3 mb-3.5 border-b border-[#E6E4DD] flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
+          {onNavigateHome && (
+            <button
+              type="button"
+              onClick={onNavigateHome}
+              className="p-1.5 rounded-md border border-[#E6E4DD] bg-[#FAF9F6] text-[#585651] hover:text-[#1A1917] hover:bg-[#F3F2EC] transition-colors cursor-pointer"
+              title="Back"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
           <span className="text-xs font-mono font-bold tracking-wider text-[#C85A32] bg-[#FBF4F0] px-2 py-0.5 rounded border border-[#C85A32]/20">
             MODULE {module.index}
           </span>

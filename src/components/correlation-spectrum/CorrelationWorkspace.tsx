@@ -173,29 +173,135 @@ export const CorrelationWorkspace: React.FC<CorrelationWorkspaceProps> = ({
     setColoredNoiseSeedY(202);
   };
 
-  const pointsSignalX = useMemo(
-    () => generatedX.timeVector.map((t, i) => ({ x: t, y: generatedX.samples[i] })),
-    [generatedX]
-  );
+  const { pointsSignalX, pointsSignalDelayed, overlapShadingPoints } = useMemo(() => {
+    const tMin = -3.0;
+    const tMax = 3.0;
+    const xIsPulse = !isDiscrete && configX.type === 'pulse';
+    const targetCfg = isAutocorrelation ? configX : configY;
+    const yIsPulse = !isDiscrete && targetCfg.type === 'pulse';
 
-  const pointsSignalDelayed = useMemo(
-    () => generatedX.timeVector.map((t, i) => ({ x: t, y: delayedSamples[i] })),
-    [generatedX.timeVector, delayedSamples]
-  );
+    if (!xIsPulse && !yIsPulse) {
+      return {
+        pointsSignalX: generatedX.timeVector.map((t, i) => ({ x: t, y: generatedX.samples[i] })),
+        pointsSignalDelayed: generatedX.timeVector.map((t, i) => ({ x: t, y: delayedSamples[i] })),
+        overlapShadingPoints: generatedX.timeVector.map((t, i) => ({
+          x: t,
+          a: generatedX.samples[i],
+          b: delayedSamples[i],
+        })),
+      };
+    }
+
+    const collectPulseEdges = (cfg: UnifiedSignalConfig, shiftLag: number, enforceWindowBounds: boolean): number[] => {
+      if (cfg.type !== 'pulse') return [];
+      const halfW = cfg.pulse.width / 2;
+      const edges: number[] = [
+        cfg.pulse.position - halfW + shiftLag,
+        cfg.pulse.position + halfW + shiftLag,
+      ];
+      if (cfg.echo?.enabled && cfg.echo.gain > 0 && cfg.echo.delay > 0) {
+        edges.push(
+          cfg.pulse.position - halfW + cfg.echo.delay + shiftLag,
+          cfg.pulse.position + halfW + cfg.echo.delay + shiftLag
+        );
+      }
+      if (enforceWindowBounds) {
+        edges.push(tMin + shiftLag, tMax + shiftLag);
+      }
+      return edges;
+    };
+
+    const rawEdges = [
+      ...collectPulseEdges(configX, 0, false),
+      ...collectPulseEdges(targetCfg, lag, true),
+    ].filter((t) => t > tMin + 2e-5 && t < tMax - 2e-5);
+
+    rawEdges.sort((a, b) => a - b);
+    const uniqueEdges: number[] = [];
+    for (const e of rawEdges) {
+      if (uniqueEdges.length === 0 || Math.abs(e - uniqueEdges[uniqueEdges.length - 1]) > 1e-6) {
+        uniqueEdges.push(e);
+      }
+    }
+
+    const eps = 1e-5;
+    const tGrid = generatedX.timeVector.filter((t) =>
+      uniqueEdges.every((e) => Math.abs(t - e) > 5e-5)
+    );
+    for (const e of uniqueEdges) {
+      tGrid.push(e - eps, e + eps);
+    }
+    tGrid.sort((a, b) => a - b);
+
+    const evalPulseAt = (t: number, cfg: UnifiedSignalConfig): number => {
+      const halfW = cfg.pulse.width / 2;
+      const inBounds = (u: number) => u >= tMin - 1e-9 && u <= tMax + 1e-9;
+      let val = inBounds(t) && Math.abs(t - cfg.pulse.position) <= halfW ? cfg.pulse.amplitude : 0;
+      if (cfg.echo?.enabled && cfg.echo.gain > 0 && cfg.echo.delay > 0) {
+        const te = t - cfg.echo.delay;
+        if (inBounds(te) && Math.abs(te - cfg.pulse.position) <= halfW) {
+          val += cfg.echo.gain * cfg.pulse.amplitude;
+        }
+      }
+      return val;
+    };
+
+    const evalSineAt = (t: number, cfg: UnifiedSignalConfig): number => {
+      const omega = 2 * Math.PI * cfg.sine.frequency;
+      const phaseRad = (cfg.sine.phase * Math.PI) / 180;
+      let val = cfg.sine.amplitude * Math.cos(omega * t + phaseRad);
+      if (cfg.echo?.enabled && cfg.echo.gain > 0 && cfg.echo.delay > 0) {
+        val += cfg.echo.gain * cfg.sine.amplitude * Math.cos(omega * (t - cfg.echo.delay) + phaseRad);
+      }
+      return val;
+    };
+
+    const interpArrayAt = (arr: number[], t: number): number => {
+      const u = (t - tMin) / generatedX.dt;
+      if (u < 0 || u > arr.length - 1) return 0;
+      const i0 = Math.floor(u);
+      const i1 = Math.min(arr.length - 1, i0 + 1);
+      const frac = u - i0;
+      return arr[i0] * (1 - frac) + arr[i1] * frac;
+    };
+
+    const evalX = (t: number): number => {
+      if (configX.type === 'pulse') return evalPulseAt(t, configX);
+      if (configX.type === 'sine') return evalSineAt(t, configX);
+      return interpArrayAt(generatedX.samples, t);
+    };
+
+    const evalDelayedY = (t: number): number => {
+      const u = t - lag;
+      if (u < tMin - 1e-9 || u > tMax + 1e-9) return 0;
+      if (targetCfg.type === 'pulse') return evalPulseAt(u, targetCfg);
+      if (targetCfg.type === 'sine') return evalSineAt(u, targetCfg);
+      return interpArrayAt(delayedSamples, t);
+    };
+
+    const ptsX: Array<{ x: number; y: number }> = new Array(tGrid.length);
+    const ptsDelayed: Array<{ x: number; y: number }> = new Array(tGrid.length);
+    const ptsOverlap: Array<{ x: number; a: number; b: number }> = new Array(tGrid.length);
+
+    for (let i = 0; i < tGrid.length; i++) {
+      const t = tGrid[i];
+      const vx = evalX(t);
+      const vy = evalDelayedY(t);
+      ptsX[i] = { x: t, y: vx };
+      ptsDelayed[i] = { x: t, y: vy };
+      ptsOverlap[i] = { x: t, a: vx, b: vy };
+    }
+
+    return {
+      pointsSignalX: ptsX,
+      pointsSignalDelayed: ptsDelayed,
+      overlapShadingPoints: ptsOverlap,
+    };
+  }, [isDiscrete, configX, configY, isAutocorrelation, generatedX, delayedSamples, lag]);
 
   const pointsCorrelation = useMemo(
     () => correlationResult.lags.map((l, i) => ({ x: l, y: correlationResult.rValues[i] })),
     [correlationResult]
-  );
-
-  const overlapShadingPoints = useMemo(
-    () =>
-      generatedX.timeVector.map((t, i) => ({
-        x: t,
-        a: generatedX.samples[i],
-        b: delayedSamples[i],
-      })),
-    [generatedX.timeVector, generatedX.samples, delayedSamples]
   );
 
   // Frame active lag region prominently: [-3, +3] s in CTS and [-20, +20] samples in DTS

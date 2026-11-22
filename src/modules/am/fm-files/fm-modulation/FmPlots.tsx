@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Hand,
   Maximize2,
+  Minimize2,
   X,
   Crosshair,
 } from 'lucide-react';
@@ -109,6 +110,19 @@ export interface FmActiveMarker {
   color?: string;
 }
 
+export interface FmPassbandOverlay {
+  center: number;
+  bandwidth: number;
+  maxGainY: number;
+  status: 'LOCKED' | 'OFF-TUNE' | 'ADJACENT OVERLAP' | 'NO SIGNAL';
+  stations?: Array<{
+    fc: number;
+    label: string;
+    color: string;
+    isDominant?: boolean;
+  }>;
+}
+
 export interface FmSplitPanelConfig {
   title?: string;
   yLabel: string;
@@ -127,12 +141,19 @@ export interface FmInteractivePlotProps {
   series: FmSeries[];
   referenceLines?: { y?: number; x?: number; label: string; color?: string; style?: 'dashed' | 'solid' }[];
   carsonBands?: FmCarsonBand[];
+  passbandOverlay?: FmPassbandOverlay;
   activeMarker?: FmActiveMarker;
   secondaryPanel?: FmSplitPanelConfig;
   topPanelTitle?: string;
   height?: number;
   statusBadge?: string;
   headerControls?: React.ReactNode;
+  isExpanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  fullscreenHeaderControls?: React.ReactNode;
+  renderFullscreenControls?: (exitFullscreen: () => void) => React.ReactNode;
+  hideLegend?: boolean;
+  compactHeader?: boolean;
   className?: string;
 }
 
@@ -154,12 +175,19 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   series,
   referenceLines = [],
   carsonBands = [],
+  passbandOverlay,
   activeMarker,
   secondaryPanel,
   topPanelTitle,
   height = 170,
   statusBadge,
   headerControls,
+  isExpanded: controlledExpanded,
+  onExpandedChange,
+  fullscreenHeaderControls,
+  renderFullscreenControls,
+  hideLegend = false,
+  compactHeader = false,
   className = '',
 }) => {
   const clipId = useId();
@@ -176,7 +204,17 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   const [isPanActive, setIsPanActive] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = controlledExpanded ?? internalExpanded;
+  const setIsExpanded = useCallback(
+    (next: boolean) => {
+      if (controlledExpanded === undefined) {
+        setInternalExpanded(next);
+      }
+      onExpandedChange?.(next);
+    },
+    [controlledExpanded, onExpandedChange]
+  );
   const [hoveredPoint, setHoveredPoint] = useState<InspectedPoint | null>(null);
   const [pinnedPoint, setPinnedPoint] = useState<InspectedPoint | null>(null);
 
@@ -184,6 +222,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   useEffect(() => {
     setPinnedPoint(null);
     setHoveredPoint(null);
+    setIsPanActive(false);
   }, [title]);
 
   // Measure actual container pixel dimensions to guarantee crisp 1:1 edge-to-edge rendering
@@ -228,7 +267,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isExpanded]);
+  }, [isExpanded, setIsExpanded]);
 
   // Enforce explicit dynamic xlim / ylim when parameters update
   useEffect(() => {
@@ -259,10 +298,10 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   const actualHeight = size.height;
   const hasTopTitle = Boolean(topPanelTitle);
   const padding = {
-    top: hasTopTitle ? 28 : carsonBands.length > 0 ? 22 : 18,
-    right: 24,
-    bottom: 48,
-    left: 68,
+    top: hasTopTitle ? 28 : passbandOverlay ? 24 : carsonBands.length > 0 ? 22 : compactHeader ? 12 : 18,
+    right: compactHeader ? 18 : 24,
+    bottom: compactHeader ? 40 : 48,
+    left: compactHeader ? 62 : 68,
   };
 
   const plotWidth = Math.max(40, width - padding.left - padding.right);
@@ -584,8 +623,20 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   // Ticks
   const xTicksCount = width > 650 ? 8 : 6;
   const xTicks = useMemo(() => {
+    if (passbandOverlay) {
+      const targetCount = width > 650 ? 8 : 6;
+      const rawStep = xSpan / targetCount;
+      const niceSteps = [1, 2, 5, 10, 20, 25, 50];
+      const step = niceSteps.find((s) => s >= rawStep) ?? Math.ceil(rawStep / 10) * 10;
+      const firstTick = Math.ceil(xMin / step) * step;
+      const ticks: number[] = [];
+      for (let v = firstTick; v <= xMax + step * 1e-6; v += step) {
+        ticks.push(Number(v.toFixed(4)));
+      }
+      return ticks.length >= 2 ? ticks : [xMin, xMax];
+    }
     return Array.from({ length: xTicksCount + 1 }, (_, i) => xMin + (i * xSpan) / xTicksCount);
-  }, [xMin, xSpan, xTicksCount]);
+  }, [passbandOverlay, width, xMin, xMax, xSpan, xTicksCount]);
 
   const yTicksCount = secondaryPanel ? 3 : 4;
   const yTicks = useMemo(() => {
@@ -602,18 +653,30 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
   const secZeroY = mapSecY(0);
   const hasSecZeroY = secondaryPanel ? secZeroY >= secTop && secZeroY <= secTop + plotHeight : false;
 
+  const useCompactHeader = compactHeader && !isExpanded;
+
   const content = (
     <div
       className={`bg-white flex flex-col select-none ${
         isExpanded
           ? 'w-screen h-screen p-3 sm:p-4 overflow-hidden'
-          : `border border-[#E6E4DD] rounded-md px-2.5 py-1.5 shadow-xs ${className}`
+          : `border border-[#E6E4DD] rounded-md ${compactHeader ? 'px-2 py-1' : 'px-2.5 py-1.5'} shadow-xs ${className}`
       }`}
     >
       {/* Header with Title and Built-in Interactive Toolbar */}
-      <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#E6E4DD]/80 mb-1.5 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <h4 className="text-[14px] font-heading font-semibold tracking-wide uppercase text-[#1A1917] truncate">
+      <div
+        className={`flex items-center justify-between border-b border-[#E6E4DD]/80 shrink-0 ${
+          useCompactHeader
+            ? 'flex-nowrap gap-1.5 pb-1 mb-1'
+            : 'flex-wrap gap-2 pb-1.5 mb-1.5'
+        }`}
+      >
+        <div className={`flex items-center min-w-0 ${useCompactHeader ? 'gap-1.5 flex-nowrap' : 'gap-2 flex-wrap'}`}>
+          <h4
+            className={`font-heading font-semibold tracking-wide uppercase text-[#1A1917] truncate ${
+              useCompactHeader ? 'text-[12.5px]' : 'text-[14px]'
+            }`}
+          >
             {title}
           </h4>
           {subtitle && (
@@ -622,27 +685,40 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             </span>
           )}
           {statusBadge && (
-            <span className="text-[13px] font-mono px-2 py-0.5 rounded bg-[#FAF9F6] border border-[#E6E4DD] text-[#585651] shrink-0">
+            <span
+              className={`font-mono rounded bg-[#FAF9F6] border border-[#E6E4DD] text-[#585651] shrink-0 whitespace-nowrap ${
+                useCompactHeader ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'
+              }`}
+            >
               {statusBadge}
             </span>
+          )}
+          {isExpanded && fullscreenHeaderControls && (
+            <div className="flex items-center gap-1.5 flex-wrap">{fullscreenHeaderControls}</div>
           )}
         </div>
 
         {/* Interactive Toolbar: Optional Controls + Pan, Zoom In, Zoom Out, Reset Axes, Expand */}
         <div className="flex items-center gap-1 shrink-0">
-          {headerControls && <div className="mr-1.5 flex items-center">{headerControls}</div>}
+          {headerControls && (
+            <div className={`${useCompactHeader ? 'mr-1' : 'mr-1.5'} flex items-center`}>
+              {headerControls}
+            </div>
+          )}
 
           <button
             type="button"
             onClick={() => setIsPanActive(!isPanActive)}
             title={isPanActive ? 'Pan Active (Click & Drag)' : 'Pan / Drag Axes'}
-            className={`px-2 py-1 rounded text-[13px] font-mono flex items-center gap-1 transition-colors cursor-pointer ${
+            className={`rounded font-mono flex items-center gap-1 transition-colors cursor-pointer ${
+              useCompactHeader ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-1 text-[13px]'
+            } ${
               isPanActive
                 ? 'bg-[#C85A32] text-white shadow-xs'
                 : 'text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border border-[#E6E4DD]/70'
             }`}
           >
-            <Hand className="w-3.5 h-3.5" />
+            <Hand className={useCompactHeader ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
             <span className="hidden sm:inline">Pan</span>
           </button>
 
@@ -650,7 +726,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             type="button"
             onClick={handleZoomIn}
             title="Zoom In"
-            className="p-1 rounded text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border border-[#E6E4DD]/70 transition-colors cursor-pointer"
+            className={`${useCompactHeader ? 'p-0.5' : 'p-1'} rounded text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border border-[#E6E4DD]/70 transition-colors cursor-pointer`}
           >
             <ZoomIn className="w-3 h-3" />
           </button>
@@ -659,7 +735,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             type="button"
             onClick={handleZoomOut}
             title="Zoom Out"
-            className="p-1 rounded text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border border-[#E6E4DD]/70 transition-colors cursor-pointer"
+            className={`${useCompactHeader ? 'p-0.5' : 'p-1'} rounded text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border border-[#E6E4DD]/70 transition-colors cursor-pointer`}
           >
             <ZoomOut className="w-3 h-3" />
           </button>
@@ -668,13 +744,15 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             type="button"
             onClick={handleResetAxes}
             title="Reset Axes to Dynamic Limits"
-            className={`px-2 py-1 rounded text-[13px] font-mono flex items-center gap-1 transition-colors cursor-pointer border ${
+            className={`rounded font-mono flex items-center gap-1 transition-colors cursor-pointer border ${
+              useCompactHeader ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-1 text-[13px]'
+            } ${
               isViewModified
                 ? 'bg-[#FBF4F0] text-[#C85A32] border-[#C85A32]/40 font-semibold'
                 : 'text-[#585651] hover:text-[#1A1917] hover:bg-[#FAF9F6] border-[#E6E4DD]/70'
             }`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className={useCompactHeader ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
             <span className="hidden md:inline">Reset</span>
           </button>
 
@@ -684,12 +762,12 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             <button
               type="button"
               onClick={() => setIsExpanded(false)}
-              aria-label="Close full-screen plot"
-              title="Close Full-Screen (ESC)"
-              className="px-2.5 py-1 rounded text-[13px] font-mono font-semibold bg-[#1A1917] text-white hover:bg-[#C85A32] transition-colors cursor-pointer flex items-center gap-1"
+              aria-label="Exit full-screen"
+              title="Exit Full-Screen (ESC)"
+              className="px-2.5 py-1 rounded text-xs font-semibold bg-[#1A1917] text-white hover:bg-[#C85A32] transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <X className="w-4 h-4" />
-              <span>Close</span>
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Exit Full-Screen</span>
             </button>
           ) : (
             <button
@@ -697,7 +775,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
               onClick={() => setIsExpanded(true)}
               aria-label="Expand plot to full screen"
               title="Expand Full-Screen"
-              className="p-1 rounded text-[#585651] hover:text-[#C85A32] hover:bg-[#FBF4F0] transition-colors cursor-pointer"
+              className={`${useCompactHeader ? 'p-0.5' : 'p-1'} rounded text-[#585651] hover:text-[#C85A32] hover:bg-[#FBF4F0] transition-colors cursor-pointer`}
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
@@ -705,17 +783,24 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
         </div>
       </div>
 
+      {/* Full-Screen Control Bar */}
+      {isExpanded && renderFullscreenControls && (
+        <div className="mb-1.5 px-2.5 py-1.5 bg-[#FAF9F6] border border-[#E6E4DD] rounded-md shrink-0">
+          {renderFullscreenControls(() => setIsExpanded(false))}
+        </div>
+      )}
+
       {/* Responsive SVG Canvas */}
       <div
         ref={containerRef}
-        className="relative w-full flex-1 min-h-0 bg-[#FAF9F6] rounded border border-[#E6E4DD]/60 overflow-hidden"
+        className="relative w-full flex-1 min-h-[110px] bg-[#FAF9F6] rounded border border-[#E6E4DD]/60 overflow-hidden"
       >
         <svg
           ref={svgRef}
           width={width}
           height={actualHeight}
           viewBox={`0 0 ${width} ${actualHeight}`}
-          className={`w-full h-full block touch-none ${
+          className={`absolute inset-0 w-full h-full block touch-none ${
             isPanActive ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-crosshair'
           }`}
           onMouseDown={handleMouseDown}
@@ -888,6 +973,163 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
             });
           })()}
 
+          {/* Receiver Passband Window Overlay (Radio Mode) */}
+          {passbandOverlay && (() => {
+            const halfBw = Math.max(0.5, passbandOverlay.bandwidth / 2);
+            const fLow = passbandOverlay.center - halfBw;
+            const fHigh = passbandOverlay.center + halfBw;
+            const xLow = mapX(fLow);
+            const xHigh = mapX(fHigh);
+            const xCenter = mapX(passbandOverlay.center);
+            const basePy = mapY(0);
+
+            const statusColor =
+              passbandOverlay.status === 'LOCKED'
+                ? '#059669'
+                : passbandOverlay.status === 'ADJACENT OVERLAP'
+                ? '#DC2626'
+                : passbandOverlay.status === 'OFF-TUNE'
+                ? '#D97706'
+                : '#6B7280';
+
+            // Dense non-uniform sampling around passband edges so steep filter skirts stay crisp at any B_rx
+            const sampleFreqs = new Set<number>();
+            const baseSteps = 140;
+            for (let i = 0; i <= baseSteps; i++) {
+              sampleFreqs.add(xMin + (i / baseSteps) * xSpan);
+            }
+            const detailLeft = Math.max(xMin, passbandOverlay.center - halfBw * 1.65);
+            const detailRight = Math.min(xMax, passbandOverlay.center + halfBw * 1.65);
+            if (detailRight > detailLeft) {
+              const detailSteps = 96;
+              for (let i = 0; i <= detailSteps; i++) {
+                sampleFreqs.add(detailLeft + (i / detailSteps) * (detailRight - detailLeft));
+              }
+            }
+            const sortedFreqs = Array.from(sampleFreqs).sort((a, b) => a - b);
+            const curvePts: string[] = [];
+            for (let i = 0; i < sortedFreqs.length; i++) {
+              const f = sortedFreqs[i];
+              const u = Math.abs(f - passbandOverlay.center) / halfBw;
+              const h = 1 / Math.sqrt(1 + Math.pow(u, 16));
+              const py = mapY(h * passbandOverlay.maxGainY);
+              curvePts.push(`${i === 0 ? 'M' : 'L'} ${mapX(f).toFixed(1)} ${py.toFixed(1)}`);
+            }
+            const fillPath = `${curvePts.join(' ')} L ${mapX(xMax).toFixed(1)} ${basePy.toFixed(1)} L ${mapX(xMin).toFixed(1)} ${basePy.toFixed(1)} Z`;
+
+            const stationLabels: Array<{
+              x: number;
+              textX: number;
+              y: number;
+              label: string;
+              color: string;
+              isDominant: boolean;
+            }> = [];
+
+            if (passbandOverlay.stations && passbandOverlay.stations.length > 0) {
+              const placedBoxes: Array<{ left: number; right: number }> = [];
+              for (const st of passbandOverlay.stations) {
+                if (st.fc < xMin || st.fc > xMax) continue;
+                const sx = mapX(st.fc);
+                const estW = st.label.length * 6.8 + 6;
+                const halfW = estW / 2;
+                const textX = Math.min(
+                  width - padding.right - halfW - 2,
+                  Math.max(padding.left + halfW + 2, sx)
+                );
+                const overlaps = placedBoxes.some(
+                  (b) => !(textX + halfW + 6 < b.left || textX - halfW - 6 > b.right)
+                );
+                if (!overlaps) {
+                  placedBoxes.push({ left: textX - halfW, right: textX + halfW });
+                  stationLabels.push({
+                    x: sx,
+                    textX,
+                    y: padding.top + 12,
+                    label: st.label,
+                    color: st.color,
+                    isDominant: Boolean(st.isDominant),
+                  });
+                }
+              }
+            }
+
+            const passbandTopPy = mapY(passbandOverlay.maxGainY);
+            const passbandHalfPy = mapY(passbandOverlay.maxGainY * 0.707);
+
+            return (
+              <g className="passband-overlay" clipPath={`url(#${clipId})`}>
+                {/* Faint Carrier Center Guides & Lightweight Borderless Station Labels */}
+                {stationLabels.map((b, idx) => (
+                  <g key={`st-lbl-${idx}`}>
+                    <line
+                      x1={b.x}
+                      y1={b.y + 5}
+                      x2={b.x}
+                      y2={basePy}
+                      stroke={b.color}
+                      strokeWidth="1"
+                      strokeDasharray="2 3"
+                      strokeOpacity="0.22"
+                    />
+                    <text
+                      x={b.textX}
+                      y={b.y}
+                      textAnchor="middle"
+                      fontSize="11"
+                      fontFamily="monospace"
+                      fontWeight={b.isDominant ? '700' : '600'}
+                      fill={b.color}
+                      opacity={b.isDominant ? 1 : 0.85}
+                    >
+                      {b.label}
+                    </text>
+                  </g>
+                ))}
+                {/* Bandpass Filter Envelope Fill & Outline */}
+                <path d={fillPath} fill={statusColor} fillOpacity="0.10" />
+                <path
+                  d={curvePts.join(' ')}
+                  fill="none"
+                  stroke={statusColor}
+                  strokeWidth="1.8"
+                  strokeOpacity="0.85"
+                />
+                {/* -3 dB Passband Edges */}
+                <line
+                  x1={xLow}
+                  y1={passbandHalfPy}
+                  x2={xLow}
+                  y2={basePy}
+                  stroke={statusColor}
+                  strokeWidth="1.2"
+                  strokeDasharray="4 3"
+                  strokeOpacity="0.7"
+                />
+                <line
+                  x1={xHigh}
+                  y1={passbandHalfPy}
+                  x2={xHigh}
+                  y2={basePy}
+                  stroke={statusColor}
+                  strokeWidth="1.2"
+                  strokeDasharray="4 3"
+                  strokeOpacity="0.7"
+                />
+                {/* Center Tune Needle */}
+                <line
+                  x1={xCenter}
+                  y1={passbandTopPy}
+                  x2={xCenter}
+                  y2={basePy}
+                  stroke={statusColor}
+                  strokeWidth="1.5"
+                  strokeOpacity="0.85"
+                />
+              </g>
+            );
+          })()}
+
           {/* Reference Lines (Horizontal & Vertical) */}
           <g clipPath={`url(#${clipId})`}>
             {referenceLines.map((ref, idx) => {
@@ -968,8 +1210,9 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
                 const labelCandidates = visibleStems
                   .filter(
                     (line) =>
-                      line.harmonicOrder === 0 ||
-                      (Math.abs(line.harmonicOrder) <= 5 && line.amplitude > 0.015)
+                      !line.suppressLabel &&
+                      (line.harmonicOrder === 0 ||
+                        (Math.abs(line.harmonicOrder) <= 5 && line.amplitude > 0.015))
                   )
                   .slice()
                   .sort((a, b) => {
@@ -989,7 +1232,9 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
                   const offsetOrder =
                     line.offsetOrder ?? (line.side === 'negative' ? -n : n);
                   let shortText: string;
-                  if (n === 0) {
+                  if (line.customLabel) {
+                    shortText = line.customLabel;
+                  } else if (n === 0) {
                     shortText = line.side === 'negative' ? '-f_c' : 'f_c';
                   } else {
                     const absOrder = Math.abs(offsetOrder);
@@ -1047,25 +1292,30 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
                       const lx = mapX(line.freq);
                       const ly = mapY(line.amplitude);
                       const isCarrier = line.harmonicOrder === 0;
+                      const stemColor = line.customColor || (isCarrier ? '#C85A32' : s.color);
+                      const stemOpacity = line.opacity ?? 1;
                       const labelPlacement = placedLabels.get(
                         `${line.side}-${line.harmonicOrder}-${line.freq}`
                       );
 
+                      const isDenseSpectrum = visibleStems.length > 48;
+
                       return (
-                        <g key={`spec-${lIdx}`}>
+                        <g key={`spec-${lIdx}`} opacity={stemOpacity}>
                           <line
                             x1={lx}
                             y1={basePy}
                             x2={lx}
                             y2={ly}
-                            stroke={isCarrier ? '#C85A32' : s.color}
-                            strokeWidth={isCarrier ? 2.4 : 1.7}
+                            stroke={stemColor}
+                            strokeWidth={isCarrier ? 2.2 : isDenseSpectrum ? 1.35 : 1.65}
+                            shapeRendering="crispEdges"
                           />
                           <circle
                             cx={lx}
                             cy={ly}
-                            r={isCarrier ? 3.5 : 2.6}
-                            fill={isCarrier ? '#C85A32' : s.color}
+                            r={isCarrier ? 3.2 : isDenseSpectrum ? 2.0 : 2.5}
+                            fill={stemColor}
                           />
                           {labelPlacement && (
                             <>
@@ -1075,7 +1325,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
                                   y1={ly - 3}
                                   x2={labelPlacement.x}
                                   y2={labelPlacement.y + 3}
-                                  stroke={isCarrier ? '#C85A32' : '#8A8882'}
+                                  stroke={isCarrier ? stemColor : '#8A8882'}
                                   strokeWidth="0.9"
                                   strokeOpacity="0.5"
                                   strokeDasharray="2 2"
@@ -1087,7 +1337,7 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
                                 textAnchor="middle"
                                 fontSize="13"
                                 fontFamily="monospace"
-                                fill={isCarrier ? '#C85A32' : '#585651'}
+                                fill={isCarrier ? stemColor : '#585651'}
                                 fontWeight={isCarrier ? 'bold' : 'normal'}
                                 stroke="#FAF9F6"
                                 strokeWidth="3"
@@ -1260,9 +1510,14 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
           )}
 
           {/* Ticks and Labels */}
-          <g className="ticks" fontSize="13" fontFamily="monospace" fill="#585651">
+          <g className="ticks" fontSize={compactHeader ? '12' : '13'} fontFamily="monospace" fill="#585651">
             {xTicks.map((xVal, i) => (
-              <text key={`tx-${i}`} x={mapX(xVal)} y={actualHeight - padding.bottom + 18} textAnchor="middle">
+              <text
+                key={`tx-${i}`}
+                x={mapX(xVal)}
+                y={actualHeight - padding.bottom + (compactHeader ? 15 : 18)}
+                textAnchor="middle"
+              >
                 {formatTickValue(xVal, xSpan)}
               </text>
             ))}
@@ -1282,9 +1537,9 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
           {/* Axes labels */}
           <text
             x={padding.left + plotWidth / 2}
-            y={actualHeight - 8}
+            y={actualHeight - (compactHeader ? 6 : 8)}
             textAnchor="middle"
-            fontSize="14"
+            fontSize={compactHeader ? '12.5' : '14'}
             fontFamily="monospace"
             fill="#1A1917"
             fontWeight="bold"
@@ -1496,8 +1751,12 @@ export const FmInteractivePlot: React.FC<FmInteractivePlotProps> = ({
       </div>
 
       {/* Series Legend */}
-      {(series.length > 0 || (secondaryPanel?.series?.length ?? 0) > 0) && (
-        <div className="flex flex-wrap items-center gap-4 pt-2 text-[13px] font-mono text-[#585651] shrink-0">
+      {!hideLegend && (series.length > 0 || (secondaryPanel?.series?.length ?? 0) > 0) && (
+        <div
+          className={`flex flex-wrap items-center gap-4 font-mono text-[#585651] shrink-0 ${
+            compactHeader ? 'pt-1 text-[11px]' : 'pt-1.5 text-[12px]'
+          }`}
+        >
           {[...series, ...(secondaryPanel?.series || [])].map((s) => (
             <div key={s.id} className="flex items-center gap-2">
               <span

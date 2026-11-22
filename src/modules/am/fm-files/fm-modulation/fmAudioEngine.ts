@@ -2,12 +2,37 @@
  * FM Audio Engine: Web Audio API synthesis & demodulation audio playback
  */
 
+import {
+  getBundledRadioVoiceClip,
+  RADIO_STATIONS,
+  RadioVoiceClip,
+  RadioVoiceProfile,
+} from './fmRadioEngine';
+
+export interface RadioChannelSpec {
+  id: string;
+  programType: 'sine' | 'square' | 'voice' | 'dual';
+  voiceProfile?: RadioVoiceProfile;
+  fm: number;
+}
+
 export class FmAudioEngine {
   private audioCtx: AudioContext | null = null;
   private originalSource: AudioBufferSourceNode | null = null;
   private demodSource: AudioBufferSourceNode | null = null;
   private originalBuffer: AudioBuffer | null = null;
   private demodBuffer: AudioBuffer | null = null;
+
+  // Cached Radio Channel Buffers & Live Continuous Mixer Nodes
+  private cachedChannelBuffers: Map<string, AudioBuffer> = new Map();
+  private cachedChannelClipRefs: Map<string, RadioVoiceClip | null> = new Map();
+  private cachedNoiseBuffer: AudioBuffer | null = null;
+  private radioChannelNodes: Map<string, { source: AudioBufferSourceNode; gain: GainNode }> = new Map();
+  private radioNoiseNode: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private radioPlaying: boolean = false;
+  private currentStationGains: Record<string, number> = {};
+  private currentNoiseGain: number = 0.05;
+  private currentChannels: RadioChannelSpec[] = RADIO_STATIONS;
 
   constructor() {
     // Lazy AudioContext initialization on first user interaction
@@ -128,6 +153,167 @@ export class FmAudioEngine {
     return { originalBuffer: origBuf, demodBuffer: demodBuf };
   }
 
+  private sampleClipInterpolated(
+    clip: { samples: Float32Array; sampleRate: number },
+    tSec: number
+  ): number {
+    const len = clip.samples.length;
+    if (len === 0) return 0;
+    const pos = ((tSec * clip.sampleRate) % len + len) % len;
+    const i0 = Math.floor(pos) % len;
+    const i1 = (i0 + 1) % len;
+    const frac = pos - Math.floor(pos);
+    return clip.samples[i0] * (1 - frac) + clip.samples[i1] * frac;
+  }
+
+  private buildStationBuffer(
+    ctx: AudioContext,
+    channel: RadioChannelSpec,
+    overrideClip?: RadioVoiceClip | null
+  ): AudioBuffer {
+    const sampleRate = ctx.sampleRate;
+    const stationMatch = RADIO_STATIONS.find((s) => s.id === channel.id);
+    const activeClip =
+      overrideClip && overrideClip.samples.length > 0
+        ? overrideClip
+        : stationMatch
+        ? getBundledRadioVoiceClip(stationMatch)
+        : null;
+
+    let durationSec = 4.0;
+    if (activeClip && activeClip.samples.length > 0) {
+      const clipDur = activeClip.samples.length / activeClip.sampleRate;
+      const repeats = Math.max(1, Math.ceil(1.2 / Math.max(0.1, clipDur)));
+      durationSec = Math.min(15.0, clipDur * repeats);
+    }
+
+    const totalSamples = Math.max(1, Math.floor(sampleRate * durationSec));
+    const buf = ctx.createBuffer(1, totalSamples, sampleRate);
+    const data = buf.getChannelData(0);
+
+    const fBase = Math.max(120, Math.round(channel.fm * 75));
+
+    for (let i = 0; i < totalSamples; i++) {
+      const t = i / sampleRate;
+      let sample = 0;
+      if (activeClip && activeClip.samples.length > 0) {
+        sample = this.sampleClipInterpolated(activeClip, t);
+      } else {
+        // Synthesized voice fallback if bundled clip unavailable
+        const env = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.6 * t);
+        sample =
+          (Math.sin(2 * Math.PI * fBase * t) +
+            0.55 * Math.sin(2 * Math.PI * fBase * 2 * t + 0.3) +
+            0.25 * Math.sin(2 * Math.PI * fBase * 3 * t + 0.6)) *
+          env *
+          0.6;
+      }
+      data[i] = Math.max(-0.95, Math.min(0.95, sample * 0.65));
+    }
+
+    return buf;
+  }
+
+  private ensureRadioBuffersCached(
+    channels: RadioChannelSpec[],
+    voiceOverrides?: Record<string, RadioVoiceClip | null>
+  ): string[] {
+    const ctx = this.getAudioContext();
+    const updatedIds: string[] = [];
+
+    if (!this.cachedNoiseBuffer) {
+      const sr = ctx.sampleRate;
+      const len = Math.floor(sr * 4.0);
+      const nBuf = ctx.createBuffer(1, len, sr);
+      const nData = nBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        const u1 = Math.max(1e-6, Math.random());
+        const u2 = Math.random();
+        nData[i] = Math.max(-0.9, Math.min(0.9, Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) * 0.35));
+      }
+      this.cachedNoiseBuffer = nBuf;
+    }
+
+    for (const ch of channels) {
+      const nextClipRef = voiceOverrides?.[ch.id] ?? null;
+      const prevClipRef = this.cachedChannelClipRefs.get(ch.id) ?? null;
+      if (!this.cachedChannelBuffers.has(ch.id) || prevClipRef !== nextClipRef) {
+        this.cachedChannelClipRefs.set(ch.id, nextClipRef);
+        this.cachedChannelBuffers.set(ch.id, this.buildStationBuffer(ctx, ch, nextClipRef));
+        if (this.radioChannelNodes.has(ch.id)) {
+          updatedIds.push(ch.id);
+        }
+      }
+    }
+
+    return updatedIds;
+  }
+
+  /**
+   * Updates live channel & static noise gains smoothly without re-decoding or restarting
+   * playing station audio sources when f_tune, B_rx, beta, or SNR change.
+   */
+  public updateRadioMix(
+    channels: RadioChannelSpec[],
+    stationGains: Record<string, number>,
+    noiseGain: number,
+    voiceOverrides?: Record<string, RadioVoiceClip | null>
+  ): void {
+    this.currentChannels = channels;
+    this.currentStationGains = { ...stationGains };
+    this.currentNoiseGain = noiseGain;
+
+    const anyOverrideChanged = channels.some(
+      (ch) => (this.cachedChannelClipRefs.get(ch.id) ?? null) !== (voiceOverrides?.[ch.id] ?? null)
+    );
+
+    if (!this.radioPlaying && !anyOverrideChanged) {
+      return;
+    }
+
+    const updatedIds = this.ensureRadioBuffersCached(channels, voiceOverrides);
+
+    if (!this.radioPlaying) return;
+    const ctx = this.getAudioContext();
+    const now = ctx.currentTime;
+
+    // Only swap a channel node if its custom voice override changed while playing
+    for (const chId of updatedIds) {
+      const oldNode = this.radioChannelNodes.get(chId);
+      if (oldNode) {
+        try {
+          oldNode.source.stop();
+          oldNode.source.disconnect();
+          oldNode.gain.disconnect();
+        } catch {
+          // Ignore
+        }
+        const buf = this.cachedChannelBuffers.get(chId);
+        if (buf) {
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.loop = true;
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(Math.max(0, stationGains[chId] ?? 0), now);
+          src.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          src.start(0);
+          this.radioChannelNodes.set(chId, { source: src, gain: gainNode });
+        }
+      }
+    }
+
+    for (const [id, node] of this.radioChannelNodes.entries()) {
+      const target = Math.max(0, Math.min(1, stationGains[id] ?? 0));
+      node.gain.gain.setTargetAtTime(target, now, 0.025);
+    }
+
+    if (this.radioNoiseNode) {
+      const targetNoise = Math.max(0, Math.min(1, noiseGain));
+      this.radioNoiseNode.gain.gain.setTargetAtTime(targetNoise, now, 0.025);
+    }
+  }
+
   public playOriginal(onEnded?: () => void): void {
     const ctx = this.getAudioContext();
     this.stopOriginal();
@@ -151,6 +337,7 @@ export class FmAudioEngine {
   public stopOriginal(): void {
     if (this.originalSource) {
       try {
+        this.originalSource.onended = null;
         this.originalSource.stop();
         this.originalSource.disconnect();
       } catch {
@@ -183,6 +370,7 @@ export class FmAudioEngine {
   public stopDemodulated(): void {
     if (this.demodSource) {
       try {
+        this.demodSource.onended = null;
         this.demodSource.stop();
         this.demodSource.disconnect();
       } catch {
@@ -192,9 +380,75 @@ export class FmAudioEngine {
     }
   }
 
+  public playRadio(voiceOverrides?: Record<string, RadioVoiceClip | null>): void {
+    const ctx = this.getAudioContext();
+    this.stopRadio();
+    const resolvedOverrides: Record<string, RadioVoiceClip | null> = {};
+    for (const ch of this.currentChannels) {
+      resolvedOverrides[ch.id] =
+        voiceOverrides !== undefined ? (voiceOverrides[ch.id] ?? null) : (this.cachedChannelClipRefs.get(ch.id) ?? null);
+    }
+    this.ensureRadioBuffersCached(this.currentChannels, resolvedOverrides);
+
+    const now = ctx.currentTime;
+    for (const ch of this.currentChannels) {
+      const buf = this.cachedChannelBuffers.get(ch.id);
+      if (!buf) continue;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(Math.max(0, this.currentStationGains[ch.id] ?? 0), now);
+      src.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      src.start(0);
+      this.radioChannelNodes.set(ch.id, { source: src, gain: gainNode });
+    }
+
+    if (this.cachedNoiseBuffer) {
+      const nSrc = ctx.createBufferSource();
+      nSrc.buffer = this.cachedNoiseBuffer;
+      nSrc.loop = true;
+      const nGain = ctx.createGain();
+      nGain.gain.setValueAtTime(Math.max(0, this.currentNoiseGain), now);
+      nSrc.connect(nGain);
+      nGain.connect(ctx.destination);
+      nSrc.start(0);
+      this.radioNoiseNode = { source: nSrc, gain: nGain };
+    }
+
+    this.radioPlaying = true;
+  }
+
+  public stopRadio(): void {
+    this.radioPlaying = false;
+    for (const node of this.radioChannelNodes.values()) {
+      try {
+        node.source.stop();
+        node.source.disconnect();
+        node.gain.disconnect();
+      } catch {
+        // Ignore already stopped
+      }
+    }
+    this.radioChannelNodes.clear();
+
+    if (this.radioNoiseNode) {
+      try {
+        this.radioNoiseNode.source.stop();
+        this.radioNoiseNode.source.disconnect();
+        this.radioNoiseNode.gain.disconnect();
+      } catch {
+        // Ignore already stopped
+      }
+      this.radioNoiseNode = null;
+    }
+  }
+
   public stopAll(): void {
     this.stopOriginal();
     this.stopDemodulated();
+    this.stopRadio();
   }
 }
 
