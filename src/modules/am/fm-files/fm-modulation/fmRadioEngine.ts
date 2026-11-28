@@ -13,6 +13,7 @@ export interface RadioStation {
   programType: RadioProgramType;
   voiceProfile: RadioVoiceProfile;
   programLabel: string;
+  audioUrl: string;
   color: string;
 }
 
@@ -28,6 +29,7 @@ export const RADIO_STATIONS: RadioStation[] = [
     programType: 'voice',
     voiceProfile: 'anchor',
     programLabel: 'Voice · Anchor',
+    audioUrl: '/audio/CH1.mp3',
     color: '#2563EB',
   },
   {
@@ -39,6 +41,7 @@ export const RADIO_STATIONS: RadioStation[] = [
     programType: 'voice',
     voiceProfile: 'news',
     programLabel: 'Voice · News',
+    audioUrl: '/audio/CH2.mp3',
     color: '#C85A32',
   },
   {
@@ -50,6 +53,7 @@ export const RADIO_STATIONS: RadioStation[] = [
     programType: 'voice',
     voiceProfile: 'talk',
     programLabel: 'Voice · Talk',
+    audioUrl: '/audio/CH3.mp3',
     color: '#059669',
   },
   {
@@ -61,6 +65,7 @@ export const RADIO_STATIONS: RadioStation[] = [
     programType: 'voice',
     voiceProfile: 'guest',
     programLabel: 'Voice · Guest',
+    audioUrl: '/audio/CH4.mp3',
     color: '#7C3AED',
   },
 ];
@@ -261,9 +266,73 @@ export interface RadioSimulationResult {
   spectrumYMax: number;
 }
 
+function processDecodedAudioBuffer(decoded: AudioBuffer, fileName: string): RadioVoiceClip {
+  const raw = decoded.getChannelData(0);
+  const sr = decoded.sampleRate;
+
+  // Trim long leading/trailing near-silence (<0.015) while preserving real short clips
+  let startIdx = 0;
+  let endIdx = raw.length - 1;
+  while (startIdx < endIdx && Math.abs(raw[startIdx]) < 0.015) startIdx++;
+  while (endIdx > startIdx && Math.abs(raw[endIdx]) < 0.015) endIdx--;
+
+  const minKeepSamples = Math.floor(0.12 * sr);
+  if (endIdx - startIdx + 1 < minKeepSamples) {
+    startIdx = 0;
+    endIdx = raw.length - 1;
+  } else {
+    const margin = Math.floor(0.01 * sr);
+    startIdx = Math.max(0, startIdx - margin);
+    endIdx = Math.min(raw.length - 1, endIdx + margin);
+  }
+
+  const maxSamples = Math.min(endIdx - startIdx + 1, Math.floor(20 * sr));
+  const samples = new Float32Array(maxSamples);
+
+  let mean = 0;
+  for (let i = 0; i < maxSamples; i++) {
+    const val = raw[startIdx + i];
+    samples[i] = val;
+    mean += val;
+  }
+  mean /= Math.max(1, maxSamples);
+
+  let peak = 0;
+  for (let i = 0; i < maxSamples; i++) {
+    samples[i] -= mean;
+    const abs = Math.abs(samples[i]);
+    if (abs > peak) peak = abs;
+  }
+
+  if (peak > 1e-6) {
+    for (let i = 0; i < maxSamples; i++) {
+      samples[i] /= peak;
+    }
+  }
+
+  // Apply short cosine loop crossfade (15 ms) so wrap-around loops cleanly without clicks
+  const fadeLen = Math.min(Math.floor(0.015 * sr), Math.floor(maxSamples / 8));
+  if (fadeLen > 4) {
+    for (let i = 0; i < fadeLen; i++) {
+      const w = 0.5 * (1 - Math.cos((Math.PI * i) / fadeLen));
+      const tailIdx = maxSamples - fadeLen + i;
+      const blended = samples[tailIdx] * (1 - w) + samples[i] * w;
+      samples[i] = blended;
+      samples[tailIdx] = blended;
+    }
+  }
+
+  return {
+    samples,
+    sampleRate: sr,
+    duration: maxSamples / sr,
+    fileName,
+  };
+}
+
 /**
  * Decodes any browser-supported audio/* file into a DC-removed, peak-normalized,
- * seamlessly loop-crossfaded mono buffer for CH 3 (75 Hz).
+ * seamlessly loop-crossfaded mono buffer.
  */
 export async function decodeRadioAudioClip(file: File): Promise<RadioVoiceClip> {
   const arrayBuffer = await file.arrayBuffer();
@@ -274,70 +343,79 @@ export async function decodeRadioAudioClip(file: File): Promise<RadioVoiceClip> 
 
   try {
     const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-    const raw = decoded.getChannelData(0);
-    const sr = decoded.sampleRate;
-
-    // Trim long leading/trailing near-silence (>0.015) while preserving real short clips
-    let startIdx = 0;
-    let endIdx = raw.length - 1;
-    while (startIdx < endIdx && Math.abs(raw[startIdx]) < 0.015) startIdx++;
-    while (endIdx > startIdx && Math.abs(raw[endIdx]) < 0.015) endIdx--;
-
-    const minKeepSamples = Math.floor(0.12 * sr);
-    if (endIdx - startIdx + 1 < minKeepSamples) {
-      startIdx = 0;
-      endIdx = raw.length - 1;
-    } else {
-      const margin = Math.floor(0.01 * sr);
-      startIdx = Math.max(0, startIdx - margin);
-      endIdx = Math.min(raw.length - 1, endIdx + margin);
-    }
-
-    const maxSamples = Math.min(endIdx - startIdx + 1, Math.floor(15 * sr));
-    const samples = new Float32Array(maxSamples);
-
-    let mean = 0;
-    for (let i = 0; i < maxSamples; i++) {
-      const val = raw[startIdx + i];
-      samples[i] = val;
-      mean += val;
-    }
-    mean /= Math.max(1, maxSamples);
-
-    let peak = 0;
-    for (let i = 0; i < maxSamples; i++) {
-      samples[i] -= mean;
-      const abs = Math.abs(samples[i]);
-      if (abs > peak) peak = abs;
-    }
-
-    if (peak > 1e-6) {
-      for (let i = 0; i < maxSamples; i++) {
-        samples[i] /= peak;
-      }
-    }
-
-    // Apply short cosine loop crossfade (15 ms) so wrap-around loops cleanly without clicks
-    const fadeLen = Math.min(Math.floor(0.015 * sr), Math.floor(maxSamples / 8));
-    if (fadeLen > 4) {
-      for (let i = 0; i < fadeLen; i++) {
-        const w = 0.5 * (1 - Math.cos((Math.PI * i) / fadeLen));
-        const tailIdx = maxSamples - fadeLen + i;
-        const blended = samples[tailIdx] * (1 - w) + samples[i] * w;
-        samples[i] = blended;
-        samples[tailIdx] = blended;
-      }
-    }
-
-    return {
-      samples,
-      sampleRate: sr,
-      duration: maxSamples / sr,
-      fileName: file.name,
-    };
+    return processDecodedAudioBuffer(decoded, file.name);
   } finally {
     void audioCtx.close().catch(() => {});
   }
+}
+
+const bundledMp3ClipCache = new Map<string, RadioVoiceClip>();
+let bundledMp3LoadPromise: Promise<Record<string, RadioVoiceClip>> | null = null;
+
+/**
+ * Fetches and decodes CH 1-CH 4 bundled .mp3 files from /audio/CH1.mp3-/audio/CH4.mp3
+ * once on load, falling back gracefully to synthesized formant voices if unavailable.
+ */
+export function loadAllBundledRadioClips(
+  existingCtx?: AudioContext | null
+): Promise<Record<string, RadioVoiceClip>> {
+  if (bundledMp3LoadPromise) {
+    return bundledMp3LoadPromise;
+  }
+
+  bundledMp3LoadPromise = (async () => {
+    const results: Record<string, RadioVoiceClip> = {};
+    if (typeof fetch !== 'function' || typeof window === 'undefined') {
+      return results;
+    }
+
+    let tempCtx: AudioContext | null = null;
+    let ctx = existingCtx ?? null;
+    if (!ctx) {
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtxClass) {
+        tempCtx = new AudioCtxClass();
+        ctx = tempCtx;
+      }
+    }
+
+    if (!ctx) {
+      return results;
+    }
+
+    try {
+      await Promise.all(
+        RADIO_STATIONS.map(async (station) => {
+          const cached = bundledMp3ClipCache.get(station.id);
+          if (cached) {
+            results[station.id] = cached;
+            return;
+          }
+          try {
+            const resp = await fetch(station.audioUrl);
+            if (!resp.ok) return;
+            const buf = await resp.arrayBuffer();
+            const decoded = await ctx!.decodeAudioData(buf);
+            const clip = processDecodedAudioBuffer(decoded, station.programLabel);
+            bundledMp3ClipCache.set(station.id, clip);
+            results[station.id] = clip;
+          } catch {
+            // Fall back to synthesized voice clip when .mp3 cannot be fetched/decoded
+          }
+        })
+      );
+    } finally {
+      if (tempCtx) {
+        void tempCtx.close().catch(() => {});
+      }
+    }
+
+    return results;
+  })();
+
+  return bundledMp3LoadPromise;
 }
 
 export function evalPassbandGain(freq: number, center: number, bandwidth: number): number {
@@ -352,14 +430,15 @@ function evalVoiceClipSample(clip: RadioVoiceClip, t: number): number {
   const tWrapped = ((t % clip.duration) + clip.duration) % clip.duration;
   const exactIdx = (tWrapped / clip.duration) * len;
   const idx0 = Math.floor(exactIdx) % len;
-  // Light 5-tap box average when sample rate is high to keep 640-pt plot smooth & alias-free
-  if (clip.sampleRate >= 8000 && len > 32) {
+  // Light smoothing window when sample rate is high to keep 640-pt plot crisp & alias-free
+  if (clip.sampleRate >= 8000 && len > 64) {
     let sum = 0;
-    for (let k = -2; k <= 2; k++) {
+    const halfWin = 7;
+    for (let k = -halfWin; k <= halfWin; k++) {
       const idx = (idx0 + k + len) % len;
       sum += clip.samples[idx];
     }
-    return sum / 5;
+    return Math.max(-1.05, Math.min(1.05, (sum / (halfWin * 2 + 1)) * 1.15));
   }
   const idx1 = (idx0 + 1) % len;
   const frac = exactIdx - Math.floor(exactIdx);
@@ -369,14 +448,19 @@ function evalVoiceClipSample(clip: RadioVoiceClip, t: number): number {
 function evalStationMessage(
   station: RadioStation,
   t: number,
-  voiceOverrides?: Record<string, RadioVoiceClip | null>
+  voiceOverrides?: Record<string, RadioVoiceClip | null>,
+  bundledClips?: Record<string, RadioVoiceClip | null>
 ): number {
   const customClip = voiceOverrides?.[station.id];
   if (customClip && customClip.samples.length > 0) {
     return evalVoiceClipSample(customClip, t);
   }
+  const bundledClip = bundledClips?.[station.id] ?? bundledMp3ClipCache.get(station.id);
+  if (bundledClip && bundledClip.samples.length > 0) {
+    return evalVoiceClipSample(bundledClip, t);
+  }
 
-  // Distinct, alias-free baseband speech-cadence waveforms per station for oscilloscope display
+  // Distinct, alias-free baseband speech-cadence fallback waveform
   const spec = VOICE_PROFILE_SPECS[station.voiceProfile] ?? VOICE_PROFILE_SPECS.talk;
   const w = 2 * Math.PI * station.fm;
   const sylEnv =
@@ -407,6 +491,7 @@ export function simulateFmRadio(params: {
   deltaF: number;
   awgnSnrDb: number;
   voiceOverrides?: Record<string, RadioVoiceClip | null>;
+  bundledClips?: Record<string, RadioVoiceClip | null>;
   ch3VoiceClip?: RadioVoiceClip | null;
   timeSpan?: number;
   numPoints?: number;
@@ -417,6 +502,7 @@ export function simulateFmRadio(params: {
     deltaF,
     awgnSnrDb,
     voiceOverrides,
+    bundledClips,
     ch3VoiceClip = null,
     timeSpan = 1.6,
     numPoints = 640,
@@ -579,48 +665,60 @@ export function simulateFmRadio(params: {
     ? Math.max(2.5, Math.min(18, Math.abs(interferer.fc - dominantStation.fc) * 0.35))
     : 8;
 
-  const snrLinear = Math.pow(10, awgnSnrDb / 10);
-  const baseNoiseSigma = Math.sqrt(1 / Math.max(0.1, snrLinear)) * 0.45;
-  const offTuneNoiseSigma = (1 - signalGain) * 0.48;
-  const totalNoiseSigma = baseNoiseSigma + offTuneNoiseSigma;
+  const snrAmpRatio = Math.pow(10, awgnSnrDb / 20);
+  const snrSigGain = snrAmpRatio / Math.sqrt(1 + snrAmpRatio * snrAmpRatio);
+  const snrNoiseGain = 1 / Math.sqrt(1 + snrAmpRatio * snrAmpRatio);
 
   const dt = timeSpan / (numPoints - 1);
+  const mTargetValues = new Float32Array(numPoints);
+  let rawTargetPowerSum = 0;
+  for (let i = 0; i < numPoints; i++) {
+    const t = i * dt;
+    const val = evalStationMessage(dominantStation, t, resolvedOverrides, bundledClips);
+    mTargetValues[i] = val;
+    rawTargetPowerSum += val * val;
+  }
+  const mTargetRms = Math.max(0.08, Math.sqrt(rawTargetPowerSum / Math.max(1, numPoints)));
+  const totalNoiseSigma =
+    mTargetRms * Math.hypot(snrNoiseGain, (1 - signalGain) * 0.55);
+
   let sigPowerSum = 0;
   let errPowerSum = 0;
 
   for (let i = 0; i < numPoints; i++) {
     const t = i * dt;
-    const mTarget = evalStationMessage(dominantStation, t, resolvedOverrides);
+    const mTarget = mTargetValues[i];
     mTargetPoints[i] = { x: Number(t.toFixed(4)), y: Number(mTarget.toFixed(3)) };
 
-    let recovered = signalGain * mTarget;
+    let recovered = signalGain * snrSigGain * mTarget;
 
     // Passband truncation creates odd-harmonic compression / clipping when B_T > B_rx
     if (truncationDistortion > 0.05 && signalGain > 0.08) {
       const kClip = 1 + truncationDistortion * 2.2;
-      recovered = (Math.tanh(recovered * kClip) / Math.tanh(kClip)) * signalGain;
+      recovered = (Math.tanh(recovered * kClip) / Math.tanh(kClip)) * signalGain * snrSigGain;
     }
 
     // Adjacent-channel overlap adds audible/visible beat crosstalk
     if (interferer && aciWeight > 0.02) {
-      const mAdj = evalStationMessage(interferer, t, resolvedOverrides);
+      const mAdj = evalStationMessage(interferer, t, resolvedOverrides, bundledClips);
       recovered += aciWeight * (0.55 * mAdj + 0.45 * Math.sin(2 * Math.PI * interfererBeatHz * t));
     }
 
-    // Receiver noise / inter-station static
+    // Receiver noise / inter-station static scaled to exact SNR power ratio
     const noise = deterministicNoise(i, Math.round(tuneFreq * 10)) * totalNoiseSigma;
     recovered += noise;
 
     mRecoveredPoints[i] = { x: Number(t.toFixed(4)), y: Number(recovered.toFixed(3)) };
 
-    sigPowerSum += mTarget * mTarget;
-    const err = recovered - mTarget;
+    const desiredRef = snrSigGain * mTarget;
+    sigPowerSum += desiredRef * desiredRef;
+    const err = recovered - desiredRef;
     errPowerSum += err * err;
   }
 
   const effectiveSnrDb =
     errPowerSum > 1e-6 && sigPowerSum > 1e-6
-      ? Math.max(-6, Math.min(42, 10 * Math.log10(sigPowerSum / errPowerSum)))
+      ? Math.max(-24, Math.min(42, 10 * Math.log10(sigPowerSum / errPowerSum)))
       : 40;
 
   return {

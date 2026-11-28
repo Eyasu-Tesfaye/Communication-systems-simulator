@@ -88,6 +88,7 @@ export const FmModulationModule: React.FC<FmModulationModuleProps> = () => {
   const [radioPassbandWidth, setRadioPassbandWidth] = useState<number>(20.0);
   const [radioSubTab, setRadioSubTab] = useState<RadioSubTab>('spectrum');
   const [stationVoiceOverrides, setStationVoiceOverrides] = useState<Record<string, RadioVoiceClip | null>>({});
+  const [bundledVoiceClips, setBundledVoiceClips] = useState<Record<string, RadioVoiceClip>>({});
   const [isDecodingRadioVoice, setIsDecodingRadioVoice] = useState<boolean>(false);
   const [showRadioAdvanced, setShowRadioAdvanced] = useState<boolean>(false);
   const radioVoiceFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -300,16 +301,24 @@ export const FmModulationModule: React.FC<FmModulationModuleProps> = () => {
       deltaF: engineResults.deltaF,
       awgnSnrDb,
       voiceOverrides: stationVoiceOverrides,
+      bundledClips: bundledVoiceClips,
     });
-  }, [radioTuneFreq, radioPassbandWidth, engineResults.deltaF, awgnSnrDb, stationVoiceOverrides]);
+  }, [radioTuneFreq, radioPassbandWidth, engineResults.deltaF, awgnSnrDb, stationVoiceOverrides, bundledVoiceClips]);
 
   const activeVoiceStation = radioResults.dominantStation;
   const activeVoiceOverride = stationVoiceOverrides[activeVoiceStation.id] ?? null;
   const hasAnyVoiceOverride = Object.values(stationVoiceOverrides).some(Boolean);
 
-  // Cleanup audio on unmount
+  // Preload & cache all 4 bundled station MP3 buffers (CH 1-CH 4) + noise buffer once on load
   useEffect(() => {
+    let cancelled = false;
+    void fmAudioEngineInstance.preloadRadioAssets(RADIO_STATIONS).then((clips) => {
+      if (!cancelled && Object.keys(clips).length > 0) {
+        setBundledVoiceClips(clips);
+      }
+    });
     return () => {
+      cancelled = true;
       fmAudioEngineInstance.stopAll();
     };
   }, []);
@@ -339,31 +348,47 @@ export const FmModulationModule: React.FC<FmModulationModuleProps> = () => {
     awgnSnrDb,
   ]);
 
-  // Sync live radio receiver mix gains without re-decoding or restarting channel streams
+  // Smoothly update GainNode & BiquadFilterNode parameters on tuning/passband/SNR changes
+  // without ever creating, stopping, or restarting AudioBufferSourceNodes
   useEffect(() => {
+    const snrAmpRatio = Math.pow(10, awgnSnrDb / 20);
+    const snrSigGain = snrAmpRatio / Math.sqrt(1 + snrAmpRatio * snrAmpRatio);
+    const snrNoiseGain = 1 / Math.sqrt(1 + snrAmpRatio * snrAmpRatio);
+
     const stationGains: Record<string, number> = {};
+    const stationFilterCutoffs: Record<string, number> = {};
     for (const cap of radioResults.stationCaptures) {
-      stationGains[cap.station.id] = Math.sqrt(Math.max(0, Math.min(1, cap.captureRatio)));
+      const ratio = Math.max(0, Math.min(1, cap.captureRatio));
+      stationGains[cap.station.id] = Math.sqrt(ratio) * snrSigGain;
+      const bwCoverage = Math.min(1, radioPassbandWidth / Math.max(4, cap.carsonBT));
+      const clarity = Math.max(0, Math.min(1, 0.55 * ratio + 0.45 * bwCoverage));
+      stationFilterCutoffs[cap.station.id] = Math.round(850 + clarity * 4350);
     }
     const signalGain = Math.sqrt(Math.max(0, Math.min(1, radioResults.captureRatio)));
-    const snrLin = Math.pow(10, awgnSnrDb / 10);
-    const noiseGain = Math.min(
-      0.55,
-      (1 - signalGain) * 0.42 + Math.sqrt(1 / Math.max(0.1, snrLin)) * 0.22
+    const noiseGain = Math.min(1, Math.hypot(snrNoiseGain, (1 - signalGain) * 0.55));
+    const noiseFilterCutoff = Math.round(
+      Math.max(2200, Math.min(7500, 1800 + radioPassbandWidth * 160))
     );
 
-    fmAudioEngineInstance.updateRadioMix(
-      RADIO_STATIONS,
+    fmAudioEngineInstance.updateRadioMix({
       stationGains,
+      stationFilterCutoffs,
       noiseGain,
-      stationVoiceOverrides
-    );
+      noiseFilterCutoff,
+      dominantChannelId: radioResults.dominantStation.id,
+    });
   }, [
     radioResults.stationCaptures,
     radioResults.captureRatio,
+    radioResults.dominantStation.id,
+    radioPassbandWidth,
     awgnSnrDb,
-    stationVoiceOverrides,
   ]);
+
+  // Replace only the affected channel's AudioBufferSourceNode when Override CH X or Reset changes
+  useEffect(() => {
+    fmAudioEngineInstance.syncRadioChannelOverrides(RADIO_STATIONS, stationVoiceOverrides);
+  }, [stationVoiceOverrides]);
 
   const handleToggleOriginalAudio = () => {
     if (isPlayingOriginal) {
@@ -844,7 +869,7 @@ export const FmModulationModule: React.FC<FmModulationModuleProps> = () => {
             </span>
             <input
               type="range"
-              min="0"
+              min="-18"
               max="40"
               step="0.5"
               value={awgnSnrDb}
@@ -2241,7 +2266,7 @@ export const FmModulationModule: React.FC<FmModulationModuleProps> = () => {
                         </div>
                         <input
                           type="range"
-                          min="0"
+                          min="-18"
                           max="40"
                           step="0.5"
                           value={awgnSnrDb}
